@@ -122,13 +122,13 @@ const statNames: Record<StatKey, string> = {
   grain: "钱粮",
   army: "武备",
   sentiment: "民情",
-  integrity: "官风",
+  integrity: "吏治",
 };
 
 const difficulties = [
   { id: "easy", name: "简单", seal: "易", desc: "沿用当前治国规则，适合从容熟悉五百年国运。", integrityDecayPenalty: 0, chancePenalty: 0 },
   { id: "hard", name: "困难", seal: "难", desc: "积弊滋生更快，朝廷的每次冒险也更难如愿。", integrityDecayPenalty: 3, chancePenalty: 10 },
-  { id: "hell", name: "地狱", seal: "狱", desc: "官风迅速败坏，任何带有成败判定的决策都更加凶险。", integrityDecayPenalty: 6, chancePenalty: 20 },
+  { id: "hell", name: "地狱", seal: "狱", desc: "吏治迅速败坏，任何带有成败判定的决策都更加凶险。", integrityDecayPenalty: 6, chancePenalty: 20 },
 ] as const;
 
 const difficultyRule = (id: DifficultyId) => difficulties.find((item) => item.id === id) || difficulties[0];
@@ -150,7 +150,7 @@ const scripts: Script[] = [
 const policies = [
   { id: "martial", name: "尚武开边", seal: "武", desc: "整军备边，主动争夺战略空间。军事事件成功率提高，钱粮消耗也更大。", effects: { army: 12, grain: -8, sentiment: -4 } as Partial<Stats>, tag: "军事" as SkillTag },
   { id: "rest", name: "休养生息", seal: "养", desc: "轻徭薄赋，蓄积人口钱粮。自然增长更快，但边患来临时更依赖名将。", effects: { population: 10, grain: 10, army: -6, sentiment: 10 } as Partial<Stats>, tag: "民生" as SkillTag },
-  { id: "reform", name: "整顿朝纲", seal: "治", desc: "考课百官，澄清吏治。官场风气更清明，剧烈改革也会触动既得利益。", effects: { grain: 4, integrity: 18, sentiment: -2 } as Partial<Stats>, tag: "吏治" as SkillTag },
+  { id: "reform", name: "整顿朝纲", seal: "治", desc: "考课百官，澄清吏治。吏治越发清明，剧烈改革也会触动既得利益。", effects: { grain: 4, integrity: 18, sentiment: -2 } as Partial<Stats>, tag: "吏治" as SkillTag },
 ];
 
 const corePeople: Person[] = [
@@ -2012,7 +2012,7 @@ const randomEvents: EventTemplate[] = [
     { label: "大兴土木", detail: "若调度得当可兴百业、聚人心，失控则劳民伤财。", chance: 55, tag: "财政", successEffects: { grain: -18, population: 5, sentiment: 12, integrity: -2 }, failEffects: { grain: -20, population: -3, sentiment: -14, integrity: -4 } },
   ]},
   { id: "rebellion", title: "揭竿四起", category: "民变", text: "长期积压的民怨终于点燃。饥民攻破县城，裹挟者日众，地方官已无法收拾。", options: [
-    { label: "赈抚并诛贪官", detail: "需要足够钱粮与清明官风。", requirements: { grain: 35, integrity: -20 }, failOnUnmet: true, effects: { grain: -18, sentiment: 25, integrity: 10, army: -3 } },
+    { label: "赈抚并诛贪官", detail: "需要足够钱粮与清明吏治。", requirements: { grain: 35, integrity: -20 }, failOnUnmet: true, effects: { grain: -18, sentiment: 25, integrity: 10, army: -3 } },
     { label: "遣精兵平乱", detail: "以伤亡换取确定的平乱结果，并追究失职官吏。", requirements: { army: 75 }, failOnUnmet: true, effects: { army: -12, population: -7, sentiment: -10, integrity: 7 } },
     { label: "招安首领", detail: "暂息兵火，后患难测。", chance: 48, tag: "谋略", successEffects: { sentiment: 12, army: 3 }, failEffects: { army: -14, grain: -9, sentiment: -8 } },
   ]},
@@ -2498,7 +2498,7 @@ const additionalHistoricalEvents: EventTemplate[] = [
   ]},
   { id: "ming-hu-weiyong", scriptId: "ming", year: 1380, historical: true, title: "胡党大狱", category: "历史大事", text: "丞相胡惟庸被告谋反，案卷牵连中书省与大批功臣。皇帝也在考虑彻底废除丞相。", options: [
     { label: "穷治胡党，废除丞相", detail: "皇权从此直达六部，大狱也会沿关系网不断扩张。", effects: { integrity: 13, sentiment: -15, population: -4 } },
-    { label: "限案于首恶，重定相权", detail: "清明官风才能让审理止于证据，而非无限株连。", chance: 58, tag: "吏治", successEffects: { integrity: 15, sentiment: 6 }, failEffects: { integrity: -12, grain: -8, sentiment: -5 }, successHistoryFlags: ["ming_limited_purge"] },
+    { label: "限案于首恶，重定相权", detail: "清明吏治才能让审理止于证据，而非无限株连。", chance: 58, tag: "吏治", successEffects: { integrity: 15, sentiment: 6 }, failEffects: { integrity: -12, grain: -8, sentiment: -5 }, successHistoryFlags: ["ming_limited_purge"] },
   ]},
   { id: "ming-succession", scriptId: "ming", year: 1392, historical: true, title: "国本震荡", category: "历史大事", text: "太子朱标病逝，皇位继承骤然悬空。皇孙年少，诸王则兵权在握。", options: [
     { label: "立皇孙朱允炆", detail: "守嫡长礼法，也把削藩难题留给年轻储君。", effects: { integrity: 7, sentiment: 6, army: -5 } },
@@ -2506,7 +2506,7 @@ const additionalHistoricalEvents: EventTemplate[] = [
   ]},
   { id: "ming-lan-yu", scriptId: "ming", year: 1393, historical: true, excludesHistoryFlags: ["ming_limited_purge"], title: "蓝玉案起", category: "历史大事", text: "大将蓝玉被控谋反，军中旧部与开国勋贵人人自危。此案将决定功臣集团的结局。", options: [
     { label: "诛蓝玉，遍索同党", detail: "迅速清除军中威胁，也使开国勋贵几乎一扫而空。", effects: { integrity: 10, army: -11, sentiment: -9, population: -3 } },
-    { label: "收其兵权，免死幽置", detail: "官风与军威俱强时，或能不用大狱完成权力交接。", rewardRequirements: { integrity: 50, army: 110 }, alternateText: "蓝玉交出兵权，勋贵未遭大规模株连，北军与储位都获得更平稳的过渡。", effects: { integrity: 13, army: 5, sentiment: 6 } },
+    { label: "收其兵权，免死幽置", detail: "吏治与军威俱强时，或能不用大狱完成权力交接。", rewardRequirements: { integrity: 50, army: 110 }, alternateText: "蓝玉交出兵权，勋贵未遭大规模株连，北军与储位都获得更平稳的过渡。", effects: { integrity: 13, army: 5, sentiment: 6 } },
   ]},
   { id: "ming-merit-retirement", scriptId: "ming", year: 1393, historical: true, requiresHistoryFlags: ["ming_limited_purge"], title: "勋臣归田", category: "历史大事", text: "胡惟庸案止于证据后，开国勋贵仍握重兵。蓝玉功高气盛，却尚未被卷入谋反大狱，朝廷必须为功臣安排退路。", options: [
     { label: "厚赐田宅，换其交兵", detail: "以国库换取不流血的权力交接。", requirements: { grain: 85, integrity: 25 }, failOnUnmet: true, effects: { grain: -16, army: -5, integrity: 12, sentiment: 7 } },
@@ -2517,7 +2517,7 @@ const additionalHistoricalEvents: EventTemplate[] = [
 const coreHistoricalEvents: EventTemplate[] = [
   { id: "qin-sandhill", scriptId: "qin", year: -210, historical: true, title: "沙丘风雷", category: "历史大事", text: "东巡途中，皇帝病势沉重。中车府令与丞相在车驾外交换眼色，一纸遗诏将决定帝国走向。", options: [
     { label: "公开遗诏，扶苏即位", detail: "若朝纲清明、民心未失，可斩断沙丘之谋。", rewardRequirements: { integrity: 35, sentiment: 0 }, alternateText: "沙丘之谋未成，扶苏与蒙恬稳住帝国，秦亡的旧轨被彻底改写。", effects: { integrity: 12, sentiment: 14, army: 4 } },
-    { label: "秘不发丧，依旧东归", detail: "官风腐败时，密谋将吞噬王朝。", requirements: { integrity: 5 }, failOnUnmet: true, effects: { integrity: -18, sentiment: -12 } },
+    { label: "秘不发丧，依旧东归", detail: "吏治腐败时，密谋将吞噬王朝。", requirements: { integrity: 5 }, failOnUnmet: true, effects: { integrity: -18, sentiment: -12 } },
     { label: "召集重臣共议国本", detail: "以制度约束阴谋。", chance: 62, tag: "吏治", successEffects: { integrity: 10, sentiment: 8 }, failEffects: { integrity: -15, sentiment: -10 } },
   ]},
   { id: "liubang-hongmen", scriptId: "liubang", year: -206, historical: true, title: "鸿门宴", category: "历史大事", text: "项羽四十万大军驻鸿门，席间剑影逼人。能否从宴席全身而退，将决定关中归属。", options: [
@@ -2537,7 +2537,7 @@ const coreHistoricalEvents: EventTemplate[] = [
     { label: "举国东征", detail: "武备不足，连营七百里就是绝路。", requirements: { army: 92 }, failOnUnmet: true, effects: { army: -22, grain: -20, population: -6 } },
   ]},
   { id: "sunce-assassin", scriptId: "sunce", year: 200, historical: true, title: "丹徒遇刺", category: "历史大事", text: "江东初定，旧怨未平。一次轻装出猎，把年轻君主暴露在刺客的弩箭前。", options: [
-    { label: "整肃宿卫，收编旧部", detail: "清明官风可提前识破刺客。", rewardRequirements: { integrity: 32, sentiment: 25 }, alternateText: "刺客在动手前落网。孙策得以继续北图中原，江东命运由此改写。", effects: { integrity: 9, army: 7 } },
+    { label: "整肃宿卫，收编旧部", detail: "清明吏治可提前识破刺客。", rewardRequirements: { integrity: 32, sentiment: 25 }, alternateText: "刺客在动手前落网。孙策得以继续北图中原，江东命运由此改写。", effects: { integrity: 9, army: 7 } },
     { label: "照常出猎，不疑左右", detail: "若武备与民心不能震慑宵小，此行便是终局。", requirements: { army: 95, sentiment: 10 }, failOnUnmet: true, effects: { army: -8, sentiment: -8 } },
   ]},
   { id: "liuyu-north", scriptId: "liuyu", year: 417, historical: true, excludesHistoryFlags: ["liuyu_abandoned_guanggu"], title: "长安得失", category: "历史大事", text: "北伐连克洛阳、长安，关中父老夹道相迎。但后方权力不稳，留守与回师只能二选一。", options: [
@@ -2588,7 +2588,7 @@ function liveState(stats: Stats) {
   return {
     effective: {
       ...stats,
-      army: clamp(stats.army + army, 0, 260),
+      army: clamp(stats.army + army + supply, 0, 260),
       sentiment: clamp(stats.sentiment + sentiment, -100, 100),
     },
     modifiers: { army, grainNeed, supply, governance, sentiment },
@@ -3034,27 +3034,31 @@ function annualGrowth(stats: Stats, policyId: string, difficulty: DifficultyId) 
   const rest = policyId === "rest" ? 1.5 : 0;
   const governanceGrowth = effective.integrity / 48;
   const population = clamp(2.2 + effective.sentiment / 32 + rest + governanceGrowth, -8, 8);
-  const grain = clamp(stats.population * .075 + (policyId === "rest" ? 5 : 0) + effective.integrity / 18 - stats.population * .05 - effective.army * .025, -20, 20);
+  const populationYield = stats.population * .12;
+  const civilianUse = stats.population * .05;
+  const militaryCost = effective.army * .025;
+  const administration = effective.integrity / 18;
+  const grain = clamp(populationYield + (policyId === "rest" ? 5 : 0) + administration - civilianUse - militaryCost, -20, 20);
   const rule = difficultyRule(difficulty);
   const integrity = -6 - rule.integrityDecayPenalty;
   const effects = { population, grain, integrity };
   return {
     effects,
-    note: `户口${population >= 0 ? "增" : "减"}${Math.abs(population)}，府库${grain >= 0 ? "盈" : "耗"}${Math.abs(grain)}，官风自然损耗${Math.abs(integrity)}。`,
+    note: `户口${population >= 0 ? "增" : "减"}${Math.abs(population)}，府库${grain >= 0 ? "盈" : "耗"}${Math.abs(grain)}，吏治自然损耗${Math.abs(integrity)}。`,
     breakdown: {
       population: [
         { label: `民情 ${formatDelta(effective.sentiment / 32)}`, value: effective.sentiment / 32, detail: `有效民情 ${effective.sentiment} ÷ 32 = ${formatDelta(effective.sentiment / 32)}，计入每年人口增长；民情变化后立即重算。` },
         ...(rest ? [{ label: "休养 +1.5", value: 1.5, detail: "国策“休养生息”固定使每年人口增长 +1.5；更换国策后消失。" }] : []),
-        ...(governanceGrowth ? [{ label: `官风 ${formatDelta(governanceGrowth)}`, value: governanceGrowth, detail: `当前官风 ${effective.integrity} ÷ 48 = ${formatDelta(governanceGrowth)}，计入每年人口增长；正官风为增益，负官风为减益，官风归零时消失。` }] : []),
+        ...(governanceGrowth ? [{ label: `吏治 ${formatDelta(governanceGrowth)}`, value: governanceGrowth, detail: `当前吏治 ${effective.integrity} ÷ 48 = ${formatDelta(governanceGrowth)}，计入每年人口增长；正吏治为增益，负吏治为减益，吏治归零时消失。` }] : []),
       ],
       grain: [
-        { label: `人口产出 ${formatDelta(stats.population * .075)}`, value: stats.population * .075, detail: `基础人口 ${stats.population} × 0.075 = ${formatDelta(stats.population * .075)}，计入每年钱粮增长。` },
-        { label: `民用 ${formatDelta(-stats.population * .05)}`, value: -stats.population * .05, detail: `基础人口 ${stats.population} × 0.05 = ${formatDelta(stats.population * .05)}，作为每年民用消耗。` },
-        { label: `军费 ${formatDelta(-effective.army * .025)}`, value: -effective.army * .025, detail: `当前有效武备 ${effective.army} × 0.025 = ${formatDelta(effective.army * .025)}，作为每年军费消耗。` },
-        { label: `官风 ${formatDelta(effective.integrity / 18)}`, value: effective.integrity / 18, detail: `当前有效官风 ${effective.integrity} ÷ 18 = ${formatDelta(effective.integrity / 18)}，计入每年钱粮增长；官风变化后立即重算。` },
+        { label: `人口产出 ${formatDelta(populationYield)}`, value: populationYield, detail: `基础人口 ${stats.population} × 0.12 = ${formatDelta(populationYield)}，计入每年钱粮增长；正常情况下足以覆盖大部分民用与军费。` },
+        { label: `民用 ${formatDelta(-civilianUse)}`, value: -civilianUse, detail: `基础人口 ${stats.population} × 0.05 = ${formatDelta(civilianUse)}，作为每年民用消耗。` },
+        { label: `军费 ${formatDelta(-militaryCost)}`, value: -militaryCost, detail: `当前有效武备 ${effective.army} × 0.025 = ${formatDelta(militaryCost)}，作为每年军费消耗。` },
+        { label: `吏治 ${formatDelta(administration)}`, value: administration, detail: `当前有效吏治 ${effective.integrity} ÷ 18 = ${formatDelta(administration)}，计入每年钱粮增长；清明吏治提高收入，腐败吏治会侵蚀人口产出带来的盈余。` },
         ...(policyId === "rest" ? [{ label: "休养 +5", value: 5, detail: "国策“休养生息”固定使每年钱粮增长 +5；更换国策后消失。" }] : []),
       ],
-      integrity: [{ label: `积弊滋生 ${integrity}`, value: integrity, detail: `官场每年基础损耗官风 6 点${rule.integrityDecayPenalty ? `，${rule.name}难度额外损耗 ${rule.integrityDecayPenalty} 点` : ""}，岁首合计扣减 ${Math.abs(integrity)} 点。此项不改变当前官风，只有进入下一年时才结算；需要通过事件中的整饬吏治持续弥补。` }],
+      integrity: [{ label: `积弊滋生 ${integrity}`, value: integrity, detail: `吏治每年基础损耗 6 点${rule.integrityDecayPenalty ? `，${rule.name}难度额外损耗 ${rule.integrityDecayPenalty} 点` : ""}，岁首合计扣减 ${Math.abs(integrity)} 点。此项不改变当前吏治，只有进入下一年时才结算；需要通过事件中的整饬吏治持续弥补。` }],
     },
   };
 }
@@ -3073,7 +3077,7 @@ function Landing({ onStart, onLoad }: { onStart: (difficulty: DifficultyId) => v
       <div className="seal">国<br />祚</div>
       <h1>五百年<br /><em>王朝</em></h1>
       <p className="hero-copy">择一段历史为局，定一条治国之道，携四位股肱之臣走过每个春夏秋冬。<br />这一次，结局不由一次随机判词决定。</p>
-      <div className="hero-actions"><div className="start-menu"><button className="primary xl" aria-haspopup="menu" aria-expanded={difficultyOpen} onClick={() => setDifficultyOpen((open) => !open)}>开国治世 <span>▾</span></button>{difficultyOpen && <div className="difficulty-menu" role="menu" aria-label="选择治世难度">{difficulties.map((item) => <button role="menuitem" key={item.id} onClick={() => onStart(item.id)}><i>{item.seal}</i><span><b>{item.name}</b><small>官风每年 {formatDelta(-6 - item.integrityDecayPenalty)} · {item.chancePenalty ? `成功率 -${item.chancePenalty}%` : "成功率不变"}</small></span></button>)}</div>}</div><button className="ghost" onClick={onLoad}>读取存档</button></div>
+      <div className="hero-actions"><div className="start-menu"><button className="primary xl" aria-haspopup="menu" aria-expanded={difficultyOpen} onClick={() => setDifficultyOpen((open) => !open)}>开国治世 <span>▾</span></button>{difficultyOpen && <div className="difficulty-menu" role="menu" aria-label="选择治世难度">{difficulties.map((item) => <button role="menuitem" key={item.id} onClick={() => onStart(item.id)}><i>{item.seal}</i><span><b>{item.name}</b><small>吏治每年 {formatDelta(-6 - item.integrityDecayPenalty)} · {item.chancePenalty ? `成功率 -${item.chancePenalty}%` : "成功率不变"}</small></span></button>)}</div>}</div><button className="ghost" onClick={onLoad}>读取存档</button></div>
       <div className="hero-rules"><span>五项国势彼此牵引</span><i>◆</i><span>历史大事必然发生</span><i>◆</i><span>五百年方成千古一朝</span></div>
     </div>
   </section>;
@@ -3113,15 +3117,19 @@ function StatPanel({ stats, policyId, difficulty }: { stats: Stats; policyId: st
   const live = liveState(stats);
   const sentimentBuffs = [
     live.modifiers.supply && { label: `供养不足 ${live.modifiers.supply}`, value: live.modifiers.supply, detail: `人口需要钱粮 ${formatDelta(live.modifiers.grainNeed).slice(1)}（人口 ${stats.population} × 0.8）。当前钱粮 ${stats.grain} 低于需求线，缺口占需求的比例 × 24 并四舍五入，民情 ${live.modifiers.supply}；钱粮达到需求线后立即消失。` },
-    live.modifiers.governance && { label: `${live.modifiers.governance > 0 ? "清明" : "贪腐"} ${formatDelta(live.modifiers.governance)}`, value: live.modifiers.governance, detail: `官风绝对值 ${Math.abs(stats.integrity)} ÷ 16 并四舍五入，再保留官风正负号，得到民情 ${formatDelta(live.modifiers.governance)}；正官风为“清明”增益，负官风为“贪腐”减益，官风接近 0 时消失。` },
+    live.modifiers.governance && { label: `${live.modifiers.governance > 0 ? "清明" : "贪腐"} ${formatDelta(live.modifiers.governance)}`, value: live.modifiers.governance, detail: `吏治绝对值 ${Math.abs(stats.integrity)} ÷ 16 并四舍五入，再保留吏治正负号，得到民情 ${formatDelta(live.modifiers.governance)}；正吏治为“清明”增益，负吏治为“贪腐”减益，吏治接近 0 时消失。` },
   ].filter(Boolean) as ModifierView[];
+  const armyBuffs: ModifierView[] = [
+    { label: `人口 +${live.modifiers.army}`, value: live.modifiers.army, detail: `基础人口 ${stats.population} × 0.18 并四舍五入，为当前武备 +${live.modifiers.army}；人口变化后立即重算。` },
+    ...(live.modifiers.supply ? [{ label: `供养不足 ${live.modifiers.supply}`, value: live.modifiers.supply, detail: `人口需要钱粮 ${formatDelta(live.modifiers.grainNeed).slice(1)}（人口 ${stats.population} × 0.8）。当前钱粮低于需求线，缺口占需求的比例 × 24 并四舍五入，武备 ${live.modifiers.supply}；钱粮达到需求线后立即消失。` }] : []),
+  ];
   const integrityBuffs: ModifierView[] = [];
   return <div className="stats-panel">
     <div className="number-stat"><span>户</span><div><small>人口 · 万户</small><strong>{stats.population}<b className={growth.effects.population >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.population)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.population.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
     <div className="number-stat"><span>仓</span><div><small>钱粮 · 国用</small><strong>{stats.grain}<b className={growth.effects.grain >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.grain)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.grain.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
-    <div className="number-stat"><span>兵</span><div><small>武备 · 基础 {stats.army}</small><strong>{live.effective.army}</strong><em>当前实效</em><div className="stat-buffs"><ModifierChip item={{ label: `人口 +${live.modifiers.army}`, value: live.modifiers.army, detail: `基础人口 ${stats.population} × 0.18 并四舍五入，为当前武备 +${live.modifiers.army}；人口变化后立即重算。` }} /></div></div></div>
+    <div className="number-stat"><span>兵</span><div><small>武备 · 基础 {stats.army}</small><strong>{live.effective.army}</strong><em>当前实效</em><div className="stat-buffs">{armyBuffs.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
     <AxisStat label="民情" value={live.effective.sentiment} baseValue={stats.sentiment} modifiers={sentimentBuffs} text={axisLabel("sentiment", live.effective.sentiment)} left="民怨沸腾" right="安居乐业" />
-    <AxisStat label="官场风气" value={live.effective.integrity} baseValue={stats.integrity} modifiers={integrityBuffs} annualChange={growth.effects.integrity} annualDetail={growth.breakdown.integrity[0].detail} text={axisLabel("integrity", live.effective.integrity)} left="贪墨成风" right="海内澄清" />
+    <AxisStat label="吏治" value={live.effective.integrity} baseValue={stats.integrity} modifiers={integrityBuffs} annualChange={growth.effects.integrity} annualDetail={growth.breakdown.integrity[0].detail} text={axisLabel("integrity", live.effective.integrity)} left="贪墨成风" right="海内澄清" />
   </div>;
 }
 
@@ -3149,7 +3157,7 @@ function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear 
 function YearEnd({ game, onNext }: { game: GameState; onNext: () => void }) {
   const effective = liveState(game.stats).effective;
   const growth = annualGrowth(game.stats, game.policyId, game.difficulty).effects;
-  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁结算人口、钱粮增长与官风自然损耗。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {formatDelta(growth.population)}　钱粮 {formatDelta(growth.grain)}　官风 {formatDelta(growth.integrity)}</strong></div><div className="warning-row">{effective.army < 55 && <span>⚑ 武备低迷，来年边患概率上升</span>}{effective.sentiment <= -60 && <span>⚠ 民怨沸腾，起义正在酝酿</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
+  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁结算人口、钱粮增长与吏治自然损耗。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {formatDelta(growth.population)}　钱粮 {formatDelta(growth.grain)}　吏治 {formatDelta(growth.integrity)}</strong></div><div className="warning-row">{effective.army < 55 && <span>⚑ 武备低迷，来年边患概率上升</span>}{effective.sentiment <= -60 && <span>⚠ 民怨沸腾，起义正在酝酿</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情与武备正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
 }
 
 function Chronicle({ entries }: { entries: Chronicle[] }) {

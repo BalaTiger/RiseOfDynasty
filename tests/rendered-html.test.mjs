@@ -24,6 +24,8 @@ test("server renders the dynasty game landing page", async () => {
 
 test("includes the expanded five-round roster, history events, and reign-only saves", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(`${page}\n${layout}`, /官场风气|官风/);
   for (const title of ["秦始皇纪", "汉高祖纪", "汉武帝纪", "曹操传", "刘备传", "孙策传", "刘裕传", "唐太宗纪", "宋太祖纪", "成吉思汗纪", "明太祖纪"]) assert.match(page, new RegExp(title));
   assert.match(page, /剧本只决定时代与历史事件/);
   assert.match(page, /role: "皇帝"/);
@@ -69,6 +71,9 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /const grainNeed = stats\.population \* \.8/);
   assert.match(page, /const supply = shortageRatio > 0/);
   assert.match(page, /供养不足/);
+  assert.match(page, /army: clamp\(stats\.army \+ army \+ supply, 0, 260\)/);
+  assert.match(page, /const armyBuffs: ModifierView\[\]/);
+  assert.match(page, /armyBuffs\.map\(\(item\) => <ModifierChip item=\{item\}/);
   assert.match(page, /const governance = Math\.sign\(stats\.integrity\) \* Math\.round\(Math\.abs\(stats\.integrity\) \/ 16\)/);
   assert.match(page, /const governanceGrowth = effective\.integrity \/ 48/);
   assert.match(page, /live\.modifiers\.governance > 0 \? "清明" : "贪腐"/);
@@ -83,6 +88,11 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /判定失败。局势未如所愿，代价已经显现。/);
   assert.doesNotMatch(page, /决策奏效（成功率/);
   assert.match(page, /const integrity = -6 - rule\.integrityDecayPenalty/);
+  assert.match(page, /const populationYield = stats\.population \* \.12/);
+  assert.match(page, /const civilianUse = stats\.population \* \.05/);
+  assert.match(page, /const militaryCost = effective\.army \* \.025/);
+  assert.match(page, /const administration = effective\.integrity \/ 18/);
+  assert.match(page, /clamp\(populationYield \+ \(policyId === "rest" \? 5 : 0\) \+ administration - civilianUse - militaryCost, -20, 20\)/);
   assert.match(page, /积弊滋生 \$\{integrity\}/);
   assert.match(page, /岁首合计扣减 \$\{Math\.abs\(integrity\)\} 点/);
   assert.match(page, /const effects = \{ population, grain, integrity \}/);
@@ -91,7 +101,8 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /annualChange=\{growth\.effects\.integrity\}/);
   assert.match(page, /className="axis-values"/);
   assert.match(page, /role="tooltip"/);
-  assert.doesNotMatch(page, /官风惯性|贪腐积弊|盛治回调/);
+  assert.match(page, /integrity: "吏治"/);
+  assert.match(page, /<AxisStat label="吏治"/);
   assert.match(page, /<StatPanel stats=\{game\.stats\} policyId=\{game\.policyId\} difficulty=\{game\.difficulty\} \/>/);
   assert.match(page, /对应专长使事件成功率 \+7%/);
   assert.match(page, /dynasty-save-\$\{slot\}/);
@@ -126,6 +137,17 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   };
   assert.deepEqual(Object.fromEntries(Object.entries(difficultyRules).map(([id, rule]) => [id, -6 - rule.integrityDecayPenalty])), { easy: -6, hard: -9, hell: -12 });
   assert.deepEqual(Object.fromEntries(Object.entries(difficultyRules).map(([id, rule]) => [id, Math.max(1, Math.min(100, 65 - rule.chancePenalty))])), { easy: 65, hard: 55, hell: 45 });
+  const grainGrowth = (population, effectiveArmy, integrity) => Math.round(population * .12 + integrity / 18 - population * .05 - effectiveArmy * .025);
+  assert.ok(grainGrowth(100, 140, 0) > 0, "population output should cover civilian and military use under neutral administration");
+  assert.ok(grainGrowth(100, 140, -40) > 0, "moderately poor administration should not immediately force grain income negative");
+  assert.ok(grainGrowth(100, 140, -80) < 0, "severely corrupt administration should be able to force grain income negative");
+  const supplyPenalty = (population, grain) => {
+    const need = population * .8;
+    const ratio = need > 0 ? Math.max(0, need - grain) / need : 0;
+    return ratio > 0 ? -Math.max(1, Math.round(ratio * 24)) : 0;
+  };
+  assert.equal(supplyPenalty(100, 80), 0);
+  assert.ok(supplyPenalty(100, 79) < 0, "both sentiment and army should be penalized as soon as grain falls below the population supply line");
   assert.match(page, /legacyQinConquestIndex\(saved\)/);
   assert.match(page, /historyEventAvailable\(event, historyFlags\)/);
   assert.match(page, /seededRandom\(current\.randomSeed, randomCount\)/);

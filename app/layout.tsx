@@ -5,7 +5,7 @@ import "./globals.css";
 export async function generateMetadata(): Promise<Metadata> {
   const host = (await headers()).get("host") || "localhost:3000";
   const base = new URL(`${host.startsWith("localhost") ? "http" : "https"}://${host}`);
-  const description = "选择历史剧本与开国班底，在五百年的四季事件中经营人口、钱粮、武备、民情与官场风气。";
+  const description = "选择历史剧本与开国班底，在五百年的四季事件中经营人口、钱粮、武备、民情与吏治。";
   return {
     metadataBase: base,
     title: "五百年王朝｜四时治世",

@@ -53,6 +53,7 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /\(current\.stats\.army - 70\) \/ 10/);
   assert.match(page, /current\.stats\.sentiment \/ 10/);
   assert.match(page, /\(current\.stats\.integrity \+ current\.stats\.sentiment\) \/ 10/);
+  assert.match(page, /clamp\(option\.chance \+ teamChance\(option\.tag\) \+ statBoost, 1, 100\)/);
   assert.match(page, /dynasty-save-\$\{slot\}/);
   assert.match(page, /\[0, 1, 2\]/);
   assert.match(page, /current\.elapsed >= 500/);

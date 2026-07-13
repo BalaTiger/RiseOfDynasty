@@ -2242,7 +2242,7 @@ function App() {
       let resultText = option.detail;
       if (option.chance) {
         const statBoost = option.tag === "军事" ? Math.max(-8, (current.stats.army - 70) / 10) : option.tag === "财政" ? (current.stats.grain - 70) / 10 : option.tag === "吏治" ? current.stats.integrity / 10 : option.tag === "民生" ? current.stats.sentiment / 10 : (current.stats.integrity + current.stats.sentiment) / 10;
-        const finalChance = clamp(option.chance + teamChance(option.tag) + statBoost, 10, 95);
+        const finalChance = clamp(option.chance + teamChance(option.tag) + statBoost, 1, 100);
         success = Math.random() * 100 < finalChance;
         effects = success ? (option.successEffects || {}) : (option.failEffects || {});
         resultText = success ? `班底各展所长，决策奏效（成功率 ${Math.round(finalChance)}%）。` : `局势未如所愿，代价已经显现（成功率 ${Math.round(finalChance)}%）。`;

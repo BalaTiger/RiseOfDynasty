@@ -67,6 +67,9 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /clamp\(option\.chance \+ teamBoost \+ statBoost, 1, 100\)/);
   assert.match(page, /成功率 \$\{finalOptionChance\(option, game\.stats, roster, policy\)\}%/);
   assert.doesNotMatch(page, /基础成功率 \$\{option\.chance\}/);
+  assert.match(page, /判定成功。班底各展所长，决策奏效。/);
+  assert.match(page, /判定失败。局势未如所愿，代价已经显现。/);
+  assert.doesNotMatch(page, /决策奏效（成功率/);
   assert.match(page, /const integrity = -2/);
   assert.match(page, /const effects = \{ population, grain, integrity \}/);
   assert.match(page, /formatDelta\(growth\.effects\.population\)/);

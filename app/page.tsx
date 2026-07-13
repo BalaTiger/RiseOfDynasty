@@ -2269,7 +2269,7 @@ function App() {
         const finalChance = finalOptionChance(option, current.stats, roster, policy);
         success = Math.random() * 100 < finalChance;
         effects = success ? (option.successEffects || {}) : (option.failEffects || {});
-        resultText = success ? `班底各展所长，决策奏效（成功率 ${Math.round(finalChance)}%）。` : `局势未如所愿，代价已经显现（成功率 ${Math.round(finalChance)}%）。`;
+        resultText = success ? "判定成功。班底各展所长，决策奏效。" : "判定失败。局势未如所愿，代价已经显现。";
       }
       const alternate = !!option.alternateText && meets(effectiveCurrent, option.rewardRequirements);
       if (alternate) resultText = option.alternateText!;

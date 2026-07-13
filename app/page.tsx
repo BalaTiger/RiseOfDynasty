@@ -139,7 +139,7 @@ const people: Person[] = [
   { id: "genghis-emperor", name: "成吉思汗", role: "皇帝", secondaryRole: "名将", dynasty: "大蒙古国", quote: "聚草原诸部，铁骑横越万里。", tags: ["军事", "谋略"], bonuses: { army: 18, population: -3 } },
   { id: "zhuyuanzhang-emperor", name: "明太祖", role: "皇帝", secondaryRole: "监察", dynasty: "明", quote: "知民间疾苦，也以严酷驭群臣。", tags: ["吏治", "民生"], bonuses: { integrity: 14, sentiment: 5, grain: 4 } },
   { id: "xiaohe", name: "萧何", role: "宰相", secondaryRole: "财政", dynasty: "汉", quote: "镇国家，抚百姓，给馈饷。", tags: ["财政", "民生"], bonuses: { grain: 14, integrity: 4 } },
-  { id: "zhugeliang", name: "诸葛亮", role: "宰相", secondaryRole: "财政", dynasty: "蜀汉", quote: "治戎为长，奇谋为短。", tags: ["吏治", "谋略"], bonuses: { integrity: 16, grain: 6 } },
+  { id: "zhugeliang", name: "诸葛亮", role: "宰相", secondaryRole: "财政", dynasty: "蜀汉", quote: "治军理政皆一流，就是太爱事必躬亲。", tags: ["吏治", "谋略"], bonuses: { integrity: 16, grain: 6 } },
   { id: "fangxuanling", name: "房玄龄", role: "宰相", secondaryRole: "监察", dynasty: "唐", quote: "善谋能断，润物无声。", tags: ["谋略", "吏治"], bonuses: { integrity: 10, sentiment: 5 } },
   { id: "wanganshi", name: "王安石", role: "宰相", secondaryRole: "财政", dynasty: "宋", quote: "天变不足畏，祖宗不足法。", tags: ["财政", "吏治"], bonuses: { grain: 12, sentiment: -4 } },
   { id: "hanxin", name: "韩信", role: "名将", secondaryRole: "宰相", dynasty: "汉", quote: "多多益善，兵锋无双。", tags: ["军事", "谋略"], bonuses: { army: 20, sentiment: -2 } },

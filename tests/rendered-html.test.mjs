@@ -46,6 +46,9 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /displayPhase !== "reign"/);
   assert.match(page, /current=\{displayPhase === "reign" \? game : null\}/);
   assert.match(page, /historicalEvents\.filter/);
+  assert.match(page, /className="chance-results"/);
+  assert.match(page, /effectText\(option\.successEffects \|\| \{\}\)/);
+  assert.match(page, /effectText\(option\.failEffects \|\| \{\}\)/);
   assert.match(page, /dynasty-save-\$\{slot\}/);
   assert.match(page, /\[0, 1, 2\]/);
   assert.match(page, /current\.elapsed >= 500/);

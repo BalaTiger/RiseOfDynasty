@@ -141,6 +141,21 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.doesNotMatch(JSON.stringify(qinAccession.options), /嫪毐|宫中索人|蕲年/);
   assert.deepEqual(qinEntry.options.map((option) => option.setHistoryFlags), [["qin_lao_ai_admitted"], ["qin_lao_ai_prevented"]]);
 
+  const punitiveIds = ["qin-lao-ai", "liubang-qin-resistance", "caocao-luoyang-rescript", "sunce-yuanshu-remnants", "genghis-noble-vanguard"];
+  assert.deepEqual(historicalEvents.filter((event) => event.punitive).map((event) => event.id).sort(), [...punitiveIds].sort());
+  for (const eventId of punitiveIds) {
+    const event = historicalEvents.find((item) => item.id === eventId);
+    for (const option of event.options) {
+      const outcomes = [option.effects, option.successEffects, option.failEffects].filter(Boolean);
+      assert.ok(outcomes.length > 0, `${event.title} / ${option.label} should define its losses`);
+      for (const effects of outcomes) {
+        const values = Object.values(effects);
+        assert.ok(values.every((value) => value <= 0), `${event.title} / ${option.label} should only mitigate losses`);
+        assert.ok(values.some((value) => value < 0), `${event.title} / ${option.label} should retain a real cost`);
+      }
+    }
+  }
+
   const randomEventSource = page.match(/const randomEvents: EventTemplate\[\] = (\[[\s\S]*?\n\]);\n\nconst additionalHistoricalEvents/);
   assert.ok(randomEventSource, "random event definitions should be readable");
   const randomEvents = Function(`return ${randomEventSource[1]}`)();

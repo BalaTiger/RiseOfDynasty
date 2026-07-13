@@ -53,6 +53,9 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /const grainNeed = stats\.population \* \.8/);
   assert.match(page, /const supply = shortageRatio > 0/);
   assert.match(page, /供养不足/);
+  assert.match(page, /const governance = Math\.sign\(stats\.integrity\) \* Math\.round\(Math\.abs\(stats\.integrity\) \/ 16\)/);
+  assert.match(page, /const governanceGrowth = effective\.integrity \/ 48/);
+  assert.match(page, /live\.modifiers\.governance > 0 \? "清明" : "贪腐"/);
   assert.match(page, /members \* 15 \+ policyBoost/);
   assert.match(page, /\(effectiveCurrent\.army - 70\) \/ 10/);
   assert.match(page, /effectiveCurrent\.sentiment \/ 10/);

@@ -2058,15 +2058,15 @@ function liveState(stats: Stats) {
   const grainNeed = stats.population * .8;
   const shortageRatio = grainNeed > 0 ? Math.max(0, grainNeed - stats.grain) / grainNeed : 0;
   const supply = shortageRatio > 0 ? -Math.max(1, Math.round(shortageRatio * 24)) : 0;
-  const corruption = -Math.round(Math.max(0, -stats.integrity) / 16);
-  const sentiment = supply + corruption;
+  const governance = Math.sign(stats.integrity) * Math.round(Math.abs(stats.integrity) / 16);
+  const sentiment = supply + governance;
   return {
     effective: {
       ...stats,
       army: clamp(stats.army + army, 0, 260),
       sentiment: clamp(stats.sentiment + sentiment, -100, 100),
     },
-    modifiers: { army, grainNeed, supply, corruption, sentiment },
+    modifiers: { army, grainNeed, supply, governance, sentiment },
   };
 }
 
@@ -2340,8 +2340,8 @@ function App() {
 function annualGrowth(stats: Stats, policyId: string) {
   const effective = liveState(stats).effective;
   const rest = policyId === "rest" ? 1.5 : 0;
-  const corruptionDrag = Math.max(0, -effective.integrity) / 16;
-  const population = clamp(2.2 + effective.sentiment / 32 + rest - corruptionDrag / 3, -8, 8);
+  const governanceGrowth = effective.integrity / 48;
+  const population = clamp(2.2 + effective.sentiment / 32 + rest + governanceGrowth, -8, 8);
   const grain = clamp(stats.population * .075 + (policyId === "rest" ? 5 : 0) + effective.integrity / 18 - stats.population * .05 - effective.army * .025, -20, 20);
   const effects = { population, grain };
   return {
@@ -2351,7 +2351,7 @@ function annualGrowth(stats: Stats, policyId: string) {
       population: [
         { label: `民情 ${formatDelta(effective.sentiment / 32)}`, value: effective.sentiment / 32, detail: `有效民情 ${effective.sentiment} ÷ 32 = ${formatDelta(effective.sentiment / 32)}，计入每年人口增长；民情变化后立即重算。` },
         ...(rest ? [{ label: "休养 +1.5", value: 1.5, detail: "国策“休养生息”固定使每年人口增长 +1.5；更换国策后消失。" }] : []),
-        ...(corruptionDrag ? [{ label: `贪腐 ${formatDelta(-corruptionDrag / 3)}`, value: -corruptionDrag / 3, detail: `有效官风为 ${effective.integrity}，先取负值部分 ÷ 16，再 ÷ 3，得到人口增长 ${formatDelta(-corruptionDrag / 3)}；官风不再为负时消失。` }] : []),
+        ...(governanceGrowth ? [{ label: `官风 ${formatDelta(governanceGrowth)}`, value: governanceGrowth, detail: `当前官风 ${effective.integrity} ÷ 48 = ${formatDelta(governanceGrowth)}，计入每年人口增长；正官风为增益，负官风为减益，官风归零时消失。` }] : []),
       ],
       grain: [
         { label: `人口产出 ${formatDelta(stats.population * .075)}`, value: stats.population * .075, detail: `基础人口 ${stats.population} × 0.075 = ${formatDelta(stats.population * .075)}，计入每年钱粮增长。` },
@@ -2417,7 +2417,7 @@ function StatPanel({ stats, policyId }: { stats: Stats; policyId: string }) {
   const live = liveState(stats);
   const sentimentBuffs = [
     live.modifiers.supply && { label: `供养不足 ${live.modifiers.supply}`, value: live.modifiers.supply, detail: `人口需要钱粮 ${formatDelta(live.modifiers.grainNeed).slice(1)}（人口 ${stats.population} × 0.8）。当前钱粮 ${stats.grain} 低于需求线，缺口占需求的比例 × 24 并四舍五入，民情 ${live.modifiers.supply}；钱粮达到需求线后立即消失。` },
-    live.modifiers.corruption && { label: `贪腐 ${live.modifiers.corruption}`, value: live.modifiers.corruption, detail: `基础官风 ${stats.integrity} 的负值部分 ÷ 16 并四舍五入，民情 ${live.modifiers.corruption}；基础官风回到 0 以上后立即消失。` },
+    live.modifiers.governance && { label: `${live.modifiers.governance > 0 ? "清明" : "贪腐"} ${formatDelta(live.modifiers.governance)}`, value: live.modifiers.governance, detail: `官风绝对值 ${Math.abs(stats.integrity)} ÷ 16 并四舍五入，再保留官风正负号，得到民情 ${formatDelta(live.modifiers.governance)}；正官风为“清明”增益，负官风为“贪腐”减益，官风接近 0 时消失。` },
   ].filter(Boolean) as ModifierView[];
   const integrityBuffs: ModifierView[] = [];
   return <div className="stats-panel">

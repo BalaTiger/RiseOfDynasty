@@ -80,7 +80,7 @@ type Outcome = {
 type Chronicle = { year: number; season: Season; title: string; note: string };
 
 type GameState = {
-  version: 5;
+  version: 6;
   phase: Phase;
   scriptId: string;
   policyId: string;
@@ -105,9 +105,10 @@ type GameState = {
   qinConquestIndex: number;
   qinConquestDelay: number;
   qinConquestRetries: number;
+  qinConquestRequirementRelief: number;
 };
 
-type HistoricalProgress = Pick<GameState, "qinConquestIndex" | "qinConquestDelay" | "qinConquestRetries">;
+type HistoricalProgress = Pick<GameState, "qinConquestIndex" | "qinConquestDelay" | "qinConquestRetries" | "qinConquestRequirementRelief">;
 
 type SeatAssignments = Record<Role, string | null>;
 
@@ -2224,32 +2225,32 @@ const additionalHistoricalEvents: EventTemplate[] = [
     { label: "尽逐六国客卿", detail: "朝堂一时纯粹，人才与谋略也随之流向敌国。", effects: { grain: 5, integrity: -12, army: -5 } },
   ]},
   { id: "qin-conquer-han", scriptId: "qin", year: -230, historical: true, qinConquestStage: 0, title: "韩国先亡", category: "历史大事", text: "韩地扼守秦军东出之路，却已国小兵弱。内史腾请率军渡黄河，一举打开灭国战争。", options: [
-    { label: "命内史腾灭韩", detail: "兵粮达到要求，韩国将成为六国中第一个灭亡者。", requirements: { army: 88, grain: 65 }, failOnUnmet: true, effects: { army: -8, grain: -9, population: 6, sentiment: 4 }, qinConquest: "advance" },
-    { label: "迫韩献地称臣", detail: "暂留韩祀以减少眼前损耗，也给其余诸侯留下合纵时间。", effects: { grain: 6, army: -4, integrity: -4 }, qinConquest: "delay" },
+    { label: "命内史腾灭韩", detail: "兵粮达到要求，韩国将成为六国中第一个灭亡者。", requirements: { army: 130, grain: 100 }, failOnUnmet: true, effects: { army: -8, grain: -9, population: 6, sentiment: 4 }, qinConquest: "advance" },
+    { label: "迫韩献地称臣", detail: "若能迫韩持续输地纳贡，下次灭韩所需的各项国势会降低15点。", chance: 58, tag: "谋略", successEffects: { grain: 6, army: -4, integrity: -4 }, failEffects: { grain: -8, army: -8, integrity: -6 }, qinConquest: "delay" },
   ]},
   { id: "qin-conquer-zhao", scriptId: "qin", year: -228, historical: true, qinConquestStage: 1, title: "邯郸陷落", category: "历史大事", text: "赵国饥荒地震并至，李牧却仍守住正面。秦廷可以继续强攻，也可以从赵王身边寻找裂缝。", options: [
-    { label: "王翦围邯郸灭赵", detail: "强军能够硬撼赵军，代价也不会轻。", requirements: { army: 95, grain: 72 }, failOnUnmet: true, effects: { army: -13, grain: -12, population: 8, sentiment: -3 }, qinConquest: "advance" },
-    { label: "贿郭开，暂缓攻城", detail: "先从赵廷内部拆解李牧兵权，却暂不结束赵国。", effects: { grain: -8, army: 3, integrity: -6 }, qinConquest: "delay" },
+    { label: "王翦围邯郸灭赵", detail: "强军能够硬撼赵军，代价也不会轻。", requirements: { army: 145, grain: 112 }, failOnUnmet: true, effects: { army: -13, grain: -12, population: 8, sentiment: -3 }, qinConquest: "advance" },
+    { label: "贿郭开，暂缓攻城", detail: "若反间计得手，赵军根基松动，下次灭赵所需的各项国势会降低15点。", chance: 55, tag: "谋略", successEffects: { grain: -8, army: 3, integrity: -6 }, failEffects: { grain: -14, army: -8, integrity: -8 }, qinConquest: "delay" },
   ]},
   { id: "qin-jing-ke", scriptId: "qin", year: -227, historical: true, title: "图穷匕见", category: "历史大事", text: "燕使荆轲献上督亢地图与樊於期首级。地图展开至尽头，一柄淬毒匕首突然露出。", options: [
     { label: "绕柱自卫，召侍医还击", detail: "宫廷宿卫与临机反应决定秦王能否活着走出大殿。", chance: 60, tag: "军事", successEffects: { army: 6, sentiment: 6, integrity: 3 }, failEffects: { army: -14, sentiment: -10, integrity: -5 } },
     { label: "先验图匣，再召燕使", detail: "吏治严密时，刺杀会在匕首出匣前败露。", chance: 62, tag: "吏治", successEffects: { integrity: 10, army: 4 }, failEffects: { sentiment: -8, integrity: -6 } },
   ]},
   { id: "qin-conquer-wei", scriptId: "qin", year: -225, historical: true, qinConquestStage: 2, title: "水灌大梁", category: "历史大事", text: "魏都大梁城坚池深，王贲请求引黄河、鸿沟水灌城。速胜与城中生民只能艰难权衡。", options: [
-    { label: "决河灌城灭魏", detail: "迅速灭魏，却会毁坏人口与田土。", requirements: { army: 92, grain: 70 }, failOnUnmet: true, effects: { grain: -12, population: -7, army: -7, sentiment: -8 }, qinConquest: "advance" },
-    { label: "围城纳贡，暂许魏祀", detail: "以贡赋换取退兵，魏国仍会继续据守大梁。", effects: { grain: -9, army: -4, sentiment: 4 }, qinConquest: "delay" },
+    { label: "决河灌城灭魏", detail: "迅速灭魏，却会毁坏人口与田土。", requirements: { army: 140, grain: 108 }, failOnUnmet: true, effects: { grain: -12, population: -7, army: -7, sentiment: -8 }, qinConquest: "advance" },
+    { label: "围城纳贡，暂许魏祀", detail: "若围困迫使魏国割地输粮，下次灭魏所需的各项国势会降低15点。", chance: 57, tag: "谋略", successEffects: { grain: -9, army: -4, sentiment: 4 }, failEffects: { grain: -15, army: -8, sentiment: -5 }, qinConquest: "delay" },
   ]},
   { id: "qin-conquer-chu", scriptId: "qin", year: -223, historical: true, qinConquestStage: 3, title: "王翦灭楚", category: "历史大事", text: "楚地广阔，项燕仍有强军。老将王翦坚持非六十万不可，年轻将领李信则称二十万足矣。", options: [
-    { label: "举六十万付王翦灭楚", detail: "倾国之兵需要极强武备和钱粮支撑。", requirements: { army: 110, grain: 88 }, failOnUnmet: true, rewardRequirements: { army: 135, grain: 115 }, alternateText: "王翦稳扎稳打，楚军主力完整瓦解，江淮比旧史更快归于安定。", effects: { army: -18, grain: -22, population: 12, sentiment: 7 }, qinConquest: "advance" },
-    { label: "令李信试探楚境", detail: "以二十万军试其虚实，不把灭楚成败押在一次进军上。", chance: 48, tag: "军事", successEffects: { army: -7, grain: -6, sentiment: 3 }, failEffects: { army: -24, grain: -14, sentiment: -7 }, qinConquest: "delay" },
+    { label: "举六十万付王翦灭楚", detail: "倾国之兵需要极强武备和钱粮支撑。", requirements: { army: 165, grain: 135 }, failOnUnmet: true, rewardRequirements: { army: 190, grain: 160 }, alternateText: "王翦稳扎稳打，楚军主力完整瓦解，江淮比旧史更快归于安定。", effects: { army: -18, grain: -22, population: 12, sentiment: 7 }, qinConquest: "advance" },
+    { label: "令李信试探楚境", detail: "若试探成功并消耗楚军，下次灭楚所需的各项国势会降低15点。", chance: 52, tag: "军事", successEffects: { army: -7, grain: -6, sentiment: 3 }, failEffects: { army: -24, grain: -14, sentiment: -7 }, qinConquest: "delay" },
   ]},
   { id: "qin-conquer-yan", scriptId: "qin", year: -222, historical: true, qinConquestStage: 4, title: "燕代俱平", category: "历史大事", text: "燕王逃往辽东，赵国残余又据代地称王。北方最后两处抵抗已失去彼此呼应。", options: [
-    { label: "两路穷追，灭燕平代", detail: "持续作战仍需足够兵粮，胜后北方再无成建制敌军。", requirements: { army: 98, grain: 72 }, failOnUnmet: true, effects: { army: -11, grain: -12, population: 8, sentiment: 5 }, qinConquest: "advance" },
-    { label: "许其纳土，保留旧君", detail: "减少眼前兵祸，却让燕王室继续成为地方人心所系。", effects: { population: 5, sentiment: 8, integrity: -7, army: -3 }, qinConquest: "delay" },
+    { label: "两路穷追，灭燕平代", detail: "持续作战仍需足够兵粮，胜后北方再无成建制敌军。", requirements: { army: 150, grain: 115 }, failOnUnmet: true, effects: { army: -11, grain: -12, population: 8, sentiment: 5 }, qinConquest: "advance" },
+    { label: "许其纳土，保留旧君", detail: "若旧君交出城塞与军队，下次灭燕所需的各项国势会降低15点。", chance: 60, tag: "谋略", successEffects: { population: 5, sentiment: 8, integrity: -7, army: -3 }, failEffects: { population: -4, army: -8, integrity: -10, sentiment: -5 }, qinConquest: "delay" },
   ]},
   { id: "qin-unification", scriptId: "qin", year: -221, historical: true, qinConquestStage: 5, title: "六合初定", category: "历史大事", text: "五国皆亡，齐国孤悬东方。王贲请自燕南下直取临淄，齐王建则愿奉秦正朔、保留国祀。", options: [
-    { label: "灭齐，天下尽行郡县", detail: "结束最后一个王国，以一套法度贯通天下。", requirements: { army: 95, grain: 70 }, failOnUnmet: true, effects: { grain: -8, army: -8, population: 7, integrity: 10, sentiment: -5 }, qinConquest: "advance" },
-    { label: "许齐称臣，郡国并行", detail: "暂时不动齐国，也让最后的王室继续存在于东方。", effects: { grain: -5, army: -3, integrity: -9, sentiment: 6 }, qinConquest: "delay" },
+    { label: "灭齐，天下尽行郡县", detail: "结束最后一个王国，以一套法度贯通天下。", requirements: { army: 148, grain: 112 }, failOnUnmet: true, effects: { grain: -8, army: -8, population: 7, integrity: 10, sentiment: -5 }, qinConquest: "advance" },
+    { label: "许齐称臣，郡国并行", detail: "若齐廷交出关塞与军政，下次灭齐所需的各项国势会降低15点。", chance: 62, tag: "谋略", successEffects: { grain: -5, army: -3, integrity: -9, sentiment: 6 }, failEffects: { grain: -12, army: -8, integrity: -11, sentiment: -4 }, qinConquest: "delay" },
   ]},
   { id: "qin-fengshan", scriptId: "qin", year: -219, historical: true, title: "封禅泰山", category: "历史大事", text: "巡行至齐鲁，博士议封禅礼久而不决。皇帝可以借天地昭示一统，也可将民力留给新朝根本。", options: [
     { label: "登泰山封禅", detail: "盛典足以震动天下，沿途供亿也所费不赀。", effects: { grain: -12, sentiment: 9, integrity: -2 } },
@@ -2555,7 +2556,8 @@ const historicalEvents: EventTemplate[] = [...additionalHistoricalEvents, ...cor
 const allEventTemplates = [...historicalEvents, ...randomEvents];
 const qinConquestEventIds = ["qin-conquer-han", "qin-conquer-zhao", "qin-conquer-wei", "qin-conquer-chu", "qin-conquer-yan", "qin-unification"];
 const qinConquestBaseYears = [-230, -228, -225, -223, -222, -221];
-const emptyHistoricalProgress = (): HistoricalProgress => ({ qinConquestIndex: 0, qinConquestDelay: 0, qinConquestRetries: 0 });
+const qinConquestRequirementReduction = 15;
+const emptyHistoricalProgress = (): HistoricalProgress => ({ qinConquestIndex: 0, qinConquestDelay: 0, qinConquestRetries: 0, qinConquestRequirementRelief: 0 });
 
 const clamp = (n: number, min = -100, max = 999) => Math.max(min, Math.min(max, Math.round(n)));
 const addEffects = (stats: Stats, effects: Partial<Stats>): Stats => ({
@@ -2641,13 +2643,21 @@ function scaleConquestEffects(effects: Partial<Stats> | undefined, retries: numb
   ])) as Partial<Stats>;
 }
 
-function applyQinConquestPressure(event: EventTemplate, retries: number) {
-  if (event.qinConquestStage === undefined || retries <= 0) return event;
+function lowerConquestRequirements(requirements: Partial<Stats> | undefined, relief: number) {
+  if (!requirements || relief <= 0) return requirements;
+  return Object.fromEntries((Object.entries(requirements) as [StatKey, number][]).map(([key, value]) => [key, Math.max(0, value - relief)])) as Partial<Stats>;
+}
+
+function applyQinConquestPressure(event: EventTemplate, retries: number, requirementRelief: number) {
+  if (event.qinConquestStage === undefined || (retries <= 0 && requirementRelief <= 0)) return event;
+  const pressureText = retries > 0 ? `此国已第${retries + 1}次摆上廷议，拖延使军粮、军心与朝局代价进一步上升。` : "";
+  const reliefText = requirementRelief > 0 ? `此前缓进已使下次灭国的每项国势要求累计降低${requirementRelief}点。` : "";
   return {
     ...event,
-    text: `${event.text} 此国已第${retries + 1}次摆上廷议，拖延使军粮、军心与朝局代价进一步上升。`,
+    text: `${event.text} ${pressureText}${reliefText}`,
     options: event.options.map((option) => ({
       ...option,
+      requirements: option.qinConquest === "advance" ? lowerConquestRequirements(option.requirements, requirementRelief) : option.requirements,
       effects: scaleConquestEffects(option.effects, retries),
       successEffects: scaleConquestEffects(option.successEffects, retries),
       failEffects: scaleConquestEffects(option.failEffects, retries),
@@ -2689,7 +2699,7 @@ function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYe
   const effective = liveState(stats).effective;
   const required = historicalEvents
     .filter((event) => historyEventScheduled(event, scriptId, year, historyFlags, progress))
-    .map((event) => applyQinConquestPressure(event, progress.qinConquestRetries))
+    .map((event) => applyQinConquestPressure(event, progress.qinConquestRetries, progress.qinConquestRequirementRelief))
     .slice(0, 4);
   const conditional: EventTemplate[] = [];
   if (effective.army < 55 && lowArmyYears >= 1) conditional.push(randomEvents.find((event) => event.id === "invasion")!);
@@ -2766,11 +2776,12 @@ function normalizeSave(raw: unknown): GameState | null {
   const qinConquestIndex = Number.isInteger(saved.qinConquestIndex) ? clamp(saved.qinConquestIndex!, 0, qinConquestEventIds.length) : legacyQinConquestIndex(saved);
   const qinConquestDelay = Number.isInteger(saved.qinConquestDelay) && saved.qinConquestDelay! >= 0 ? Math.floor(saved.qinConquestDelay!) : 0;
   const qinConquestRetries = Number.isInteger(saved.qinConquestRetries) && saved.qinConquestRetries! >= 0 ? Math.floor(saved.qinConquestRetries!) : 0;
+  const qinConquestRequirementRelief = Number.isInteger(saved.qinConquestRequirementRelief) && saved.qinConquestRequirementRelief! >= 0 ? Math.floor(saved.qinConquestRequirementRelief!) : 0;
   const events = saved.events.map((event) => {
     const template = allEventTemplates.find((item) => item.id === event.id);
-    return template ? applyQinConquestPressure(template, qinConquestRetries) : event;
+    return template ? applyQinConquestPressure(template, qinConquestRetries, qinConquestRequirementRelief) : event;
   });
-  return { ...saved, version: 5, seatAssignments, rosterIds, randomSeed, randomCount, historyFlags, events, qinConquestIndex, qinConquestDelay, qinConquestRetries } as GameState;
+  return { ...saved, version: 6, seatAssignments, rosterIds, randomSeed, randomCount, historyFlags, events, qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief } as GameState;
 }
 
 function drawRosterCandidates(seats: SeatAssignments, selectedIds: string[]) {
@@ -2875,7 +2886,7 @@ function App() {
     const yearEvents = buildYearEvents(scriptId, script.startYear, stats, 0, 0, randomSeed, randomCount, [], progress);
     randomCount = yearEvents.randomCount;
     const initial: GameState = {
-      version: 5, phase: "reign", scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
+      version: 6, phase: "reign", scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
       stats, events: yearEvents.events, outcome: null,
       chronicle: [{ year: script.startYear, season: "春", title: "开国建元", note: `${people.find((person) => person.id === rosterSeats.皇帝)?.name || "新君"}与开国班底共治天下。${growth.note}` }],
       lowArmyYears: effective.army < 55 ? 1 : 0, unrestYears: effective.sentiment <= -60 ? 1 : 0, alteredHistory: false,
@@ -2913,19 +2924,25 @@ function App() {
       let qinConquestIndex = current.qinConquestIndex;
       let qinConquestDelay = current.qinConquestDelay;
       let qinConquestRetries = current.qinConquestRetries;
+      let qinConquestRequirementRelief = current.qinConquestRequirementRelief;
       let events = current.events;
       if (event.qinConquestStage !== undefined && option.qinConquest === "advance") {
         qinConquestIndex = Math.max(qinConquestIndex, event.qinConquestStage + 1);
         qinConquestRetries = 0;
+        qinConquestRequirementRelief = 0;
       } else if (event.qinConquestStage !== undefined && option.qinConquest === "delay") {
         qinConquestDelay += 1;
         qinConquestRetries += 1;
+        if (success === true) {
+          qinConquestRequirementRelief += qinConquestRequirementReduction;
+          resultText = `${resultText} 缓进奏效，下次灭国的每项国势要求降低${qinConquestRequirementReduction}点；连续成功可以叠加。`;
+        }
         const suppressed = suppressLaterHistoricalEvents(events, current.seasonIndex, current.randomSeed, randomCount);
         events = suppressed.events;
         randomCount = suppressed.randomCount;
         resultText = `${resultText} 此国未亡，来年仍须再决；本次之后的秦线大事也将顺延。`;
       }
-      const progress = { qinConquestIndex, qinConquestDelay, qinConquestRetries };
+      const progress = { qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief };
       const stats = addEffects(current.stats, effects);
       if (stats.population < 18 || stats.grain <= 0) {
         const cause = stats.population < 18 ? "人口跌破王朝存续底线" : "国库钱粮耗尽";
@@ -3006,7 +3023,7 @@ function annualGrowth(stats: Stats, policyId: string) {
   const governanceGrowth = effective.integrity / 48;
   const population = clamp(2.2 + effective.sentiment / 32 + rest + governanceGrowth, -8, 8);
   const grain = clamp(stats.population * .075 + (policyId === "rest" ? 5 : 0) + effective.integrity / 18 - stats.population * .05 - effective.army * .025, -20, 20);
-  const integrity = -2;
+  const integrity = -6;
   const effects = { population, grain, integrity };
   return {
     effects,
@@ -3024,7 +3041,7 @@ function annualGrowth(stats: Stats, policyId: string) {
         { label: `官风 ${formatDelta(effective.integrity / 18)}`, value: effective.integrity / 18, detail: `当前有效官风 ${effective.integrity} ÷ 18 = ${formatDelta(effective.integrity / 18)}，计入每年钱粮增长；官风变化后立即重算。` },
         ...(policyId === "rest" ? [{ label: "休养 +5", value: 5, detail: "国策“休养生息”固定使每年钱粮增长 +5；更换国策后消失。" }] : []),
       ],
-      integrity: [{ label: "积弊滋生 -2", value: integrity, detail: "官场每年都会自然滋生积弊，岁首固定扣减官风 2 点。此项不改变当前官风，只有进入下一年时才结算；需要通过事件中的整饬吏治持续弥补。" }],
+      integrity: [{ label: "积弊滋生 -6", value: integrity, detail: "官场每年都会自然滋生积弊，岁首固定扣减官风 6 点。此项不改变当前官风，只有进入下一年时才结算；需要通过事件中的整饬吏治持续弥补。" }],
     },
   };
 }

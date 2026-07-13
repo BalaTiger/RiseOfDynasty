@@ -82,7 +82,9 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /判定成功。班底各展所长，决策奏效。/);
   assert.match(page, /判定失败。局势未如所愿，代价已经显现。/);
   assert.doesNotMatch(page, /决策奏效（成功率/);
-  assert.match(page, /const integrity = -2/);
+  assert.match(page, /const integrity = -6/);
+  assert.match(page, /积弊滋生 -6/);
+  assert.match(page, /岁首固定扣减官风 6 点/);
   assert.match(page, /const effects = \{ population, grain, integrity \}/);
   assert.match(page, /formatDelta\(growth\.effects\.population\)/);
   assert.match(page, /formatDelta\(growth\.effects\.grain\)/);
@@ -100,13 +102,21 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /qinConquestIndex: number/);
   assert.match(page, /qinConquestDelay: number/);
   assert.match(page, /qinConquestRetries: number/);
-  assert.match(page, /version: 5/);
+  assert.match(page, /qinConquestRequirementRelief: number/);
+  assert.match(page, /version: 6/);
   assert.match(page, /legacyQinConquestIndex\(saved\)/);
   assert.match(page, /historyEventAvailable\(event, historyFlags\)/);
   assert.match(page, /seededRandom\(current\.randomSeed, randomCount\)/);
   assert.match(page, /randomCount: yearEvents\.randomCount/);
   assert.match(page, /function scaleConquestEffects/);
   assert.match(page, /value < 0 \? value - Math\.ceil\(Math\.abs\(value\) \* retries \* \.35\) : value/);
+  assert.match(page, /const qinConquestRequirementReduction = 15/);
+  assert.match(page, /function lowerConquestRequirements/);
+  assert.match(page, /Math\.max\(0, value - relief\)/);
+  assert.match(page, /requirements: option\.qinConquest === "advance" \? lowerConquestRequirements/);
+  assert.match(page, /qinConquestRequirementRelief \+= qinConquestRequirementReduction/);
+  assert.match(page, /qinConquestRequirementRelief = 0/);
+  assert.match(page, /缓进奏效，下次灭国的每项国势要求降低\$\{qinConquestRequirementReduction\}点；连续成功可以叠加/);
   assert.match(page, /shiftCalendarYear\(event\.year, progress\.qinConquestDelay\)/);
   assert.match(page, /event\.qinConquestStage !== progress\.qinConquestIndex/);
   assert.match(page, /function suppressLaterHistoricalEvents/);
@@ -178,7 +188,10 @@ test("includes the expanded five-round roster, history events, and reign-only sa
     const advance = event.options.find((option) => option.qinConquest === "advance");
     const delay = event.options.find((option) => option.qinConquest === "delay");
     assert.equal(advance.failOnUnmet, true, `${event.title} should require enough strength to destroy the state`);
-    assert.ok(Object.keys(advance.requirements || {}).length > 0);
+    assert.ok(advance.requirements.army >= 130, `${event.title} should start with a substantially higher army requirement`);
+    assert.ok(advance.requirements.grain >= 100, `${event.title} should start with a substantially higher grain requirement`);
+    assert.ok(delay.chance > 0, `${event.title} delay should use a success roll`);
+    assert.ok(delay.successEffects && delay.failEffects, `${event.title} delay should disclose success and failure effects`);
     const delayOutcomes = [delay.effects, delay.successEffects, delay.failEffects].filter(Boolean);
     assert.ok(delayOutcomes.length > 0, `${event.title} delay should have a real cost`);
     assert.ok(delayOutcomes.every((effects) => Object.values(effects).some((value) => value < 0)), `${event.title} delay outcomes should all retain a cost`);
@@ -199,6 +212,17 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.ok(scheduledQinIds(-226, { index: 0, delay: 1 }).includes("qin-jing-ke"), "non-conquest Qin history should shift with the conquest delay");
   assert.ok(scheduledQinIds(-226, { index: 1, delay: 2 }).includes("qin-conquer-zhao"), "a delayed Zhao should recur next year");
   assert.ok(scheduledQinIds(-225, { index: 1, delay: 2 }).includes("qin-jing-ke"), "later Qin history should continue to slide");
+
+  const lowerRequirements = (requirements, successfulDelays) => Object.fromEntries(Object.entries(requirements).map(([key, value]) => [key, Math.max(0, value - successfulDelays * 15)]));
+  for (const event of conquestEvents) {
+    const advance = event.options.find((option) => option.qinConquest === "advance");
+    const afterOneSuccess = lowerRequirements(advance.requirements, 1);
+    const afterThreeSuccesses = lowerRequirements(advance.requirements, 3);
+    assert.equal(afterOneSuccess.army, advance.requirements.army - 15);
+    assert.equal(afterOneSuccess.grain, advance.requirements.grain - 15);
+    assert.equal(afterThreeSuccesses.army, advance.requirements.army - 45);
+    assert.equal(afterThreeSuccesses.grain, advance.requirements.grain - 45);
+  }
 
   const pressure = (effects, retries) => Object.fromEntries(Object.entries(effects).map(([key, value]) => [
     key,

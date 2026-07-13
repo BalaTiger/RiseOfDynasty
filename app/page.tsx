@@ -1708,28 +1708,203 @@ const primaryRoleOverrides: Partial<Record<string, Role>> = {
   刘伯温: "监察", 徐阶: "监察", 赵云: "监察", 周瑜: "监察", 陆逊: "监察", 羊祜: "监察", 韦孝宽: "监察", 辛弃疾: "监察",
 };
 
-const quoteOpenings: Record<Role, string[]> = {
-  皇帝: ["驾驭全局的能力突出", "善于在乱局中确立方向", "有重塑国家秩序的雄心", "适合掌舵长期国运"],
-  宰相: ["能把庞杂政务理出头绪", "长于统筹朝堂与地方", "面对积弊仍有整顿办法", "是维持国家运转的中枢型人才"],
-  名将: ["临阵决断与统兵能力出众", "最擅长在危局中争取主动", "能迅速提升军队的执行力", "守边与攻坚都值得托付"],
-  财政: ["懂得把有限资源用在要害", "长于经营钱粮与民生", "能为王朝建立更耐久的家底", "擅长从制度中寻找财源"],
-  监察: ["敢于触碰盘根错节的积弊", "能给膨胀的权力及时纠偏", "整饬官风时很有分量", "适合替朝廷守住制度底线"],
+const historicalRosterQuotes: Record<string, string> = {
+  汉文帝: "治霸陵皆以瓦器，躬行节俭不是一句空话。",
+  刘秀: "仕宦当作执金吾，乱世归来却成了中兴之主。",
+  张良: "运筹帷幄之中，决胜千里之外。",
+  陈平: "六出奇计，每次都落在最要命的地方。",
+  卫青: "七击匈奴而不矜功，难得的是持重。",
+  霍去病: "匈奴未灭，何以家为。",
+  李斯: "从郡吏到帝国丞相，他比谁都懂制度的力量。",
+  商鞅: "徙木立信之后，秦国再也不是旧日秦国。",
+  王翦: "六十万伐楚，老将的谨慎比豪言更可靠。",
+  蒙恬: "却匈奴七百余里，长城之外也有他的军功。",
+  霍光: "受遗辅少主，汉室最危险的年月由他托住。",
+  张骞: "凿空西域，一次出使把世界打开了。",
+  孙权: "生子当如孙仲谋，守住江东亦是雄才。",
+  司马懿: "能忍住五丈原的巾帼，也等得到高平陵的雷霆。",
+  荀彧: "王佐之才，为曹操定下迎天子的大略。",
+  郭嘉: "十胜十败论未必尽真，识人料敌却真有锋芒。",
+  周瑜: "曲有误，周郎顾；赤壁的火更让天下回头。",
+  陆逊: "书生拜大将，夷陵一战便烧尽轻视。",
+  邓艾: "阴平险道无人敢走，他偏从那里抵达成都。",
+  羊祜: "轻裘缓带，连敌境百姓也愿意记他的好。",
+  王猛: "扪虱谈天下，前秦的盛势离不开这位丞相。",
+  谢安: "小儿辈遂已破贼，棋局旁自有东山气度。",
+  祖逖: "闻鸡起舞，渡江后仍念着收复中原。",
+  桓温: "既不能流芳后世，也要遗臭万年。",
+  陶侃: "运甓习劳，真正把勤谨过成了日常。",
+  隋文帝: "结束数百年分裂，开皇之治攒下厚实家底。",
+  武则天: "政启开元，治宏贞观；无字碑留给后人评说。",
+  唐玄宗: "开元天宝之间，盛世与转折都写在一人身上。",
+  杜如晦: "房谋杜断，他最可贵的是临事能决。",
+  李绩: "历事三朝而恩遇不衰，战功之外更见分寸。",
+  郭子仪: "功盖天下而主不疑，位极人臣而众不疾。",
+  李光弼: "与郭子仪齐名，再造唐室并非一人之功。",
+  裴度: "平淮西、破藩镇，中唐朝堂终于硬了一回。",
+  狄仁杰: "桃李满天下，更难得的是把国本悄悄扶正。",
+  姚崇: "十事要说，开元新政先从能办成的事做起。",
+  宋璟: "守法持正，盛世里也需要肯说不的人。",
+  宋仁宗: "百事不会，只会做官家；宽厚因此成了一代底色。",
+  范仲淹: "先天下之忧而忧，落到政事上也从不含糊。",
+  司马光: "砸缸是少年名声，通鉴与相业才是毕生功课。",
+  欧阳修: "文章冠天下，庆历政局中也不肯只做文士。",
+  韩世忠: "黄天荡里困兀术，南宋并非无人敢战。",
+  文天祥: "人生自古谁无死，留取丹心照汗青。",
+  陆秀夫: "崖山最后一刻，他选择与国运一同沉海。",
+  忽必烈: "从草原汗王到中原皇帝，他选择用制度统治疆域。",
+  耶律楚材: "以儒术救苍生，让征服者明白百姓活着更有价值。",
+  伯颜: "奉一纸诏书南下，临安城最终未能挡住他的军队。",
+  脱脱: "修三史、治黄河，元末难局中仍想有所作为。",
+  朱棣: "五征漠北、遣使远洋，永乐从不缺大手笔。",
+  刘伯温: "渡江策士无双，功成之后却懂得退一步。",
+  常遇春: "号称常十万，冲锋从来不等第二道军令。",
+  于谦: "社稷为重，君为轻；北京城因此没有失守。",
+  戚继光: "封侯非我意，但愿海波平。",
+  李善长: "明初制度草创时，他是朱元璋最倚重的老臣。",
+  郑和: "七下西洋，宝船带回的是一个辽阔世界。",
+  康熙: "擒鳌拜、平三藩、定台湾，少年天子一路亲自解题。",
+  雍正: "以勤先天下，案头灯火几乎从未熄灭。",
+  乾隆: "十全武功之外，盛世也在他手中渐露疲态。",
+  曾国藩: "结硬寨，打呆仗；笨功夫最后成了真本事。",
+  左宗棠: "身无半亩，心忧天下；抬棺西行绝非虚言。",
+  李鸿章: "一生都在补漏，而时代留下的裂缝比人更大。",
+  秦孝公: "敢把国运交给变法者，本身就是一种魄力。",
+  秦昭襄王: "在位五十余年，把秦的优势熬成了天下大势。",
+  汉景帝: "七国之乱来得凶险，平定之后文景之治仍在继续。",
+  汉宣帝: "生于民间、长于牢狱，他看天下的角度不同于宫中。",
+  汉明帝: "明章之治从他开始，东汉尚有向上的锐气。",
+  汉章帝: "宽厚好儒，盛世的温度有时比锋芒更难得。",
+  曹参: "萧规曹随，不扰民也是治国本领。",
+  周勃: "安刘氏者必勃也，木讷老实并不妨碍临危定局。",
+  灌婴: "从贩缯少年到车骑将军，汉初战场处处有他。",
+  樊哙: "鸿门宴上持盾闯帐，勇气从来写在脸上。",
+  李广: "桃李不言，下自成蹊；飞将军一生却总差一点封侯。",
+  赵充国: "百闻不如一见，老将坚持先到边地看清再奏。",
+  赵过: "代田法让农具与耕作一起改变，史书里的农业专家。",
+  董仲舒: "罢黜百家是否准确另论，他确实重塑了汉代政治语言。",
+  汲黯: "好直谏，守节死义，连汉武帝也敬他三分。",
+  丙吉: "问牛不问人，因为宰相惦记的是天下时序。",
+  魏相: "留心民间疾苦，宣帝中兴少不了这样的务实臣子。",
+  主父偃: "推恩令写得温和，落下去却拆开了诸侯根基。",
+  冯唐: "冯唐易老，但敢在天子面前替将领说公道话。",
+  窦婴: "平七国有功，身陷外戚党争时却没能全身而退。",
+  郅都: "苍鹰之名不是赞美，却足见豪强对他的畏惧。",
+  陈汤: "明犯强汉者，虽远必诛。",
+  班超: "投笔从戎，三十余年经营西域。",
+  班固: "一部汉书未及亲手写完，体例却影响千年。",
+  马援: "马革裹尸，老将最怕的从来不是路远。",
+  邓禹: "云台二十八将之首，功名来自识大体而非争锋。",
+  吴汉: "差强人意最初说的，正是他能振奋军伍。",
+  关羽: "威震华夏，也因刚而自矜留下败走麦城。",
+  张飞: "当阳桥上一声喝退追兵，勇猛之外也曾义释严颜。",
+  赵云: "一身都是胆，长坂坡并非他唯一的高光。",
+  马超: "锦马超名震西凉，锋芒却没能换来安稳基业。",
+  黄忠: "定军山阵斩夏侯渊，老将的箭从不问年龄。",
+  法正: "奇画策算，蜀汉夺取汉中最锋利的谋臣。",
+  庞统: "论帝王之秘策，揽倚伏之要最。",
+  姜维: "九伐中原，执念让他撑到蜀汉最后一刻。",
+  鲁肃: "榻上对早早看见三分天下，他不是只会做和事佬。",
+  吕蒙: "士别三日，当刮目相待。",
+  张辽: "八百破十万，逍遥津后江东小儿闻名止啼。",
+  典韦: "古之恶来，宛城最后一战仍守在主公门前。",
+  许褚: "裸衣战马超，虎痴的威名来自近身硬仗。",
+  夏侯惇: "拔矢啖睛虽是演义传奇，忠勇宗亲却确有其人。",
+  夏侯渊: "三日五百、六日一千，奔袭是他的成名法。",
+  陆抗: "西陵一战挽住吴国晚势，也是最后的名将余晖。",
+  杜预: "时人称杜武库，因为他像一座随取随用的知识库。",
+  周处: "除三害从除掉旧日的自己开始。",
+  慕容垂: "名将半生受猜忌，离开前秦后终于自立。",
+  拓跋焘: "统一北方的铁骑雄主，锋芒也伴着残酷。",
+  高欢: "若非英雄，安能生英雄；乱世人心被他牢牢抓住。",
+  宇文泰: "关陇集团与府兵底色，都能追到他的布局。",
+  韦孝宽: "玉璧城让高欢顿兵数十日，守城从来不是死守。",
+  陈庆之: "名师大将莫自牢，千军万马避白袍。",
+  檀道济: "自毁万里长城，是后世对他冤死最痛的注脚。",
+  高长恭: "面具之下是兰陵王，邙山一战传成入阵曲。",
+  崔浩: "国史之狱吞掉了这位谋臣，也暴露北魏政治边界。",
+  苏绰: "六条诏书奠定西魏治术，制度文字可以改变国运。",
+  隋炀帝: "大运河贯通南北，辽东战场也拖垮了他的天下。",
+  高颎: "开皇治世的幕后支柱，杨坚曾称其心如明镜。",
+  杨素: "上马能破敌，下马能谋国，权势也因此令人侧目。",
+  长孙无忌: "凌烟阁第一功臣，最后却败给了自己熟悉的宫廷。",
+  马周: "从旅舍困顿到直入中书，才华终究被太宗看见。",
+  褚遂良: "陛下富有四海，何苦再得一昭仪。",
+  张柬之: "年过八十发动神龙政变，让李唐重新回到台前。",
+  郭元振: "安西经营十余年，边功并不只靠一场大战。",
+  张说: "三度为相、主持封禅，文章与权术皆熟。",
+  张九龄: "草木有本心，何求美人折。",
+  李泌: "山中宰相四朝周旋，进退之间自有分寸。",
+  陆贽: "奏议切中时病，德宗若多听几句或许会少些弯路。",
+  韩愈: "欲为圣明除弊事，肯将衰朽惜残年。",
+  柳宗元: "永州山水之外，他始终没放下改革理想。",
+  李德裕: "会昌政局的强硬主导者，也没能走出党争。",
+  牛僧孺: "牛李党争绵延数十年，他是其中绕不开的一端。",
+  颜真卿: "安史之乱守城，李希烈营中赴死，字与人同样端正。",
+  薛仁贵: "三箭定天山，白袍将军从军中脱颖而出。",
+  苏定方: "前后灭三国，俘其主，唐军西进的真正利刃。",
+  裴行俭: "儒将知人，又把西域道路走得极稳。",
+  王忠嗣: "不愿以数万生命换个人功名，盛唐边将亦有克制。",
+  高仙芝: "翻越葱岭远征千里，怛罗斯却成了命运转折。",
+  哥舒翰: "北斗七星高，哥舒夜带刀；潼关一败令人长叹。",
+  韦皋: "坐镇西川二十余年，让吐蕃始终难越成都一步。",
+  柳公绰: "动静以礼，法令严而不苛，是中唐少见的清醒。",
+  浑瑊: "奉天解围、平凉脱险，危局中总能找到他。",
+  赵普: "半部论语治天下虽是传说，开国谋划却实打实。",
+  寇准: "澶渊城下，他硬把犹疑的皇帝推到了前线。",
+  富弼: "出使契丹不辱使命，庆历新政也有他的担当。",
+  韩琦: "相三朝、立二帝，沉得住气就是他的锋芒。",
+  吕蒙正: "不记旧怨，也不因贫寒忘记体恤后来人。",
+  蔡襄: "一封荔枝谱之外，泉州洛阳桥更见实政。",
+  王旦: "识大体、能容人，真宗朝的平稳有他的功劳。",
+  章惇: "强项与争议一样鲜明，元祐政争从不温和。",
+  李纲: "靖康城头主战到底，南渡后仍念念不忘中原。",
+  赵鼎: "中兴贤相四字，足以说明南宋人对他的怀念。",
+  虞允文: "采石矶临时督军，一介文臣竟挡住金主南下。",
+  辛弃疾: "醉里挑灯看剑，他从来不甘只以词人留名。",
+  孟珙: "机动救火二十余年，南宋防线靠他缝合。",
+  余玠: "经营四川、筑山城体系，为钓鱼城传奇打下根基。",
+  贾似道: "木棉庵外尘埃定，权术终究撑不起危亡天下。",
+  张世杰: "崖山风急，他仍试图为宋室留下最后一线。",
+  阿术: "襄阳之后长驱南下，是元军锋线上最硬的一支。",
+  郝经: "被扣十六年不改使节，元初士人自有骨气。",
+  刘秉忠: "大都城与元代制度背后，都有这位僧人出身的谋士。",
+  张弘范: "崖山一役终结宋祚，功名也因此永远伴着争议。",
+  完颜阿骨打: "两千五百破辽军十万，女真由此真正崛起。",
+  完颜宗弼: "兀术南征北战，是岳飞一生最著名的对手。",
+  完颜宗望: "一路直抵汴京，靖康之变前锋最锐。",
+  史天泽: "横跨蒙元两朝，既统军也参与新朝治理。",
+  许衡: "治生、治心、治国在他那里本是一套学问。",
+  朱标: "仁厚太子若能继位，明初政治或许会换一种颜色。",
+  朱瞻基: "斗蟋蟀的逸闻之外，仁宣之治在他手中收束。",
+  严嵩: "青词宰相擅长揣摩圣意，身后骂名也由此而来。",
+  高拱: "性情峭直，隆庆朝的办事效率有他一份。",
+  徐阶: "小心隐忍二十年，终于把严嵩送出朝堂。",
+  杨廷和: "正德骤亡后维持中枢，却在大礼议前不肯退让。",
+  杨士奇: "三杨之首，长于调和而不失原则。",
+  杨荣: "随驾北征、熟悉边务，三杨中最有决断的一位。",
+  杨溥: "十年诏狱没有磨掉气节，入阁后更显宽厚。",
+  袁崇焕: "五年复辽终成空言，宁远城下的炮声却真实存在。",
+  熊廷弼: "三方布置未能施展，传首九边成了晚明冤案。",
+  李成梁: "镇辽二十二年战功赫赫，边地格局也因他更复杂。",
+  孙承宗: "督师辽东、筑关宁防线，书生也能守国门。",
+  卢象升: "巨鹿最后一战，他带着残兵迎向必败之局。",
+  洪承畴: "松锦败降之后仍有治事之才，名节争议却无法抹去。",
+  施琅: "澎湖决战后台湾入版图，旧恩怨也随海潮未平。",
+  年羹尧: "西北立功极盛，盛到最终容不下自己。",
+  岳钟琪: "满营皆满人而大将军独为汉人，足见其军功。",
+  林则徐: "苟利国家生死以，岂因祸福避趋之。",
+  胡林翼: "才大心细，湘军能成体系不只是曾国藩一人之功。",
+  丁宝桢: "敢杀安德海，也能把山东四川的实务办下去。",
+  刘统勋: "遇事敢任、持正不阿，乾隆称他真宰相。",
+  纪晓岚: "阅微草堂的机锋之外，四库馆里更见其博闻。",
+  张廷玉: "配享太庙的汉臣，靠的是数十年如一日的谨慎。",
+  鄂尔泰: "改土归流的执行者，雍正新政由他推向西南。",
+  鳌拜: "战功曾使他显赫，专权又使他成为少年康熙的第一关。",
+  多尔衮: "山海关一役改变天下，他离皇位始终只有半步。",
 };
 
-const quoteTradeoffs: Record<Role, string[]> = {
-  皇帝: ["但大方向越鲜明，越考验班底的制衡。", "只是雄心落地仍要看国力能否承受。", "若能克制急进，长线会更稳。", "用得好能开新局，用得急也会透支民力。"],
-  宰相: ["不过权责太重时，也需要君主充分信任。", "适合处理长线问题，不宜被短期噪声牵着走。", "若有合适同僚配合，治理上限会更高。", "强项在执行，仍需留意朝堂阻力。"],
-  名将: ["只是军功越盛，后勤与朝廷协调越重要。", "适合承担硬仗，但不能让国库长期陪跑。", "若武备基础不足，再强的将领也难独撑。", "用兵之外，还得有人替他守住钱粮。"],
-  财政: ["但增收方式不同，民情代价也会不同。", "账面好看之后，更要防止地方层层加码。", "适合积累优势，不能只追求一时入库。", "若官风不正，再好的制度也可能走样。"],
-  监察: ["不过整顿过猛，也可能让官场暂时失速。", "需要君主撑腰，才能把查案变成制度。", "清议能正人心，执行尺度仍要拿稳。", "若兼顾民情，整饬效果会更持久。"],
-};
-
-function rosterQuote(seed: OriginalPersonSeed) {
-  const hash = [...seed.id].reduce((sum, char) => sum + (char.codePointAt(0) || 0), 0);
-  const opening = quoteOpenings[seed.role][hash % quoteOpenings[seed.role].length];
-  const tradeoff = quoteTradeoffs[seed.role][Math.floor(hash / 3) % quoteTradeoffs[seed.role].length];
-  return `${opening}，${tradeoff}`;
-}
+const rosterQuote = (seed: OriginalPersonSeed) => historicalRosterQuotes[seed.name] || `${seed.name}见于史册，自有一段可供后人评说的功过。`;
 
 const importedPeople: Person[] = originalPeopleSeeds.map((seed) => {
   const role = primaryRoleOverrides[seed.name] || seed.role;
@@ -1968,6 +2143,7 @@ function App() {
   const [policyId, setPolicyId] = useState("rest");
   const [rosterSeats, setRosterSeats] = useState<SeatAssignments>(emptySeats);
   const [rosterRound, setRosterRound] = useState(0);
+  const [redrawsLeft, setRedrawsLeft] = useState(3);
   const [candidateIds, setCandidateIds] = useState<string[]>([]);
   const [activePersonId, setActivePersonId] = useState<string | null>(null);
   const [game, setGame] = useState<GameState | null>(null);
@@ -1991,11 +2167,15 @@ function App() {
 
   const beginRoster = () => {
     const seats = emptySeats();
-    setRosterSeats(seats); setRosterRound(0); setActivePersonId(null);
+    setRosterSeats(seats); setRosterRound(0); setRedrawsLeft(3); setActivePersonId(null);
     setCandidateIds(drawRosterCandidates(seats, [])); setPhase("roster");
   };
 
-  const redrawCandidates = () => setCandidateIds(drawRosterCandidates(rosterSeats, rosterIds));
+  const redrawCandidates = () => {
+    if (redrawsLeft <= 0) return;
+    setCandidateIds(drawRosterCandidates(rosterSeats, rosterIds));
+    setRedrawsLeft((count) => Math.max(0, count - 1));
+  };
 
   const selectPerson = (person: Person) => {
     const target = !rosterSeats[person.role] ? person.role : person.secondaryRoles.find((role) => !rosterSeats[role]) || null;
@@ -2117,7 +2297,7 @@ function App() {
     setSaveMeta((items) => items.map((item, index) => index === slot ? null : item));
   };
 
-  const restart = () => { setGame(null); setPhase("script"); setRosterSeats(emptySeats()); setRosterRound(0); setCandidateIds([]); setActivePersonId(null); setSavesOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const restart = () => { setGame(null); setPhase("script"); setRosterSeats(emptySeats()); setRosterRound(0); setRedrawsLeft(3); setCandidateIds([]); setActivePersonId(null); setSavesOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   return (
     <main className={`app phase-${displayPhase}`}>
@@ -2127,7 +2307,7 @@ function App() {
       {displayPhase === "landing" && <Landing onStart={() => setPhase("script")} onLoad={() => setSavesOpen(true)} />}
       {displayPhase === "script" && <ScriptSelect selected={scriptId} onSelect={setScriptId} onNext={() => setPhase("policy")} />}
       {displayPhase === "policy" && <PolicySelect selected={policyId} onSelect={setPolicyId} onBack={() => setPhase("script")} onNext={beginRoster} />}
-      {displayPhase === "roster" && <RosterSelect seats={rosterSeats} round={rosterRound} candidates={candidateIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[]} activePersonId={activePersonId} onActivate={setActivePersonId} onCanMove={canMovePerson} onMove={movePerson} onRedraw={redrawCandidates} onSelect={selectPerson} onBack={() => setPhase("policy")} onStart={startReign} />}
+      {displayPhase === "roster" && <RosterSelect seats={rosterSeats} round={rosterRound} redrawsLeft={redrawsLeft} candidates={candidateIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[]} activePersonId={activePersonId} onActivate={setActivePersonId} onCanMove={canMovePerson} onMove={movePerson} onRedraw={redrawCandidates} onSelect={selectPerson} onBack={() => setPhase("policy")} onStart={startReign} />}
       {displayPhase === "reign" && game && <Reign game={game} script={script} policy={policy} roster={roster} onChoose={chooseOption} onContinue={continueSeason} onNextYear={beginNextYear} onSave={() => setSavesOpen(true)} />}
       {displayPhase === "ending" && game && <Ending game={game} script={script} onRestart={restart} onSaves={() => setSavesOpen(true)} />}
 
@@ -2178,11 +2358,11 @@ function PolicySelect({ selected, onSelect, onBack, onNext }: { selected: string
   return <section className="setup-page narrow"><Progress active={1} /><header className="setup-heading"><span>第二诏</span><h2>选择国策方向</h2><p>国策不是永久锁定，却会塑造开国三十年的惯性。</p></header><div className="policy-grid">{policies.map((item) => <button key={item.id} onClick={() => onSelect(item.id)} className={`policy-card ${selected === item.id ? "selected" : ""}`}><i>{item.seal}</i><span>国策</span><h3>{item.name}</h3><p>{item.desc}</p><small>{effectText(item.effects)}</small></button>)}</div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回择史</button><button className="primary" onClick={onNext}>颁布国策</button></div></section>;
 }
 
-function RosterSelect({ seats, round, candidates, activePersonId, onActivate, onCanMove, onMove, onRedraw, onSelect, onBack, onStart }: { seats: SeatAssignments; round: number; candidates: Person[]; activePersonId: string | null; onActivate: (id: string | null) => void; onCanMove: (id: string, role: Role) => boolean; onMove: (id: string, role: Role) => void; onRedraw: () => void; onSelect: (person: Person) => void; onBack: () => void; onStart: () => void }) {
+function RosterSelect({ seats, round, redrawsLeft, candidates, activePersonId, onActivate, onCanMove, onMove, onRedraw, onSelect, onBack, onStart }: { seats: SeatAssignments; round: number; redrawsLeft: number; candidates: Person[]; activePersonId: string | null; onActivate: (id: string | null) => void; onCanMove: (id: string, role: Role) => boolean; onMove: (id: string, role: Role) => void; onRedraw: () => void; onSelect: (person: Person) => void; onBack: () => void; onStart: () => void }) {
   return <section className="setup-page roster-page"><Progress active={2} /><header className="setup-heading"><span>第三诏</span><h2>五轮抽签 · 组建班底</h2><p>每轮从随机名册中择一人。主职空缺则优先入主职，否则转入次职。</p></header>
     <div className="seats roster-seats">{roles.map((role) => { const person = people.find((item) => item.id === seats[role]); const isActive = !!person && activePersonId === person.id; const valid = !!activePersonId && onCanMove(activePersonId, role); return <button type="button" draggable={!!person} className={`seat ${person ? "filled" : ""} ${isActive ? "dragging" : ""} ${valid ? "valid-drop" : ""}`} key={role} onClick={() => activePersonId && activePersonId !== person?.id ? onMove(activePersonId, role) : onActivate(person ? (isActive ? null : person.id) : null)} onDragStart={(event) => { if (!person) return; event.dataTransfer.setData("text/plain", person.id); onActivate(person.id); }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const personId = event.dataTransfer.getData("text/plain") || activePersonId; if (personId) onMove(personId, role); }}><span>{role}</span><b>{person?.name || "待定"}</b><small>{person ? `主·${person.role}　次·${person.secondaryRoles.join("/") || "无"}` : "等待抽签入席"}</small>{person && <em>拖拽或点击换位</em>}</button> })}</div>
     <div className="roster-hint"><span>调位规则</span><p>拖动已选人物到高亮席位；若目标已有角色，只有对方也能胜任原席位时才会交换。触屏设备可先点人物，再点高亮席位。</p></div>
-    {round < 5 ? <section className="roster-draw"><header><div><span>第 {round + 1} 轮 / 共 5 轮</span><h3>本轮随机候选</h3></div><button className="ghost" onClick={onRedraw}>换一批人才</button></header><div className="random-candidates">{candidates.map((person) => <button className="person-card draw-card" onClick={() => onSelect(person)} key={person.id}><div><h3>{person.name}</h3><span>{person.dynasty}</span></div><p>{person.quote}</p><div className="role-directions"><i>主 · {person.role}</i><i>次 · {person.secondaryRoles.join("/") || "无"}</i></div><small>{person.tags.map((tag) => <i key={tag}>{tag}</i>)}</small></button>)}</div></section> : <div className="roster-complete"><span>五轮抽签已毕</span><h3>开国五席俱全</h3><p>仍可拖拽或点击上方人物调整任职方向；确认无误后开始治国。</p></div>}
+    {round < 5 ? <section className="roster-draw"><header><div><span>第 {round + 1} 轮 / 共 5 轮</span><h3>本轮随机候选</h3></div><button className="ghost" onClick={onRedraw} disabled={redrawsLeft <= 0}>换一批人才 · 剩 {redrawsLeft} 次</button></header><div className="random-candidates">{candidates.map((person) => <button className="person-card draw-card" onClick={() => onSelect(person)} key={person.id}><div><h3>{person.name}</h3><span>{person.dynasty}</span></div><p>{person.quote}</p><div className="role-directions"><i>主 · {person.role}</i><i>次 · {person.secondaryRoles.join("/") || "无"}</i></div><small>{person.tags.map((tag) => <i key={tag}>{tag}</i>)}</small></button>)}</div></section> : <div className="roster-complete"><span>五轮抽签已毕</span><h3>开国五席俱全</h3><p>仍可拖拽或点击上方人物调整任职方向；确认无误后开始治国。</p></div>}
     <div className="setup-actions sticky-actions"><button className="ghost" onClick={onBack}>返回改策</button><div><span>已完成 {round} / 5 轮</span><button className="primary" disabled={round !== 5 || roles.some((role) => !seats[role])} onClick={onStart}>班底已定 · 开始治国</button></div></div>
   </section>;
 }

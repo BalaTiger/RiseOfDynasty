@@ -31,12 +31,17 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /person\.secondaryRoles\.find\(\(role\) => !rosterSeats\[role\]\)/);
   assert.match(page, /eligible\.filter\(\(person\) => person\.role === role\)/);
   for (const name of ["汉文帝", "刘秀", "武则天", "忽必烈", "雍正", "张良", "司马懿", "范仲淹", "卫青", "霍去病", "戚继光", "赵过", "汲黯", "狄仁杰", "林则徐"]) assert.match(page, new RegExp(name));
-  assert.match(page, /quoteOpenings: Record<Role, string\[\]>/);
+  assert.match(page, /historicalRosterQuotes: Record<string, string>/);
+  assert.match(page, /黄忠: "定军山阵斩夏侯渊/);
+  assert.match(page, /许褚: "裸衣战马超/);
   assert.match(page, /quote: rosterQuote\(\{ \.\.\.seed, role \}\)/);
   assert.match(page, /primaryRoleOverrides: Partial<Record<string, Role>>/);
   assert.match(page, /商鞅: "财政"/);
   assert.match(page, /张良: "监察"/);
   assert.match(page, /第 \{round \+ 1\} 轮 \/ 共 5 轮/);
+  assert.match(page, /const \[redrawsLeft, setRedrawsLeft\] = useState\(3\)/);
+  assert.match(page, /换一批人才 · 剩 \{redrawsLeft\} 次/);
+  assert.match(page, /disabled=\{redrawsLeft <= 0\}/);
   assert.match(page, /draggable=\{!!person\}/);
   assert.match(page, /displayPhase !== "reign"/);
   assert.match(page, /current=\{displayPhase === "reign" \? game : null\}/);

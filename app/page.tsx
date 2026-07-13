@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-type Phase = "landing" | "difficulty" | "script" | "policy" | "roster" | "reign" | "ending";
+type Phase = "landing" | "script" | "policy" | "roster" | "reign" | "ending";
 type DifficultyId = "easy" | "hard" | "hell";
 type StatKey = "population" | "grain" | "army" | "sentiment" | "integrity";
 type Season = "春" | "夏" | "秋" | "冬";
@@ -3009,16 +3009,15 @@ function App() {
     setSaveMeta((items) => items.map((item, index) => index === slot ? null : item));
   };
 
-  const restart = () => { setGame(null); setDifficulty("easy"); setPhase("difficulty"); setRosterSeats(emptySeats()); setRosterRound(0); setRedrawsLeft(3); setCandidateIds([]); setActivePersonId(null); setSavesOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const restart = () => { setGame(null); setDifficulty("easy"); setPhase("landing"); setRosterSeats(emptySeats()); setRosterRound(0); setRedrawsLeft(3); setCandidateIds([]); setActivePersonId(null); setSavesOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   return (
     <main className={`app phase-${displayPhase}`}>
       <div className="grain-overlay" />
       {displayPhase !== "landing" && <TopBar setPhase={setPhase} openSaves={() => setSavesOpen(true)} game={game} canSave={displayPhase === "reign"} />}
 
-      {displayPhase === "landing" && <Landing onStart={() => setPhase("difficulty")} onLoad={() => setSavesOpen(true)} />}
-      {displayPhase === "difficulty" && <DifficultySelect selected={difficulty} onSelect={setDifficulty} onNext={() => setPhase("script")} />}
-      {displayPhase === "script" && <ScriptSelect selected={scriptId} onSelect={setScriptId} onBack={() => setPhase("difficulty")} onNext={() => setPhase("policy")} />}
+      {displayPhase === "landing" && <Landing onStart={(selectedDifficulty) => { setDifficulty(selectedDifficulty); setPhase("script"); }} onLoad={() => setSavesOpen(true)} />}
+      {displayPhase === "script" && <ScriptSelect selected={scriptId} onSelect={setScriptId} onBack={() => setPhase("landing")} onNext={() => setPhase("policy")} />}
       {displayPhase === "policy" && <PolicySelect selected={policyId} onSelect={setPolicyId} onBack={() => setPhase("script")} onNext={beginRoster} />}
       {displayPhase === "roster" && <RosterSelect seats={rosterSeats} round={rosterRound} redrawsLeft={redrawsLeft} candidates={candidateIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[]} activePersonId={activePersonId} onActivate={setActivePersonId} onCanMove={canMovePerson} onMove={movePerson} onRedraw={redrawCandidates} onSelect={selectPerson} onBack={() => setPhase("policy")} onStart={startReign} />}
       {displayPhase === "reign" && game && <Reign game={game} script={script} policy={policy} roster={roster} onChoose={chooseOption} onContinue={continueSeason} onNextYear={beginNextYear} />}
@@ -3065,7 +3064,8 @@ function formatDelta(value: number) {
   return `${rounded >= 0 ? "+" : ""}${rounded}`;
 }
 
-function Landing({ onStart, onLoad }: { onStart: () => void; onLoad: () => void }) {
+function Landing({ onStart, onLoad }: { onStart: (difficulty: DifficultyId) => void; onLoad: () => void }) {
+  const [difficultyOpen, setDifficultyOpen] = useState(false);
   return <section className="landing">
     <div className="mountain mountain-a" /><div className="mountain mountain-b" />
     <div className="landing-inner">
@@ -3073,34 +3073,30 @@ function Landing({ onStart, onLoad }: { onStart: () => void; onLoad: () => void 
       <div className="seal">国<br />祚</div>
       <h1>五百年<br /><em>王朝</em></h1>
       <p className="hero-copy">择一段历史为局，定一条治国之道，携四位股肱之臣走过每个春夏秋冬。<br />这一次，结局不由一次随机判词决定。</p>
-      <div className="hero-actions"><button className="primary xl" onClick={onStart}>选择难度 · 开国</button><button className="ghost" onClick={onLoad}>读取存档</button></div>
+      <div className="hero-actions"><div className="start-menu"><button className="primary xl" aria-haspopup="menu" aria-expanded={difficultyOpen} onClick={() => setDifficultyOpen((open) => !open)}>开国治世 <span>▾</span></button>{difficultyOpen && <div className="difficulty-menu" role="menu" aria-label="选择治世难度">{difficulties.map((item) => <button role="menuitem" key={item.id} onClick={() => onStart(item.id)}><i>{item.seal}</i><span><b>{item.name}</b><small>官风每年 {formatDelta(-6 - item.integrityDecayPenalty)} · {item.chancePenalty ? `成功率 -${item.chancePenalty}%` : "成功率不变"}</small></span></button>)}</div>}</div><button className="ghost" onClick={onLoad}>读取存档</button></div>
       <div className="hero-rules"><span>五项国势彼此牵引</span><i>◆</i><span>历史大事必然发生</span><i>◆</i><span>五百年方成千古一朝</span></div>
     </div>
   </section>;
 }
 
 function Progress({ active }: { active: number }) {
-  return <div className="progress" aria-label="开国进度">{["难度选择", "历史剧本", "国策方向", "开国班底"].map((label, index) => <div className={index <= active ? "active" : ""} key={label}><b>0{index + 1}</b><span>{label}</span></div>)}</div>;
-}
-
-function DifficultySelect({ selected, onSelect, onNext }: { selected: DifficultyId; onSelect: (id: DifficultyId) => void; onNext: () => void }) {
-  return <section className="setup-page narrow"><Progress active={0} /><header className="setup-heading"><span>第一诏</span><h2>选择治世难度</h2><p>难度一经进入治国阶段便随本局固定，并写入存档。</p></header><div className="policy-grid difficulty-grid">{difficulties.map((item) => <button key={item.id} onClick={() => onSelect(item.id)} className={`policy-card ${selected === item.id ? "selected" : ""}`}><i>{item.seal}</i><span>治世难度</span><h3>{item.name}</h3><p>{item.desc}</p><small>每年官风 {formatDelta(-6 - item.integrityDecayPenalty)}<br />判定成功率 {item.chancePenalty ? `-${item.chancePenalty}%` : "无额外惩罚"}</small></button>)}</div><div className="setup-actions difficulty-actions"><button className="ghost" onClick={() => onSelect("easy")}>恢复默认</button><button className="primary" onClick={onNext}>确定难度 · 选择剧本</button></div></section>;
+  return <div className="progress" aria-label="开国进度">{["历史剧本", "国策方向", "开国班底"].map((label, index) => <div className={index <= active ? "active" : ""} key={label}><b>0{index + 1}</b><span>{label}</span></div>)}</div>;
 }
 
 function ScriptSelect({ selected, onSelect, onBack, onNext }: { selected: string; onSelect: (id: string) => void; onBack: () => void; onNext: () => void }) {
   const chosen = scripts.find((item) => item.id === selected)!;
-  return <section className="setup-page"><Progress active={1} /><header className="setup-heading"><span>第二诏</span><h2>选择历史剧本</h2><p>历史给你一道开局，但不会替你写下结局。</p></header>
+  return <section className="setup-page"><Progress active={0} /><header className="setup-heading"><span>第一诏</span><h2>选择历史剧本</h2><p>历史给你一道开局，但不会替你写下结局。</p></header>
     <div className="script-layout"><div className="script-grid">{scripts.map((item) => <button key={item.id} className={`script-card ${selected === item.id ? "selected" : ""}`} onClick={() => onSelect(item.id)} style={{ "--accent": item.color } as React.CSSProperties}><span className="dynasty">{item.dynasty}</span><h3>{item.title}</h3><p>{item.motto}</p><small>{item.startLabel}</small></button>)}</div>
-      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">历史原型</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回难度</button><button className="primary" onClick={onNext}>以此纪开局</button></div></aside>
+      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">历史原型</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回首页</button><button className="primary" onClick={onNext}>以此纪开局</button></div></aside>
     </div></section>;
 }
 
 function PolicySelect({ selected, onSelect, onBack, onNext }: { selected: string; onSelect: (id: string) => void; onBack: () => void; onNext: () => void }) {
-  return <section className="setup-page narrow"><Progress active={2} /><header className="setup-heading"><span>第三诏</span><h2>选择国策方向</h2><p>国策不是永久锁定，却会塑造开国三十年的惯性。</p></header><div className="policy-grid">{policies.map((item) => <button key={item.id} onClick={() => onSelect(item.id)} className={`policy-card ${selected === item.id ? "selected" : ""}`}><i>{item.seal}</i><span>国策</span><h3>{item.name}</h3><p>{item.desc}</p><small>{effectText(item.effects)}</small></button>)}</div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回择史</button><button className="primary" onClick={onNext}>颁布国策</button></div></section>;
+  return <section className="setup-page narrow"><Progress active={1} /><header className="setup-heading"><span>第二诏</span><h2>选择国策方向</h2><p>国策不是永久锁定，却会塑造开国三十年的惯性。</p></header><div className="policy-grid">{policies.map((item) => <button key={item.id} onClick={() => onSelect(item.id)} className={`policy-card ${selected === item.id ? "selected" : ""}`}><i>{item.seal}</i><span>国策</span><h3>{item.name}</h3><p>{item.desc}</p><small>{effectText(item.effects)}</small></button>)}</div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回择史</button><button className="primary" onClick={onNext}>颁布国策</button></div></section>;
 }
 
 function RosterSelect({ seats, round, redrawsLeft, candidates, activePersonId, onActivate, onCanMove, onMove, onRedraw, onSelect, onBack, onStart }: { seats: SeatAssignments; round: number; redrawsLeft: number; candidates: Person[]; activePersonId: string | null; onActivate: (id: string | null) => void; onCanMove: (id: string, role: Role) => boolean; onMove: (id: string, role: Role) => void; onRedraw: () => void; onSelect: (person: Person) => void; onBack: () => void; onStart: () => void }) {
-  return <section className="setup-page roster-page"><Progress active={3} /><header className="setup-heading"><span>第四诏</span><h2>五轮抽签 · 组建班底</h2><p>每轮从随机名册中择一人。主职空缺则优先入主职，否则转入次职。</p></header>
+  return <section className="setup-page roster-page"><Progress active={2} /><header className="setup-heading"><span>第三诏</span><h2>五轮抽签 · 组建班底</h2><p>每轮从随机名册中择一人。主职空缺则优先入主职，否则转入次职。</p></header>
     <div className="seats roster-seats">{roles.map((role) => { const person = people.find((item) => item.id === seats[role]); const isActive = !!person && activePersonId === person.id; const valid = !!activePersonId && onCanMove(activePersonId, role); return <button type="button" draggable={!!person} className={`seat ${person ? "filled" : ""} ${isActive ? "dragging" : ""} ${valid ? "valid-drop" : ""}`} key={role} onClick={() => activePersonId && activePersonId !== person?.id ? onMove(activePersonId, role) : onActivate(person ? (isActive ? null : person.id) : null)} onDragStart={(event) => { if (!person) return; event.dataTransfer.setData("text/plain", person.id); onActivate(person.id); }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const personId = event.dataTransfer.getData("text/plain") || activePersonId; if (personId) onMove(personId, role); }}><span>{role}</span><b>{person?.name || "待定"}</b><small>{person ? `主·${person.role}　次·${person.secondaryRoles.join("/") || "无"}` : "等待抽签入席"}</small>{person && <em>拖拽或点击换位</em>}</button> })}</div>
     <div className="roster-hint"><span>调位规则</span><p>拖动已选人物到高亮席位；若目标已有角色，只有对方也能胜任原席位时才会交换。触屏设备可先点人物，再点高亮席位。</p></div>
     {round < 5 ? <section className="roster-draw"><header><div><span>第 {round + 1} 轮 / 共 5 轮</span><h3>本轮随机候选</h3></div><button className="ghost" onClick={onRedraw} disabled={redrawsLeft <= 0}>换一批人才 · 剩 {redrawsLeft} 次</button></header><div className="random-candidates">{candidates.map((person) => <button className="person-card draw-card" onClick={() => onSelect(person)} key={person.id}><div><h3>{person.name}</h3><span>{person.dynasty}</span></div><p>{person.quote}</p><div className="role-directions"><i>主 · {person.role}</i><i>次 · {person.secondaryRoles.join("/") || "无"}</i></div><small>{person.tags.map((tag) => <i key={tag}>{tag}</i>)}</small></button>)}</div></section> : <div className="roster-complete"><span>五轮抽签已毕</span><h3>开国五席俱全</h3><p>仍可拖拽或点击上方人物调整任职方向；确认无误后开始治国。</p></div>}

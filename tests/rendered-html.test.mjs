@@ -18,7 +18,7 @@ test("server renders the dynasty game landing page", async () => {
   const html = await response.text();
   assert.match(html, /<title>五百年王朝｜四时治世<\/title>/i);
   assert.match(html, /五百年/);
-  assert.match(html, /选择难度/);
+  assert.match(html, /开国治世/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });
 
@@ -112,8 +112,12 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /const difficulty: DifficultyId = difficulties\.some/);
   assert.match(page, /saved\.difficulty! : "easy"/);
   assert.match(page, /setDifficulty\(saved\.difficulty\)/);
-  assert.match(page, /\["难度选择", "历史剧本", "国策方向", "开国班底"\]/);
-  assert.match(page, /难度一经进入治国阶段便随本局固定，并写入存档/);
+  assert.match(page, /\["历史剧本", "国策方向", "开国班底"\]/);
+  assert.match(page, /const \[difficultyOpen, setDifficultyOpen\] = useState\(false\)/);
+  assert.match(page, /aria-haspopup="menu" aria-expanded=\{difficultyOpen\}/);
+  assert.match(page, /className="difficulty-menu" role="menu" aria-label="选择治世难度"/);
+  assert.match(page, /role="menuitem"/);
+  assert.match(page, /onStart=\{\(selectedDifficulty\) => \{ setDifficulty\(selectedDifficulty\); setPhase\("script"\); \}\}/);
   assert.match(page, /difficultyRule\(save\.difficulty\)\.name\}难度/);
   const difficultyRules = {
     easy: { integrityDecayPenalty: 0, chancePenalty: 0 },

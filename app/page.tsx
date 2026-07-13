@@ -2053,6 +2053,23 @@ const addEffects = (stats: Stats, effects: Partial<Stats>): Stats => ({
   integrity: clamp(stats.integrity + (effects.integrity || 0), -100, 100),
 });
 
+function liveState(stats: Stats) {
+  const army = Math.round(stats.population * .18);
+  const grainNeed = stats.population * .8;
+  const shortageRatio = grainNeed > 0 ? Math.max(0, grainNeed - stats.grain) / grainNeed : 0;
+  const supply = shortageRatio > 0 ? -Math.max(1, Math.round(shortageRatio * 24)) : 0;
+  const corruption = -Math.round(Math.max(0, -stats.integrity) / 16);
+  const sentiment = supply + corruption;
+  return {
+    effective: {
+      ...stats,
+      army: clamp(stats.army + army, 0, 260),
+      sentiment: clamp(stats.sentiment + sentiment, -100, 100),
+    },
+    modifiers: { army, grainNeed, supply, corruption, sentiment },
+  };
+}
+
 const nextCalendarYear = (year: number) => year === -1 ? 1 : year + 1;
 const yearLabel = (year: number) => year < 0 ? `公元前${Math.abs(year)}年` : `公元${year}年`;
 const axisLabel = (key: "sentiment" | "integrity", value: number) => {
@@ -2082,10 +2099,11 @@ function seededShuffle<T>(items: T[], seed: number) {
 }
 
 function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYears: number, unrestYears: number) {
+  const effective = liveState(stats).effective;
   const required = historicalEvents.filter((event) => event.scriptId === scriptId && event.year === year).slice(0, 4);
   const conditional: EventTemplate[] = [];
-  if (stats.army < 55 && lowArmyYears >= 1) conditional.push(randomEvents.find((event) => event.id === "invasion")!);
-  if (stats.sentiment <= -60 && unrestYears >= 1) conditional.push(randomEvents.find((event) => event.id === "rebellion")!);
+  if (effective.army < 55 && lowArmyYears >= 1) conditional.push(randomEvents.find((event) => event.id === "invasion")!);
+  if (effective.sentiment <= -60 && unrestYears >= 1) conditional.push(randomEvents.find((event) => event.id === "rebellion")!);
   const excluded = new Set(conditional.map((event) => event.id));
   const base = randomEvents.filter((event) => !["invasion", "rebellion"].includes(event.id) && !excluded.has(event.id));
   const picked = seededShuffle(base, year * 37 + stats.population * 11 + stats.grain).slice(0, 4);
@@ -2213,11 +2231,12 @@ function App() {
     stats = addEffects(stats, { population: variance(2), grain: variance(4), army: variance(6), sentiment: variance(8), integrity: variance(10) });
     const growth = annualGrowth(stats, policyId);
     stats = addEffects(stats, growth.effects);
+    const effective = liveState(stats).effective;
     const initial: GameState = {
       version: 2, phase: "reign", scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
       stats, events: buildYearEvents(scriptId, script.startYear, stats, 0, 0), outcome: null,
       chronicle: [{ year: script.startYear, season: "春", title: "开国建元", note: `${people.find((person) => person.id === rosterSeats.皇帝)?.name || "新君"}与开国班底共治天下。${growth.note}` }],
-      lowArmyYears: stats.army < 55 ? 1 : 0, unrestYears: stats.sentiment <= -60 ? 1 : 0, alteredHistory: false,
+      lowArmyYears: effective.army < 55 ? 1 : 0, unrestYears: effective.sentiment <= -60 ? 1 : 0, alteredHistory: false,
       annualNote: growth.note, endingReason: "", endingVictory: false,
     };
     setGame(initial); setPhase("reign"); window.scrollTo({ top: 0, behavior: "smooth" });
@@ -2227,27 +2246,28 @@ function App() {
     if (!tag) return 0;
     const members = roster.filter((person) => person.tags.includes(tag)).length;
     const policyBoost = policy.tag === tag ? 8 : 0;
-    return members * 10 + policyBoost;
+    return members * 15 + policyBoost;
   };
 
   const chooseOption = (option: EventOption) => {
     setGame((current) => {
       if (!current || current.outcome) return current;
       const event = current.events[current.seasonIndex];
-      if (option.failOnUnmet && !meets(current.stats, option.requirements)) {
+      const effectiveCurrent = liveState(current.stats).effective;
+      if (option.failOnUnmet && !meets(effectiveCurrent, option.requirements)) {
         return { ...current, phase: "ending", endingVictory: false, endingReason: `${event.title}中，国力未达到「${option.label}」的最低要求。仓促的决断成为王朝覆亡的最后一根稻草。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "国祚中绝", note: `${event.title}处置失当，王朝陨落。` }] };
       }
       let effects = option.effects || {};
       let success: boolean | undefined;
       let resultText = option.detail;
       if (option.chance) {
-        const statBoost = option.tag === "军事" ? Math.max(-8, (current.stats.army - 70) / 10) : option.tag === "财政" ? (current.stats.grain - 70) / 10 : option.tag === "吏治" ? current.stats.integrity / 10 : option.tag === "民生" ? current.stats.sentiment / 10 : (current.stats.integrity + current.stats.sentiment) / 10;
+        const statBoost = option.tag === "军事" ? Math.max(-8, (effectiveCurrent.army - 70) / 10) : option.tag === "财政" ? (effectiveCurrent.grain - 70) / 10 : option.tag === "吏治" ? effectiveCurrent.integrity / 10 : option.tag === "民生" ? effectiveCurrent.sentiment / 10 : (effectiveCurrent.integrity + effectiveCurrent.sentiment) / 10;
         const finalChance = clamp(option.chance + teamChance(option.tag) + statBoost, 1, 100);
         success = Math.random() * 100 < finalChance;
         effects = success ? (option.successEffects || {}) : (option.failEffects || {});
         resultText = success ? `班底各展所长，决策奏效（成功率 ${Math.round(finalChance)}%）。` : `局势未如所愿，代价已经显现（成功率 ${Math.round(finalChance)}%）。`;
       }
-      const alternate = !!option.alternateText && meets(current.stats, option.rewardRequirements);
+      const alternate = !!option.alternateText && meets(effectiveCurrent, option.rewardRequirements);
       if (alternate) resultText = option.alternateText!;
       const stats = addEffects(current.stats, effects);
       if (stats.population < 18 || stats.grain <= 0) {
@@ -2274,8 +2294,9 @@ function App() {
       const growth = annualGrowth(current.stats, current.policyId);
       const stats = addEffects(current.stats, growth.effects);
       if (stats.population < 18 || stats.grain <= 0) return { ...current, year, stats, phase: "ending", endingVictory: false, endingReason: stats.grain <= 0 ? "岁首核账，国库已经无粮可支，天下由此土崩瓦解。" : "连年凋敝后，编户不足以支撑国家，王朝悄然终结。" };
-      const lowArmyYears = stats.army < 55 ? current.lowArmyYears + 1 : 0;
-      const unrestYears = stats.sentiment <= -60 ? current.unrestYears + 1 : 0;
+      const effective = liveState(stats).effective;
+      const lowArmyYears = effective.army < 55 ? current.lowArmyYears + 1 : 0;
+      const unrestYears = effective.sentiment <= -60 ? current.unrestYears + 1 : 0;
       return { ...current, year, elapsed: current.elapsed + 1, stats, seasonIndex: 0, outcome: null, annualNote: growth.note, lowArmyYears, unrestYears, events: buildYearEvents(current.scriptId, year, stats, lowArmyYears, unrestYears), chronicle: [...current.chronicle, { year, season: "春", title: "岁首国计", note: growth.note }].slice(-30) };
     });
   };
@@ -2317,15 +2338,35 @@ function App() {
 }
 
 function annualGrowth(stats: Stats, policyId: string) {
+  const effective = liveState(stats).effective;
   const rest = policyId === "rest" ? 1.5 : 0;
-  const corruptionDrag = Math.max(0, -stats.integrity) / 16;
-  const crowdingDrag = stats.population > stats.grain * 1.25 ? 5 : 0;
-  const population = clamp(2.2 + stats.sentiment / 32 + rest - corruptionDrag / 3, -8, 8);
-  const grain = clamp(stats.population * .075 + (policyId === "rest" ? 5 : 0) + stats.integrity / 18 - stats.population * .05 - stats.army * .025, -20, 20);
-  const sentiment = clamp((stats.grain < stats.population * .7 ? -8 : 2) - crowdingDrag - corruptionDrag + (policyId === "rest" ? 3 : 0), -16, 8);
-  const integrity = stats.integrity < -20 ? -2 : stats.integrity > 60 ? -1 : 0;
-  const effects = { population, grain, sentiment, integrity };
-  return { effects, note: `户口${population >= 0 ? "增" : "减"}${Math.abs(population)}，府库${grain >= 0 ? "盈" : "耗"}${Math.abs(grain)}；${sentiment < 0 ? "生计压力使民情转冷" : "年景尚可，人心稍安"}。` };
+  const corruptionDrag = Math.max(0, -effective.integrity) / 16;
+  const population = clamp(2.2 + effective.sentiment / 32 + rest - corruptionDrag / 3, -8, 8);
+  const grain = clamp(stats.population * .075 + (policyId === "rest" ? 5 : 0) + effective.integrity / 18 - stats.population * .05 - effective.army * .025, -20, 20);
+  const effects = { population, grain };
+  return {
+    effects,
+    note: `户口${population >= 0 ? "增" : "减"}${Math.abs(population)}，府库${grain >= 0 ? "盈" : "耗"}${Math.abs(grain)}。`,
+    breakdown: {
+      population: [
+        { label: `民情 ${formatDelta(effective.sentiment / 32)}`, value: effective.sentiment / 32, detail: `有效民情 ${effective.sentiment} ÷ 32 = ${formatDelta(effective.sentiment / 32)}，计入每年人口增长；民情变化后立即重算。` },
+        ...(rest ? [{ label: "休养 +1.5", value: 1.5, detail: "国策“休养生息”固定使每年人口增长 +1.5；更换国策后消失。" }] : []),
+        ...(corruptionDrag ? [{ label: `贪腐 ${formatDelta(-corruptionDrag / 3)}`, value: -corruptionDrag / 3, detail: `有效官风为 ${effective.integrity}，先取负值部分 ÷ 16，再 ÷ 3，得到人口增长 ${formatDelta(-corruptionDrag / 3)}；官风不再为负时消失。` }] : []),
+      ],
+      grain: [
+        { label: `人口产出 ${formatDelta(stats.population * .075)}`, value: stats.population * .075, detail: `基础人口 ${stats.population} × 0.075 = ${formatDelta(stats.population * .075)}，计入每年钱粮增长。` },
+        { label: `民用 ${formatDelta(-stats.population * .05)}`, value: -stats.population * .05, detail: `基础人口 ${stats.population} × 0.05 = ${formatDelta(stats.population * .05)}，作为每年民用消耗。` },
+        { label: `军费 ${formatDelta(-effective.army * .025)}`, value: -effective.army * .025, detail: `当前有效武备 ${effective.army} × 0.025 = ${formatDelta(effective.army * .025)}，作为每年军费消耗。` },
+        { label: `官风 ${formatDelta(effective.integrity / 18)}`, value: effective.integrity / 18, detail: `当前有效官风 ${effective.integrity} ÷ 18 = ${formatDelta(effective.integrity / 18)}，计入每年钱粮增长；官风变化后立即重算。` },
+        ...(policyId === "rest" ? [{ label: "休养 +5", value: 5, detail: "国策“休养生息”固定使每年钱粮增长 +5；更换国策后消失。" }] : []),
+      ],
+    },
+  };
+}
+
+function formatDelta(value: number) {
+  const rounded = Math.round(value * 10) / 10;
+  return `${rounded >= 0 ? "+" : ""}${rounded}`;
 }
 
 function Landing({ onStart, onLoad }: { onStart: () => void; onLoad: () => void }) {
@@ -2371,13 +2412,31 @@ function TopBar({ setPhase, openSaves, game, canSave }: { setPhase: (phase: Phas
   return <nav className="topbar"><button className="brand" onClick={() => !game && setPhase("landing")}><i>祚</i><span>五百年王朝<small>RISE OF DYNASTY</small></span></button><div><span className="top-status">{game ? `${yearLabel(game.year)} · 国祚第${game.elapsed}年` : "正在开国"}</span><button className="nav-button" onClick={openSaves}>▣ {canSave ? "存读档" : "读取旧档"}</button></div></nav>;
 }
 
-function StatPanel({ stats }: { stats: Stats }) {
-  const effectiveArmy = clamp(stats.army + stats.population * .18, 0, 260);
-  return <div className="stats-panel"><div className="number-stat"><span>户</span><div><small>人口 · 万户</small><strong>{stats.population}</strong><em>{stats.population > 100 ? "户口充盈" : stats.population < 45 ? "人丁凋敝" : "生息渐稳"}</em></div></div><div className="number-stat"><span>仓</span><div><small>钱粮 · 国用</small><strong>{stats.grain}</strong><em>{stats.grain < 35 ? "仓廪告急" : stats.grain > 120 ? "府库充盈" : "尚可支应"}</em></div></div><div className="number-stat"><span>兵</span><div><small>武备 · 实效 {effectiveArmy}</small><strong>{stats.army}</strong><em>人口加成 +{Math.round(stats.population * .18)}</em></div></div><AxisStat label="民情" value={stats.sentiment} text={axisLabel("sentiment", stats.sentiment)} left="民怨沸腾" right="安居乐业" /><AxisStat label="官场风气" value={stats.integrity} text={axisLabel("integrity", stats.integrity)} left="贪墨成风" right="海内澄清" /></div>;
+function StatPanel({ stats, policyId }: { stats: Stats; policyId: string }) {
+  const growth = annualGrowth(stats, policyId);
+  const live = liveState(stats);
+  const sentimentBuffs = [
+    live.modifiers.supply && { label: `供养不足 ${live.modifiers.supply}`, value: live.modifiers.supply, detail: `人口需要钱粮 ${formatDelta(live.modifiers.grainNeed).slice(1)}（人口 ${stats.population} × 0.8）。当前钱粮 ${stats.grain} 低于需求线，缺口占需求的比例 × 24 并四舍五入，民情 ${live.modifiers.supply}；钱粮达到需求线后立即消失。` },
+    live.modifiers.corruption && { label: `贪腐 ${live.modifiers.corruption}`, value: live.modifiers.corruption, detail: `基础官风 ${stats.integrity} 的负值部分 ÷ 16 并四舍五入，民情 ${live.modifiers.corruption}；基础官风回到 0 以上后立即消失。` },
+  ].filter(Boolean) as ModifierView[];
+  const integrityBuffs: ModifierView[] = [];
+  return <div className="stats-panel">
+    <div className="number-stat"><span>户</span><div><small>人口 · 万户</small><strong>{stats.population}<b className={growth.effects.population >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.population)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.population.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
+    <div className="number-stat"><span>仓</span><div><small>钱粮 · 国用</small><strong>{stats.grain}<b className={growth.effects.grain >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.grain)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.grain.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
+    <div className="number-stat"><span>兵</span><div><small>武备 · 基础 {stats.army}</small><strong>{live.effective.army}</strong><em>当前实效</em><div className="stat-buffs"><ModifierChip item={{ label: `人口 +${live.modifiers.army}`, value: live.modifiers.army, detail: `基础人口 ${stats.population} × 0.18 并四舍五入，为当前武备 +${live.modifiers.army}；人口变化后立即重算。` }} /></div></div></div>
+    <AxisStat label="民情" value={live.effective.sentiment} baseValue={stats.sentiment} modifiers={sentimentBuffs} text={axisLabel("sentiment", live.effective.sentiment)} left="民怨沸腾" right="安居乐业" />
+    <AxisStat label="官场风气" value={live.effective.integrity} baseValue={stats.integrity} modifiers={integrityBuffs} text={axisLabel("integrity", live.effective.integrity)} left="贪墨成风" right="海内澄清" />
+  </div>;
 }
 
-function AxisStat({ label, value, text, left, right }: { label: string; value: number; text: string; left: string; right: string }) {
-  return <div className="axis-stat"><div><small>{label}</small><strong>{text}</strong><b>{value > 0 ? "+" : ""}{value}</b></div><div className="axis"><i style={{ left: `${(value + 100) / 2}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
+type ModifierView = { label: string; value: number; detail: string };
+
+function ModifierChip({ item }: { item: ModifierView }) {
+  return <i className={item.value < 0 ? "debuff" : "buff"} tabIndex={0}>{item.label}<span role="tooltip">{item.detail}</span></i>;
+}
+
+function AxisStat({ label, value, baseValue, modifiers, text, left, right }: { label: string; value: number; baseValue: number; modifiers: ModifierView[]; text: string; left: string; right: string }) {
+  return <div className="axis-stat"><div><small>{label} · 基础 {baseValue}</small><strong>{text}</strong><b>{value > 0 ? "+" : ""}{value}</b></div>{modifiers.length > 0 && <div className="stat-buffs">{modifiers.map((item) => <ModifierChip item={item} key={item.label} />)}</div>}<div className="axis"><i style={{ left: `${(value + 100) / 2}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
 }
 
 function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear, onSave }: { game: GameState; script: Script; policy: typeof policies[number]; roster: Person[]; onChoose: (option: EventOption) => void; onContinue: () => void; onNextYear: () => void; onSave: () => void }) {
@@ -2385,14 +2444,16 @@ function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear,
   const isYearEnd = game.seasonIndex === 4;
   const assigned = (role: Role) => roster.find((person) => person.id === game.seatAssignments[role]);
   const emperor = assigned("皇帝");
-  return <section className="reign-page"><div className="reign-header"><div><span>{script.title} · 君主 {emperor?.name}</span><h1>{yearLabel(game.year)}</h1><p>国祚第 {game.elapsed} 年 · 国策「{policy.name}」{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div><div className="reign-actions"><button onClick={onSave}>存档</button></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} /><div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +7%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className="cabinet-person" key={role}><div><small>{role}</small><b>{person?.name}</b></div><span>{person?.tags.join(" · ")}</span></div> })}</div></aside>
+  return <section className="reign-page"><div className="reign-header"><div><span>{script.title} · 君主 {emperor?.name}</span><h1>{yearLabel(game.year)}</h1><p>国祚第 {game.elapsed} 年 · 国策「{policy.name}」{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div><div className="reign-actions"><button onClick={onSave}>存档</button></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} policyId={game.policyId} /><div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +15%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className="cabinet-person" key={role}><div><small>{role}</small><b>{person?.name}</b></div><span>{person?.tags.join(" · ")}</span></div> })}</div></aside>
       <article className="court"><div className="yearline">{seasons.map((season, index) => <div className={index < game.seasonIndex ? "done" : index === game.seasonIndex ? "active" : ""} key={season}><i>{index < game.seasonIndex ? "✓" : season}</i><span>{season}{index === 0 ? "耕" : index === 1 ? "长" : index === 2 ? "收" : "藏"}</span></div>)}</div>
         {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {seasons[game.seasonIndex]}季</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}　`}{option.chance && `基础成功率 ${option.chance}%　`}{option.effects && effectText(option.effects)}</small>{option.chance && <div className="chance-results"><em className="success-result"><b>成功</b>{effectText(option.successEffects || {}) || "国势无直接变化"}</em><em className="fail-result"><b>失败</b>{effectText(option.failEffects || {}) || "国势无直接变化"}</em></div>}</div><span>决断</span></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === 3 ? "封存本年奏牍" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
         <Chronicle entries={game.chronicle} /></article></div></section>;
 }
 
 function YearEnd({ game, onNext }: { game: GameState; onNext: () => void }) {
-  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>这一年的四道决断已经写入起居注。钱粮与人口将在新岁自然增长或衰减，贪腐、军备低迷与生计压力也会继续相互作用。</p><div className="annual-note"><i>岁首旧录</i><strong>{game.annualNote}</strong></div><div className="warning-row">{game.stats.army < 55 && <span>⚑ 武备低迷，来年边患概率上升</span>}{game.stats.sentiment <= -60 && <span>⚠ 民怨沸腾，起义正在酝酿</span>}{game.stats.grain < game.stats.population * .7 && <span>▱ 人多粮少，民情将受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀钱粮与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
+  const effective = liveState(game.stats).effective;
+  const growth = annualGrowth(game.stats, game.policyId).effects;
+  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁只结算人口与钱粮的当前增长值。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {growth.population >= 0 ? "+" : ""}{growth.population}　钱粮 {growth.grain >= 0 ? "+" : ""}{growth.grain}</strong></div><div className="warning-row">{effective.army < 55 && <span>⚑ 武备低迷，来年边患概率上升</span>}{effective.sentiment <= -60 && <span>⚠ 民怨沸腾，起义正在酝酿</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
 }
 
 function Chronicle({ entries }: { entries: Chronicle[] }) {
@@ -2401,7 +2462,8 @@ function Chronicle({ entries }: { entries: Chronicle[] }) {
 }
 
 function Ending({ game, script, onRestart, onSaves }: { game: GameState; script: Script; onRestart: () => void; onSaves: () => void }) {
-  const score = clamp(game.elapsed * 2 + game.stats.population + game.stats.grain + game.stats.army + game.stats.sentiment + game.stats.integrity, 0, 9999);
+  const effective = liveState(game.stats).effective;
+  const score = clamp(game.elapsed * 2 + effective.population + effective.grain + effective.army + effective.sentiment + effective.integrity, 0, 9999);
   return <section className={`ending ${game.endingVictory ? "victory" : "defeat"}`}><div className="ending-card"><span className="ending-kicker">{game.endingVictory ? "千古一朝" : "国祚已终"}</span><div className="ending-seal">{game.endingVictory ? "盛" : "殁"}</div><h1>{script.dynasty}祚 · {game.elapsed}年</h1><p>{game.endingReason}</p><div className="ending-stats"><div><small>最后年份</small><strong>{yearLabel(game.year)}</strong></div><div><small>治世评定</small><strong>{score}</strong></div><div><small>历史线</small><strong>{game.alteredHistory ? "另开新史" : "大势未改"}</strong></div></div><blockquote>“{game.chronicle[game.chronicle.length - 1]?.note}”</blockquote><div><button className="primary" onClick={onRestart}>再开一纪</button><button className="ghost" onClick={onSaves}>读取旧档</button></div></div></section>;
 }
 

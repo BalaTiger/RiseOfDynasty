@@ -109,7 +109,7 @@ const statNames: Record<StatKey, string> = {
 };
 
 const scripts: Script[] = [
-  { id: "qin", title: "秦始皇纪", ruler: "嬴政", dynasty: "秦", startYear: -221, startLabel: "始皇二十六年 · 一统六国", color: "#b78b3e", motto: "六合一统，法度初成", description: "从登基称帝之年开始。疆域空前，制度锋利，而天下民力已经绷紧。", base: { population: 92, grain: 98, army: 92, sentiment: -18, integrity: 18 } },
+  { id: "qin", title: "秦始皇纪", ruler: "嬴政", dynasty: "秦", startYear: -246, startLabel: "秦王政元年 · 少年即位", color: "#b78b3e", motto: "奋六世余烈，并天下为一", description: "从即秦王位之年开始。秦国兵强法密，朝权却仍在相邦与太后手中，统一天下尚是二十五年后的远景。", base: { population: 70, grain: 82, army: 84, sentiment: -6, integrity: 14 } },
   { id: "liubang", title: "汉高祖纪", ruler: "刘邦", dynasty: "汉", startYear: -209, startLabel: "秦二世元年 · 沛县起兵", color: "#a23e32", motto: "约法三章，群雄逐鹿", description: "从沛县起兵开始。根基浅薄，却最懂得把天下英才放在合适的位置。", base: { population: 74, grain: 70, army: 66, sentiment: 12, integrity: 4 } },
   { id: "hanwu", title: "汉武帝纪", ruler: "刘彻", dynasty: "汉", startYear: -141, startLabel: "建元元年 · 少年天子", color: "#9b2f28", motto: "内强国本，外攘夷狄", description: "从登基之年开始。文景遗产丰厚，雄心也足以把储备燃烧殆尽。", base: { population: 112, grain: 142, army: 78, sentiment: 28, integrity: 24 } },
   { id: "caocao", title: "曹操传", ruler: "曹操", dynasty: "魏", startYear: 189, startLabel: "中平六年 · 陈留起兵", color: "#556b72", motto: "挟天子令诸侯", description: "从陈留散家财起兵开始。乱世中，秩序本身就是最稀缺的资源。", base: { population: 58, grain: 62, army: 72, sentiment: -8, integrity: 12 } },
@@ -1999,6 +1999,42 @@ const randomEvents: EventTemplate[] = [
 ];
 
 const additionalHistoricalEvents: EventTemplate[] = [
+  { id: "qin-accession", scriptId: "qin", year: -246, historical: true, title: "少主临朝", category: "历史大事", text: "庄襄王新丧，十三岁的嬴政即秦王位。相邦吕不韦总揽朝政，宗室、军功贵族与太后宫中各有盘算。", options: [
+    { label: "尊吕不韦为仲父", detail: "借成熟相邦稳定国政，也容许相权继续坐大。", effects: { grain: 8, integrity: -5, sentiment: 5 } },
+    { label: "亲近军功旧臣，徐收王权", detail: "谋划得当可提前建立自己的班底，失败则朝堂离心。", chance: 55, tag: "谋略", successEffects: { integrity: 9, army: 6 }, failEffects: { integrity: -8, sentiment: -4 } },
+  ]},
+  { id: "qin-lao-ai", scriptId: "qin", year: -238, historical: true, title: "蕲年宫变", category: "历史大事", text: "嬴政行冠礼亲政，嫪毐却盗用王印、调兵作乱。叛军已指向蕲年宫，太后与相邦也被卷入其中。", options: [
+    { label: "调秦军平定嫪毐", detail: "王权与军令必须足以压住宫廷叛乱。", requirements: { army: 82, integrity: 5 }, failOnUnmet: true, effects: { army: -8, integrity: 12, sentiment: 5 } },
+    { label: "分化叛党，生擒首恶", detail: "用谋略减少宫门流血，失手便给叛军可乘之机。", chance: 58, tag: "谋略", successEffects: { integrity: 14, sentiment: 8 }, failEffects: { army: -12, integrity: -8, sentiment: -6 } },
+  ]},
+  { id: "qin-expel-guests", scriptId: "qin", year: -237, historical: true, title: "逐客风波", category: "历史大事", text: "郑国渠间谍案发，秦国宗室请尽逐六国客卿。李斯上书称逐客正是替诸侯削弱秦国。", options: [
+    { label: "收回逐客令", detail: "不问出身继续延揽天下人才。", effects: { integrity: 11, grain: -3, army: 5, sentiment: 4 } },
+    { label: "尽逐六国客卿", detail: "朝堂一时纯粹，人才与谋略也随之流向敌国。", effects: { grain: 5, integrity: -12, army: -5 } },
+  ]},
+  { id: "qin-conquer-han", scriptId: "qin", year: -230, historical: true, title: "韩国先亡", category: "历史大事", text: "韩地扼守秦军东出之路，却已国小兵弱。内史腾请率军渡黄河，一举打开灭国战争。", options: [
+    { label: "命内史腾攻韩", detail: "兵粮达到要求，韩国将成为六国中第一个陷落者。", requirements: { army: 88, grain: 65 }, failOnUnmet: true, effects: { army: -8, grain: -9, population: 6, sentiment: 4 } },
+    { label: "迫韩献地称臣", detail: "以外交减少损耗，也给其余诸侯留下合纵时间。", chance: 60, tag: "谋略", successEffects: { grain: 9, population: 3, integrity: 4 }, failEffects: { grain: -7, army: -5 } },
+  ]},
+  { id: "qin-conquer-zhao", scriptId: "qin", year: -228, historical: true, title: "邯郸陷落", category: "历史大事", text: "赵国饥荒地震并至，李牧却仍守住正面。秦廷可以继续强攻，也可以从赵王身边寻找裂缝。", options: [
+    { label: "王翦正面围攻邯郸", detail: "强军能够硬撼赵军，代价也不会轻。", requirements: { army: 95, grain: 72 }, failOnUnmet: true, effects: { army: -13, grain: -12, population: 8, sentiment: -3 } },
+    { label: "行反间计除李牧", detail: "谋略若成可迅速亡赵，却会让阴谋成为统一战争的底色。", chance: 58, tag: "谋略", successEffects: { army: 9, population: 7, integrity: -5 }, failEffects: { grain: -8, army: -9 } },
+  ]},
+  { id: "qin-jing-ke", scriptId: "qin", year: -227, historical: true, title: "图穷匕见", category: "历史大事", text: "燕使荆轲献上督亢地图与樊於期首级。地图展开至尽头，一柄淬毒匕首突然露出。", options: [
+    { label: "绕柱自卫，召侍医还击", detail: "宫廷宿卫与临机反应决定秦王能否活着走出大殿。", chance: 60, tag: "军事", successEffects: { army: 6, sentiment: 6, integrity: 3 }, failEffects: { army: -14, sentiment: -10, integrity: -5 } },
+    { label: "先验图匣，再召燕使", detail: "吏治严密时，刺杀会在匕首出匣前败露。", chance: 62, tag: "吏治", successEffects: { integrity: 10, army: 4 }, failEffects: { sentiment: -8, integrity: -6 } },
+  ]},
+  { id: "qin-conquer-wei", scriptId: "qin", year: -225, historical: true, title: "水灌大梁", category: "历史大事", text: "魏都大梁城坚池深，王贲请求引黄河、鸿沟水灌城。速胜与城中生民只能艰难权衡。", options: [
+    { label: "决河灌城", detail: "迅速灭魏，却会毁坏人口与田土。", requirements: { army: 92, grain: 70 }, failOnUnmet: true, effects: { grain: -12, population: -7, army: -7, sentiment: -8 } },
+    { label: "围城劝降", detail: "谋臣能否动摇魏王，决定围城会不会拖垮粮道。", chance: 58, tag: "谋略", successEffects: { population: 9, grain: 7, sentiment: 6 }, failEffects: { grain: -15, army: -8 } },
+  ]},
+  { id: "qin-conquer-chu", scriptId: "qin", year: -223, historical: true, title: "王翦灭楚", category: "历史大事", text: "楚地广阔，项燕仍有强军。老将王翦坚持非六十万不可，年轻将领李信则称二十万足矣。", options: [
+    { label: "举六十万付王翦", detail: "倾国之兵需要极强武备和钱粮支撑。", requirements: { army: 110, grain: 88 }, failOnUnmet: true, rewardRequirements: { army: 135, grain: 115 }, alternateText: "王翦稳扎稳打，楚军主力完整瓦解，江淮比旧史更快归于安定。", effects: { army: -18, grain: -22, population: 12, sentiment: 7 } },
+    { label: "令李信率二十万速进", detail: "用较少兵力争取速胜，失败便会遭遇覆军之祸。", chance: 45, tag: "军事", successEffects: { army: 13, population: 10, grain: 8 }, failEffects: { army: -24, grain: -14, sentiment: -7 } },
+  ]},
+  { id: "qin-conquer-yan", scriptId: "qin", year: -222, historical: true, title: "燕代俱平", category: "历史大事", text: "燕王逃往辽东，赵国残余又据代地称王。北方最后两处抵抗已失去彼此呼应。", options: [
+    { label: "两路穷追，尽平燕代", detail: "持续作战仍需足够兵粮，胜后北方再无成建制敌军。", requirements: { army: 98, grain: 72 }, failOnUnmet: true, effects: { army: -11, grain: -12, population: 8, sentiment: 5 } },
+    { label: "许其纳土，保留旧君", detail: "减少兵祸，也让旧王室继续成为地方人心所系。", effects: { population: 5, sentiment: 8, integrity: -7, army: -3 } },
+  ]},
   { id: "qin-unification", scriptId: "qin", year: -221, historical: true, title: "六合初定", category: "历史大事", text: "六国皆亡，天下第一次只奉一位皇帝。旧贵族仍盼裂土封王，廷臣则主张以郡县直达四海。", options: [
     { label: "尽行郡县", detail: "以一套法度贯通天下，也把所有压力集中到朝廷。", effects: { grain: -8, integrity: 10, sentiment: -5 } },
     { label: "郡国并行", detail: "暂安宗室与旧族，日后却可能尾大不掉。", effects: { sentiment: 8, integrity: -8, army: -4 } },
@@ -2014,6 +2050,10 @@ const additionalHistoricalEvents: EventTemplate[] = [
   { id: "qin-books", scriptId: "qin", year: -213, historical: true, title: "咸阳议学", category: "历史大事", text: "博士以古非今，丞相请求禁绝私学。天下言论与帝国法度在咸阳殿上正面相撞。", options: [
     { label: "焚禁诸家之书", detail: "政令暂时归一，士人与民间记忆却不会一同消失。", effects: { grain: 3, integrity: -16, sentiment: -12 } },
     { label: "定官藏，容私学", detail: "让争论留在制度之内，考验朝廷驾驭异议的能力。", chance: 55, tag: "吏治", successEffects: { integrity: 11, sentiment: 8 }, failEffects: { integrity: -6, sentiment: -5 } },
+  ]},
+  { id: "qin-baiyue", scriptId: "qin", year: -214, historical: true, title: "凿渠征越", category: "历史大事", text: "岭南山川阻绝，首轮南征已因粮道断裂付出惨重代价。灵渠若成，大军可沿水路再入百越。", options: [
+    { label: "凿灵渠，五路并进", detail: "钱粮与军势不足时，南方湿热和漫长补给会先击败秦军。", requirements: { grain: 100, army: 105 }, failOnUnmet: true, rewardRequirements: { grain: 130, army: 125 }, alternateText: "灵渠转运顺畅，各路秦军严守军纪，岭南以远低于旧史的伤亡纳入版图。", effects: { grain: -24, army: -16, population: 10, sentiment: -5 } },
+    { label: "通商设吏，徐图岭南", detail: "不求一次征服，以贸易和移民逐步进入百越。", chance: 60, tag: "财政", successEffects: { grain: 12, population: 6, integrity: 5 }, failEffects: { grain: -10, army: -6, sentiment: -4 } },
   ]},
 
   { id: "liubang-uprising", scriptId: "liubang", year: -209, historical: true, title: "沛县举义", category: "历史大事", text: "陈胜吴广已揭竿而起，沛县父老推举刘邦主持城中。秦吏与豪杰都在等待第一面旗帜。", options: [
@@ -2037,9 +2077,25 @@ const additionalHistoricalEvents: EventTemplate[] = [
     { label: "依计伏击单于", detail: "诱敌之计只差一步，也可能把国策推入长期战争。", chance: 50, tag: "谋略", successEffects: { army: 15, grain: 8, sentiment: 5 }, failEffects: { army: -15, grain: -12, integrity: -4 } },
     { label: "罢谋，增修边塞", detail: "避免仓促决战，以较慢速度转向主动防御。", effects: { army: 5, grain: -6, integrity: 4 } },
   ]},
+  { id: "hanwu-longcheng", scriptId: "hanwu", year: -129, historical: true, title: "龙城初捷", category: "历史大事", text: "马邑之后和亲已绝，汉廷首次同时遣四路骑军出塞。卫青直捣龙城，其余三路吉凶难料。", options: [
+    { label: "四路齐出，寻歼匈奴", detail: "大规模主动出击将检验汉军骑战能力。", chance: 55, tag: "军事", successEffects: { army: 13, sentiment: 8, grain: 5 }, failEffects: { army: -16, grain: -12, sentiment: -5 } },
+    { label: "集中精骑付卫青", detail: "减少分兵风险，把胜负押在一位新将身上。", chance: 62, tag: "谋略", successEffects: { army: 9, integrity: 4 }, failEffects: { army: -9, grain: -7 } },
+  ]},
+  { id: "hanwu-ordos", scriptId: "hanwu", year: -127, historical: true, title: "河南之战", category: "历史大事", text: "匈奴再寇上谷，卫青请求由云中迂回河套，夺取河南地并切断白羊、楼烦诸王退路。", options: [
+    { label: "命卫青迂回河套", detail: "兵粮充足才能把长途奔袭变成永久疆土。", requirements: { army: 90, grain: 78 }, failOnUnmet: true, effects: { army: -11, grain: -14, population: 6, sentiment: 7 } },
+    { label: "筑朔方城，先固边地", detail: "以财政与屯田稳步推进，短期战果较小。", chance: 60, tag: "财政", successEffects: { grain: -7, army: 8, population: 4 }, failEffects: { grain: -15, army: -5 } },
+  ]},
   { id: "hanwu-enfeoffment", scriptId: "hanwu", year: -127, historical: true, title: "推恩削藩", category: "历史大事", text: "诸侯王国尾大不掉，主父偃献策令诸王分封子弟。无需动兵，也能让封国日渐缩小。", options: [
     { label: "颁行推恩令", detail: "以礼制名义拆解诸侯权力。", effects: { integrity: 12, sentiment: 6, grain: -5 } },
     { label: "维持旧制，笼络诸王", detail: "眼前少生波澜，中央权力却继续外流。", effects: { grain: 8, sentiment: 3, integrity: -10 } },
+  ]},
+  { id: "hanwu-monam", scriptId: "hanwu", year: -124, historical: true, title: "漠南奔袭", category: "历史大事", text: "朔方城已立，卫青请求从高阙出塞，长途奔袭右贤王庭。大军必须在匈奴集结前完成合围。", options: [
+    { label: "夜进六七百里合围王庭", detail: "名将与军势足够，奔袭才能快过敌军斥候。", chance: 60, tag: "军事", successEffects: { army: 16, grain: 8, sentiment: 9 }, failEffects: { army: -17, grain: -13 } },
+    { label: "据朔方步步北推", detail: "放弃斩首式突袭，以城塞屯田压缩匈奴活动空间。", effects: { grain: -7, army: 8, population: 3, integrity: 3 } },
+  ]},
+  { id: "hanwu-hexi", scriptId: "hanwu", year: -121, historical: true, title: "河西两战", category: "历史大事", text: "十九岁的霍去病请率精骑深入河西，夺取祁连山与焉支山。此战将决定西域道路是否向汉朝打开。", options: [
+    { label: "令霍去病两度远征河西", detail: "强军和粮秣必须支撑高速穿插与连续作战。", requirements: { army: 100, grain: 85 }, failOnUnmet: true, rewardRequirements: { army: 125, grain: 110 }, alternateText: "河西诸部迅速瓦解，汉军严整接收降众，通往西域的走廊以更小代价彻底打开。", effects: { army: -14, grain: -17, population: 8, sentiment: 9 } },
+    { label: "招抚浑邪王，缓图河西", detail: "谋略若成可使匈奴内部分裂，失败则坐失战机。", chance: 58, tag: "谋略", successEffects: { population: 6, army: 8, integrity: 5 }, failEffects: { army: -10, grain: -8, sentiment: -4 } },
   ]},
   { id: "hanwu-dayuan", scriptId: "hanwu", year: -104, historical: true, title: "大宛汗血", category: "历史大事", text: "大宛拒献良马，又杀汉使。朝廷欲越万里沙漠征伐贰师城，以打通西域声威。", options: [
     { label: "再发大军征大宛", detail: "没有雄厚钱粮与军力，远征只会把士卒埋在沿途。", requirements: { grain: 100, army: 95 }, failOnUnmet: true, effects: { grain: -28, army: -14, population: 4, sentiment: 5 } },

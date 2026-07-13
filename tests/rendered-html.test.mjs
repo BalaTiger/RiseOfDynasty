@@ -54,6 +54,10 @@ test("includes the expanded five-round roster, history events, and reign-only sa
     const eventCount = page.match(new RegExp(`scriptId: "${scriptId}"`, "g"))?.length || 0;
     assert.ok(eventCount >= 4, `${scriptId} should have at least four historical events`);
   }
+  assert.match(page, /id: "qin"[^\n]+startYear: -246[^\n]+秦王政元年 · 少年即位/);
+  assert.equal(page.match(/scriptId: "qin"/g)?.length, 15);
+  assert.equal(page.match(/scriptId: "hanwu"/g)?.length, 10);
+  for (const title of ["少主临朝", "蕲年宫变", "逐客风波", "韩国先亡", "邯郸陷落", "图穷匕见", "水灌大梁", "王翦灭楚", "燕代俱平", "凿渠征越", "龙城初捷", "河南之战", "漠南奔袭", "河西两战"]) assert.match(page, new RegExp(title));
   for (const title of ["六合初定", "垓下决楚", "巫蛊祸起", "赤壁风火", "荆州风急", "袁术僭号", "晋宋禅代", "虎牢一战", "陈桥黄袍", "野狐岭破金", "蓝玉案起"]) assert.match(page, new RegExp(title));
   assert.match(page, /className="chance-results"/);
   assert.match(page, /effectText\(option\.successEffects \|\| \{\}\)/);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 type Phase = "landing" | "script" | "policy" | "roster" | "reign" | "ending";
 type StatKey = "population" | "grain" | "army" | "sentiment" | "integrity";
@@ -2176,6 +2176,8 @@ function App() {
   const [activePersonId, setActivePersonId] = useState<string | null>(null);
   const [game, setGame] = useState<GameState | null>(null);
   const [savesOpen, setSavesOpen] = useState(false);
+  const [saveNotice, setSaveNotice] = useState("");
+  const saveNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveMeta, setSaveMeta] = useState<(GameState | null)[]>(() => {
     if (typeof window === "undefined") return [null, null, null];
     return [0, 1, 2].map((slot) => {
@@ -2307,6 +2309,10 @@ function App() {
     if (!game || displayPhase !== "reign") return;
     localStorage.setItem(`dynasty-save-${slot}`, JSON.stringify({ ...game, phase: game.phase === "ending" ? "ending" : "reign" }));
     setSaveMeta((items) => items.map((item, index) => index === slot ? game : item));
+    setSavesOpen(false);
+    setSaveNotice(`已存入档案 ${slot + 1}`);
+    if (saveNoticeTimer.current) clearTimeout(saveNoticeTimer.current);
+    saveNoticeTimer.current = setTimeout(() => setSaveNotice(""), 2200);
   };
 
   const loadGame = (slot: number) => {
@@ -2331,10 +2337,11 @@ function App() {
       {displayPhase === "script" && <ScriptSelect selected={scriptId} onSelect={setScriptId} onNext={() => setPhase("policy")} />}
       {displayPhase === "policy" && <PolicySelect selected={policyId} onSelect={setPolicyId} onBack={() => setPhase("script")} onNext={beginRoster} />}
       {displayPhase === "roster" && <RosterSelect seats={rosterSeats} round={rosterRound} redrawsLeft={redrawsLeft} candidates={candidateIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[]} activePersonId={activePersonId} onActivate={setActivePersonId} onCanMove={canMovePerson} onMove={movePerson} onRedraw={redrawCandidates} onSelect={selectPerson} onBack={() => setPhase("policy")} onStart={startReign} />}
-      {displayPhase === "reign" && game && <Reign game={game} script={script} policy={policy} roster={roster} onChoose={chooseOption} onContinue={continueSeason} onNextYear={beginNextYear} onSave={() => setSavesOpen(true)} />}
+      {displayPhase === "reign" && game && <Reign game={game} script={script} policy={policy} roster={roster} onChoose={chooseOption} onContinue={continueSeason} onNextYear={beginNextYear} />}
       {displayPhase === "ending" && game && <Ending game={game} script={script} onRestart={restart} onSaves={() => setSavesOpen(true)} />}
 
       {savesOpen && <SaveDrawer saves={saveMeta} current={displayPhase === "reign" ? game : null} onClose={() => setSavesOpen(false)} onSave={saveGame} onLoad={loadGame} onDelete={deleteSave} />}
+      {saveNotice && <div className="save-toast" role="status" aria-live="polite">{saveNotice}</div>}
     </main>
   );
 }
@@ -2381,7 +2388,7 @@ function Landing({ onStart, onLoad }: { onStart: () => void; onLoad: () => void 
       <div className="seal">国<br />祚</div>
       <h1>五百年<br /><em>王朝</em></h1>
       <p className="hero-copy">择一段历史为局，定一条治国之道，携四位股肱之臣走过每个春夏秋冬。<br />这一次，结局不由一次随机判词决定。</p>
-      <div className="hero-actions"><button className="primary xl" onClick={onStart}>选择剧本 · 开国</button><button className="ghost" onClick={onLoad}>读取旧档</button></div>
+      <div className="hero-actions"><button className="primary xl" onClick={onStart}>选择剧本 · 开国</button><button className="ghost" onClick={onLoad}>读取存档</button></div>
       <div className="hero-rules"><span>五项国势彼此牵引</span><i>◆</i><span>历史大事必然发生</span><i>◆</i><span>五百年方成千古一朝</span></div>
     </div>
   </section>;
@@ -2413,7 +2420,7 @@ function RosterSelect({ seats, round, redrawsLeft, candidates, activePersonId, o
 }
 
 function TopBar({ setPhase, openSaves, game, canSave }: { setPhase: (phase: Phase) => void; openSaves: () => void; game: GameState | null; canSave: boolean }) {
-  return <nav className="topbar"><button className="brand" onClick={() => !game && setPhase("landing")}><i>祚</i><span>五百年王朝<small>RISE OF DYNASTY</small></span></button><div><span className="top-status">{game ? `${yearLabel(game.year)} · 国祚第${game.elapsed}年` : "正在开国"}</span><button className="nav-button" onClick={openSaves}>▣ {canSave ? "存读档" : "读取旧档"}</button></div></nav>;
+  return <nav className="topbar"><button className="brand" onClick={() => !game && setPhase("landing")}><i>祚</i><span>五百年王朝<small>RISE OF DYNASTY</small></span></button><div><span className="top-status">{game ? `${yearLabel(game.year)} · 国祚第${game.elapsed}年` : "正在开国"}</span><button className="nav-button" onClick={openSaves}>▣ {canSave ? "存读档" : "读取存档"}</button></div></nav>;
 }
 
 function StatPanel({ stats, policyId }: { stats: Stats; policyId: string }) {
@@ -2443,12 +2450,12 @@ function AxisStat({ label, value, baseValue, modifiers, annualChange, annualDeta
   return <div className="axis-stat"><div><small>{label} · 基础 {baseValue}</small><strong>{text}</strong><span className="axis-values"><b>{value}</b>{annualChange !== undefined && <em className={annualChange < 0 ? "annual-delta negative" : "annual-delta positive"} tabIndex={0}>{formatDelta(annualChange)}<span role="tooltip">{annualDetail}</span></em>}</span></div>{modifiers.length > 0 && <div className="stat-buffs">{modifiers.map((item) => <ModifierChip item={item} key={item.label} />)}</div>}<div className="axis"><i style={{ left: `${(value + 100) / 2}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
 }
 
-function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear, onSave }: { game: GameState; script: Script; policy: typeof policies[number]; roster: Person[]; onChoose: (option: EventOption) => void; onContinue: () => void; onNextYear: () => void; onSave: () => void }) {
+function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear }: { game: GameState; script: Script; policy: typeof policies[number]; roster: Person[]; onChoose: (option: EventOption) => void; onContinue: () => void; onNextYear: () => void }) {
   const event = game.events[Math.min(game.seasonIndex, 3)];
   const isYearEnd = game.seasonIndex === 4;
   const assigned = (role: Role) => roster.find((person) => person.id === game.seatAssignments[role]);
   const emperor = assigned("皇帝");
-  return <section className="reign-page"><div className="reign-header"><div><span>{script.title} · 君主 {emperor?.name}</span><h1>{yearLabel(game.year)}</h1><p>国祚第 {game.elapsed} 年 · 国策「{policy.name}」{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div><div className="reign-actions"><button onClick={onSave}>存档</button></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} policyId={game.policyId} /><div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +7%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className="cabinet-person" key={role}><div><small>{role}</small><b>{person?.name}</b></div><span>{person?.tags.join(" · ")}</span></div> })}</div></aside>
+  return <section className="reign-page"><div className="reign-header"><div><span>{script.title} · 君主 {emperor?.name}</span><h1>{yearLabel(game.year)}</h1><p>国祚第 {game.elapsed} 年 · 国策「{policy.name}」{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} policyId={game.policyId} /><div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +7%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className="cabinet-person" key={role}><div><small>{role}</small><b>{person?.name}</b></div><span>{person?.tags.join(" · ")}</span></div> })}</div></aside>
       <article className="court"><div className="yearline">{seasons.map((season, index) => <div className={index < game.seasonIndex ? "done" : index === game.seasonIndex ? "active" : ""} key={season}><i>{index < game.seasonIndex ? "✓" : season}</i><span>{season}{index === 0 ? "耕" : index === 1 ? "长" : index === 2 ? "收" : "藏"}</span></div>)}</div>
         {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {seasons[game.seasonIndex]}季</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}　`}{option.chance && `成功率 ${finalOptionChance(option, game.stats, roster, policy)}%　`}{option.effects && effectText(option.effects)}</small>{option.chance && <div className="chance-results"><em className="success-result"><b>成功</b>{effectText(option.successEffects || {}) || "国势无直接变化"}</em><em className="fail-result"><b>失败</b>{effectText(option.failEffects || {}) || "国势无直接变化"}</em></div>}</div><span>决断</span></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === 3 ? "封存本年奏牍" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
         <Chronicle entries={game.chronicle} /></article></div></section>;
@@ -2468,7 +2475,7 @@ function Chronicle({ entries }: { entries: Chronicle[] }) {
 function Ending({ game, script, onRestart, onSaves }: { game: GameState; script: Script; onRestart: () => void; onSaves: () => void }) {
   const effective = liveState(game.stats).effective;
   const score = clamp(game.elapsed * 2 + effective.population + effective.grain + effective.army + effective.sentiment + effective.integrity, 0, 9999);
-  return <section className={`ending ${game.endingVictory ? "victory" : "defeat"}`}><div className="ending-card"><span className="ending-kicker">{game.endingVictory ? "千古一朝" : "国祚已终"}</span><div className="ending-seal">{game.endingVictory ? "盛" : "殁"}</div><h1>{script.dynasty}祚 · {game.elapsed}年</h1><p>{game.endingReason}</p><div className="ending-stats"><div><small>最后年份</small><strong>{yearLabel(game.year)}</strong></div><div><small>治世评定</small><strong>{score}</strong></div><div><small>历史线</small><strong>{game.alteredHistory ? "另开新史" : "大势未改"}</strong></div></div><blockquote>“{game.chronicle[game.chronicle.length - 1]?.note}”</blockquote><div><button className="primary" onClick={onRestart}>再开一纪</button><button className="ghost" onClick={onSaves}>读取旧档</button></div></div></section>;
+  return <section className={`ending ${game.endingVictory ? "victory" : "defeat"}`}><div className="ending-card"><span className="ending-kicker">{game.endingVictory ? "千古一朝" : "国祚已终"}</span><div className="ending-seal">{game.endingVictory ? "盛" : "殁"}</div><h1>{script.dynasty}祚 · {game.elapsed}年</h1><p>{game.endingReason}</p><div className="ending-stats"><div><small>最后年份</small><strong>{yearLabel(game.year)}</strong></div><div><small>治世评定</small><strong>{score}</strong></div><div><small>历史线</small><strong>{game.alteredHistory ? "另开新史" : "大势未改"}</strong></div></div><blockquote>“{game.chronicle[game.chronicle.length - 1]?.note}”</blockquote><div><button className="primary" onClick={onRestart}>再开一纪</button><button className="ghost" onClick={onSaves}>读取存档</button></div></div></section>;
 }
 
 function SaveDrawer({ saves, current, onClose, onSave, onLoad, onDelete }: { saves: (GameState | null)[]; current: GameState | null; onClose: () => void; onSave: (slot: number) => void; onLoad: (slot: number) => void; onDelete: (slot: number) => void }) {

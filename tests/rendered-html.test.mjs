@@ -45,6 +45,10 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /draggable=\{!!person\}/);
   assert.match(page, /displayPhase !== "reign"/);
   assert.match(page, /current=\{displayPhase === "reign" \? game : null\}/);
+  assert.doesNotMatch(page, /className="reign-actions"/);
+  assert.doesNotMatch(page, /读取旧档/);
+  assert.match(page, /已存入档案 \$\{slot \+ 1\}/);
+  assert.match(page, /className="save-toast" role="status" aria-live="polite"/);
   assert.match(page, /historicalEvents\.filter/);
   assert.match(page, /className="chance-results"/);
   assert.match(page, /effectText\(option\.successEffects \|\| \{\}\)/);

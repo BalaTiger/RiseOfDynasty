@@ -56,11 +56,13 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /const governance = Math\.sign\(stats\.integrity\) \* Math\.round\(Math\.abs\(stats\.integrity\) \/ 16\)/);
   assert.match(page, /const governanceGrowth = effective\.integrity \/ 48/);
   assert.match(page, /live\.modifiers\.governance > 0 \? "清明" : "贪腐"/);
-  assert.match(page, /members \* 15 \+ policyBoost/);
-  assert.match(page, /\(effectiveCurrent\.army - 70\) \/ 10/);
-  assert.match(page, /effectiveCurrent\.sentiment \/ 10/);
-  assert.match(page, /\(effectiveCurrent\.integrity \+ effectiveCurrent\.sentiment\) \/ 10/);
-  assert.match(page, /clamp\(option\.chance \+ teamChance\(option\.tag\) \+ statBoost, 1, 100\)/);
+  assert.match(page, /const teamBoost = members \* 15 \+ policyBoost/);
+  assert.match(page, /\(effective\.army - 70\) \/ 10/);
+  assert.match(page, /effective\.sentiment \/ 10/);
+  assert.match(page, /\(effective\.integrity \+ effective\.sentiment\) \/ 10/);
+  assert.match(page, /clamp\(option\.chance \+ teamBoost \+ statBoost, 1, 100\)/);
+  assert.match(page, /成功率 \$\{finalOptionChance\(option, game\.stats, roster, policy\)\}%/);
+  assert.doesNotMatch(page, /基础成功率 \$\{option\.chance\}/);
   assert.match(page, /const integrity = -2/);
   assert.match(page, /const effects = \{ population, grain, integrity \}/);
   assert.match(page, /formatDelta\(growth\.effects\.population\)/);

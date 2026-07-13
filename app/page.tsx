@@ -2070,6 +2070,16 @@ function liveState(stats: Stats) {
   };
 }
 
+function finalOptionChance(option: EventOption, stats: Stats, roster: Person[], policy: typeof policies[number]) {
+  if (!option.chance) return 0;
+  const effective = liveState(stats).effective;
+  const members = option.tag ? roster.filter((person) => person.tags.includes(option.tag!)).length : 0;
+  const policyBoost = option.tag && policy.tag === option.tag ? 8 : 0;
+  const teamBoost = members * 15 + policyBoost;
+  const statBoost = option.tag === "军事" ? Math.max(-8, (effective.army - 70) / 10) : option.tag === "财政" ? (effective.grain - 70) / 10 : option.tag === "吏治" ? effective.integrity / 10 : option.tag === "民生" ? effective.sentiment / 10 : (effective.integrity + effective.sentiment) / 10;
+  return clamp(option.chance + teamBoost + statBoost, 1, 100);
+}
+
 const nextCalendarYear = (year: number) => year === -1 ? 1 : year + 1;
 const yearLabel = (year: number) => year < 0 ? `公元前${Math.abs(year)}年` : `公元${year}年`;
 const axisLabel = (key: "sentiment" | "integrity", value: number) => {
@@ -2242,13 +2252,6 @@ function App() {
     setGame(initial); setPhase("reign"); window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const teamChance = (tag?: SkillTag) => {
-    if (!tag) return 0;
-    const members = roster.filter((person) => person.tags.includes(tag)).length;
-    const policyBoost = policy.tag === tag ? 8 : 0;
-    return members * 15 + policyBoost;
-  };
-
   const chooseOption = (option: EventOption) => {
     setGame((current) => {
       if (!current || current.outcome) return current;
@@ -2261,8 +2264,7 @@ function App() {
       let success: boolean | undefined;
       let resultText = option.detail;
       if (option.chance) {
-        const statBoost = option.tag === "军事" ? Math.max(-8, (effectiveCurrent.army - 70) / 10) : option.tag === "财政" ? (effectiveCurrent.grain - 70) / 10 : option.tag === "吏治" ? effectiveCurrent.integrity / 10 : option.tag === "民生" ? effectiveCurrent.sentiment / 10 : (effectiveCurrent.integrity + effectiveCurrent.sentiment) / 10;
-        const finalChance = clamp(option.chance + teamChance(option.tag) + statBoost, 1, 100);
+        const finalChance = finalOptionChance(option, current.stats, roster, policy);
         success = Math.random() * 100 < finalChance;
         effects = success ? (option.successEffects || {}) : (option.failEffects || {});
         resultText = success ? `班底各展所长，决策奏效（成功率 ${Math.round(finalChance)}%）。` : `局势未如所愿，代价已经显现（成功率 ${Math.round(finalChance)}%）。`;
@@ -2448,7 +2450,7 @@ function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear,
   const emperor = assigned("皇帝");
   return <section className="reign-page"><div className="reign-header"><div><span>{script.title} · 君主 {emperor?.name}</span><h1>{yearLabel(game.year)}</h1><p>国祚第 {game.elapsed} 年 · 国策「{policy.name}」{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div><div className="reign-actions"><button onClick={onSave}>存档</button></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} policyId={game.policyId} /><div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +15%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className="cabinet-person" key={role}><div><small>{role}</small><b>{person?.name}</b></div><span>{person?.tags.join(" · ")}</span></div> })}</div></aside>
       <article className="court"><div className="yearline">{seasons.map((season, index) => <div className={index < game.seasonIndex ? "done" : index === game.seasonIndex ? "active" : ""} key={season}><i>{index < game.seasonIndex ? "✓" : season}</i><span>{season}{index === 0 ? "耕" : index === 1 ? "长" : index === 2 ? "收" : "藏"}</span></div>)}</div>
-        {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {seasons[game.seasonIndex]}季</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}　`}{option.chance && `基础成功率 ${option.chance}%　`}{option.effects && effectText(option.effects)}</small>{option.chance && <div className="chance-results"><em className="success-result"><b>成功</b>{effectText(option.successEffects || {}) || "国势无直接变化"}</em><em className="fail-result"><b>失败</b>{effectText(option.failEffects || {}) || "国势无直接变化"}</em></div>}</div><span>决断</span></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === 3 ? "封存本年奏牍" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
+        {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {seasons[game.seasonIndex]}季</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}　`}{option.chance && `成功率 ${finalOptionChance(option, game.stats, roster, policy)}%　`}{option.effects && effectText(option.effects)}</small>{option.chance && <div className="chance-results"><em className="success-result"><b>成功</b>{effectText(option.successEffects || {}) || "国势无直接变化"}</em><em className="fail-result"><b>失败</b>{effectText(option.failEffects || {}) || "国势无直接变化"}</em></div>}</div><span>决断</span></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === 3 ? "封存本年奏牍" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
         <Chronicle entries={game.chronicle} /></article></div></section>;
 }
 

@@ -1999,7 +1999,7 @@ const randomEvents: EventTemplate[] = [
 ];
 
 const additionalHistoricalEvents: EventTemplate[] = [
-  { id: "qin-accession", scriptId: "qin", year: -246, historical: true, title: "少主临朝", category: "历史大事", text: "庄襄王新丧，十三岁的嬴政即秦王位。相邦吕不韦总揽朝政，宗室、军功贵族与太后宫中各有盘算。", options: [
+  { id: "qin-accession", scriptId: "qin", year: -246, historical: true, title: "少主临朝", category: "历史大事", text: "相邦吕不韦总揽朝政，宗室、军功贵族与太后宫中各有盘算。", options: [
     { label: "尊吕不韦为仲父", detail: "借成熟相邦稳定国政，也容许相权继续坐大。", effects: { grain: 8, integrity: -5, sentiment: 5 } },
     { label: "亲近军功旧臣，徐收王权", detail: "谋划得当可提前建立自己的班底，失败则朝堂离心。", chance: 55, tag: "谋略", successEffects: { integrity: 9, army: 6 }, failEffects: { integrity: -8, sentiment: -4 } },
   ]},

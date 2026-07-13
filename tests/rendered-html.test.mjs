@@ -57,6 +57,8 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /id: "qin"[^\n]+startYear: -246[^\n]+秦王政元年 · 少年即位/);
   assert.equal(page.match(/scriptId: "qin"/g)?.length, 15);
   assert.equal(page.match(/scriptId: "hanwu"/g)?.length, 10);
+  assert.match(page, /title: "少主临朝"[^\n]+text: "相邦吕不韦总揽朝政，宗室、军功贵族与太后宫中各有盘算。"/);
+  assert.doesNotMatch(page, /庄襄王新丧，十三岁的嬴政即秦王位/);
   for (const title of ["少主临朝", "蕲年宫变", "逐客风波", "韩国先亡", "邯郸陷落", "图穷匕见", "水灌大梁", "王翦灭楚", "燕代俱平", "凿渠征越", "龙城初捷", "河南之战", "漠南奔袭", "河西两战"]) assert.match(page, new RegExp(title));
   for (const title of ["六合初定", "垓下决楚", "巫蛊祸起", "赤壁风火", "荆州风急", "袁术僭号", "晋宋禅代", "虎牢一战", "陈桥黄袍", "野狐岭破金", "蓝玉案起"]) assert.match(page, new RegExp(title));
   assert.match(page, /className="chance-results"/);

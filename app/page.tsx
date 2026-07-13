@@ -2227,7 +2227,7 @@ function App() {
     if (!tag) return 0;
     const members = roster.filter((person) => person.tags.includes(tag)).length;
     const policyBoost = policy.tag === tag ? 8 : 0;
-    return members * 7 + policyBoost;
+    return members * 10 + policyBoost;
   };
 
   const chooseOption = (option: EventOption) => {
@@ -2241,7 +2241,7 @@ function App() {
       let success: boolean | undefined;
       let resultText = option.detail;
       if (option.chance) {
-        const statBoost = option.tag === "军事" ? Math.max(-8, (current.stats.army - 70) / 5) : option.tag === "财政" ? (current.stats.grain - 70) / 10 : option.tag === "吏治" ? current.stats.integrity / 10 : option.tag === "民生" ? current.stats.sentiment / 12 : (current.stats.integrity + current.stats.sentiment) / 20;
+        const statBoost = option.tag === "军事" ? Math.max(-8, (current.stats.army - 70) / 10) : option.tag === "财政" ? (current.stats.grain - 70) / 10 : option.tag === "吏治" ? current.stats.integrity / 10 : option.tag === "民生" ? current.stats.sentiment / 10 : (current.stats.integrity + current.stats.sentiment) / 10;
         const finalChance = clamp(option.chance + teamChance(option.tag) + statBoost, 10, 95);
         success = Math.random() * 100 < finalChance;
         effects = success ? (option.successEffects || {}) : (option.failEffects || {});

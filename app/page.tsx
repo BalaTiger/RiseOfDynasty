@@ -1957,12 +1957,12 @@ const randomEvents: EventTemplate[] = [
   { id: "auspicious", title: "甘露降庭", category: "祥瑞", text: "宫苑老柏降下甘露，百官请上尊号、大赦天下。民间也在等待朝廷的态度。", options: [
     { label: "大赦并减今年租", detail: "把祥瑞变成百姓摸得到的恩典。", effects: { grain: -6, sentiment: 13 } },
     { label: "却尊号，奖农桑", detail: "不迷信天意，把功劳归于万民。", effects: { sentiment: 7, integrity: 7, grain: 3 } },
-    { label: "大兴庆典", detail: "盛世声势很足，花费也很足。", effects: { grain: -10, sentiment: 5, integrity: -3 } },
+    { label: "大兴庆典", detail: "倾国同庆最能鼓舞人心，也最耗钱粮与官箴。", effects: { grain: -12, sentiment: 20, integrity: -4 } },
   ]},
   { id: "academy", title: "太学论政", category: "文教", text: "太学生上书议论时政，有言辞激烈者。朝臣争论：年轻人的声音是国之元气，还是朋党之始？", options: [
     { label: "召见问策", detail: "纳言也考验君臣的胸襟。", chance: 65, tag: "谋略", successEffects: { sentiment: 9, integrity: 7 }, failEffects: { sentiment: -2, integrity: -3 } },
     { label: "令有司择善而行", detail: "制度化吸收意见。", effects: { sentiment: 4, integrity: 5 } },
-    { label: "严禁妄议", detail: "朝堂安静得更快。", effects: { integrity: -5, sentiment: -10 } },
+    { label: "严禁妄议", detail: "以整饬学规压下争论，官场肃然，士心却难平。", effects: { integrity: 9, sentiment: -6 } },
   ]},
   { id: "army-pay", title: "军饷迟发", category: "军务", text: "北营军饷已迟发两月，将士虽未哗变，营门前却多了卖甲换酒的人。", options: [
     { label: "足额补发", detail: "军心不可试。", effects: { grain: -12, army: 10 } },
@@ -1981,8 +1981,8 @@ const randomEvents: EventTemplate[] = [
   ]},
   { id: "palace", title: "营建宫室", category: "朝堂", text: "将作监称旧宫狭陋，不足彰显国威；群臣都知道，这笔账最终要落在百姓头上。", options: [
     { label: "罢役，修官舍学校", detail: "国威不只在宫阙。", effects: { grain: -4, sentiment: 9, integrity: 4 } },
-    { label: "量入为出，小修旧宫", detail: "顾全体面，也控制开支。", effects: { grain: -7, sentiment: 1 } },
-    { label: "大兴土木", detail: "壮丽工程能提振威仪，但代价沉重。", effects: { grain: -20, population: -3, sentiment: -14, integrity: -4 } },
+    { label: "量入为出，小修旧宫", detail: "只修危旧之处，以最低开支顾全体面。", effects: { grain: -2, sentiment: 2 } },
+    { label: "大兴土木", detail: "若调度得当可兴百业、聚人心，失控则劳民伤财。", chance: 55, tag: "财政", successEffects: { grain: -18, population: 5, sentiment: 12, integrity: -2 }, failEffects: { grain: -20, population: -3, sentiment: -14, integrity: -4 } },
   ]},
   { id: "rebellion", title: "揭竿四起", category: "民变", text: "长期积压的民怨终于点燃。饥民攻破县城，裹挟者日众，地方官已无法收拾。", options: [
     { label: "赈抚并诛贪官", detail: "需要足够钱粮与清明官风。", requirements: { grain: 35, integrity: -20 }, failOnUnmet: true, effects: { grain: -18, sentiment: 25, integrity: 10, army: -3 } },

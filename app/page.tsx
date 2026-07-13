@@ -72,7 +72,7 @@ type Outcome = {
 type Chronicle = { year: number; season: Season; title: string; note: string };
 
 type GameState = {
-  version: 2;
+  version: 3;
   phase: Phase;
   scriptId: string;
   policyId: string;
@@ -91,6 +91,8 @@ type GameState = {
   annualNote: string;
   endingReason: string;
   endingVictory: boolean;
+  randomSeed: number;
+  randomCount: number;
 };
 
 type SeatAssignments = Record<Role, string | null>;
@@ -2097,18 +2099,25 @@ const requirementText = (requirements: Requirement) => (Object.entries(requireme
 
 const meets = (stats: Stats, req?: Requirement) => !req || (Object.entries(req) as [StatKey, number][]).every(([key, value]) => stats[key] >= value);
 
-function seededShuffle<T>(items: T[], seed: number) {
-  const copy = [...items];
-  let value = Math.abs(seed) + 1;
-  for (let i = copy.length - 1; i > 0; i--) {
-    value = (value * 9301 + 49297) % 233280;
-    const j = Math.floor((value / 233280) * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
+function seededRandom(seed: number, randomCount: number) {
+  let value = (seed + Math.imul(randomCount + 1, 0x6D2B79F5)) | 0;
+  value = Math.imul(value ^ (value >>> 15), value | 1);
+  value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+  return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
 }
 
-function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYears: number, unrestYears: number) {
+function seededShuffle<T>(items: T[], seed: number, randomCount: number) {
+  const copy = [...items];
+  let count = randomCount;
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(seededRandom(seed, count) * (i + 1));
+    count += 1;
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return { items: copy, randomCount: count };
+}
+
+function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYears: number, unrestYears: number, randomSeed: number, randomCount: number) {
   const effective = liveState(stats).effective;
   const required = historicalEvents.filter((event) => event.scriptId === scriptId && event.year === year).slice(0, 4);
   const conditional: EventTemplate[] = [];
@@ -2116,11 +2125,31 @@ function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYe
   if (effective.sentiment <= -60 && unrestYears >= 1) conditional.push(randomEvents.find((event) => event.id === "rebellion")!);
   const excluded = new Set(conditional.map((event) => event.id));
   const base = randomEvents.filter((event) => !["invasion", "rebellion"].includes(event.id) && !excluded.has(event.id));
-  const picked = seededShuffle(base, year * 37 + stats.population * 11 + stats.grain).slice(0, 4);
-  const events = [...conditional, ...picked].slice(0, 4);
-  while (events.length < 4) events.push(picked[events.length % picked.length]);
-  required.forEach((event, index) => { events[(Math.abs(year) + index) % 4] = event; });
-  return events;
+  const picked = seededShuffle(base, randomSeed, randomCount);
+  const events = [...required, ...conditional].slice(0, 4);
+  for (const event of picked.items) {
+    if (events.length === 4) break;
+    events.push(event);
+  }
+  const ordered = seededShuffle(events, randomSeed, picked.randomCount);
+  return { events: ordered.items, randomCount: ordered.randomCount };
+}
+
+function createGameSeed() {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const values = new Uint32Array(1);
+    crypto.getRandomValues(values);
+    return values[0];
+  }
+  const clock = typeof performance !== "undefined" ? Math.floor(performance.now() * 1000) : 0;
+  return (Date.now() ^ clock) >>> 0;
+}
+
+function legacySaveSeed(saved: Partial<GameState>) {
+  const source = `${saved.scriptId}|${saved.policyId}|${saved.year}|${saved.elapsed}|${saved.seasonIndex}|${Object.values(saved.stats || {}).join(",")}|${saved.events?.map((event) => event.id).join(",")}`;
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) hash = Math.imul(hash ^ source.charCodeAt(index), 16777619);
+  return hash >>> 0;
 }
 
 const canServe = (person: Person, role: Role) => person.role === role || person.secondaryRoles.includes(role);
@@ -2149,7 +2178,9 @@ function normalizeSave(raw: unknown): GameState | null {
     return result;
   }, emptySeats());
   const rosterIds = roles.map((role) => seatAssignments[role]).filter(Boolean) as string[];
-  return { ...saved, version: 2, seatAssignments, rosterIds } as GameState;
+  const randomSeed = Number.isInteger(saved.randomSeed) ? saved.randomSeed! >>> 0 : legacySaveSeed(saved);
+  const randomCount = Number.isInteger(saved.randomCount) && saved.randomCount! >= 0 ? Math.floor(saved.randomCount!) : 0;
+  return { ...saved, version: 3, seatAssignments, rosterIds, randomSeed, randomCount } as GameState;
 }
 
 function drawRosterCandidates(seats: SeatAssignments, selectedIds: string[]) {
@@ -2236,20 +2267,28 @@ function App() {
   };
 
   const startReign = () => {
-    const variance = (offset: number) => ((Date.now() >> offset) % 11) - 5;
+    const randomSeed = createGameSeed();
+    let randomCount = 0;
+    const variance = () => {
+      const value = Math.floor(seededRandom(randomSeed, randomCount) * 11) - 5;
+      randomCount += 1;
+      return value;
+    };
     let stats = { ...script.base };
     stats = addEffects(stats, policy.effects);
     roster.forEach((person) => { stats = addEffects(stats, person.bonuses); });
-    stats = addEffects(stats, { population: variance(2), grain: variance(4), army: variance(6), sentiment: variance(8), integrity: variance(10) });
+    stats = addEffects(stats, { population: variance(), grain: variance(), army: variance(), sentiment: variance(), integrity: variance() });
     const growth = annualGrowth(stats, policyId);
     stats = addEffects(stats, growth.effects);
     const effective = liveState(stats).effective;
+    const yearEvents = buildYearEvents(scriptId, script.startYear, stats, 0, 0, randomSeed, randomCount);
+    randomCount = yearEvents.randomCount;
     const initial: GameState = {
-      version: 2, phase: "reign", scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
-      stats, events: buildYearEvents(scriptId, script.startYear, stats, 0, 0), outcome: null,
+      version: 3, phase: "reign", scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
+      stats, events: yearEvents.events, outcome: null,
       chronicle: [{ year: script.startYear, season: "春", title: "开国建元", note: `${people.find((person) => person.id === rosterSeats.皇帝)?.name || "新君"}与开国班底共治天下。${growth.note}` }],
       lowArmyYears: effective.army < 55 ? 1 : 0, unrestYears: effective.sentiment <= -60 ? 1 : 0, alteredHistory: false,
-      annualNote: growth.note, endingReason: "", endingVictory: false,
+      annualNote: growth.note, endingReason: "", endingVictory: false, randomSeed, randomCount,
     };
     setGame(initial); setPhase("reign"); window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -2265,9 +2304,11 @@ function App() {
       let effects = option.effects || {};
       let success: boolean | undefined;
       let resultText = option.detail;
+      let randomCount = current.randomCount;
       if (option.chance) {
         const finalChance = finalOptionChance(option, current.stats, roster, policy);
-        success = Math.random() * 100 < finalChance;
+        success = seededRandom(current.randomSeed, randomCount) * 100 < finalChance;
+        randomCount += 1;
         effects = success ? (option.successEffects || {}) : (option.failEffects || {});
         resultText = success ? "判定成功。班底各展所长，决策奏效。" : "判定失败。局势未如所愿，代价已经显现。";
       }
@@ -2276,9 +2317,9 @@ function App() {
       const stats = addEffects(current.stats, effects);
       if (stats.population < 18 || stats.grain <= 0) {
         const cause = stats.population < 18 ? "人口跌破王朝存续底线" : "国库钱粮耗尽";
-        return { ...current, stats, phase: "ending", endingVictory: false, endingReason: `${cause}。地方失去供养与秩序，国祚就此断绝。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "山河易色", note: `${event.title}之后，${cause}。` }] };
+        return { ...current, stats, randomCount, phase: "ending", endingVictory: false, endingReason: `${cause}。地方失去供养与秩序，国祚就此断绝。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "山河易色", note: `${event.title}之后，${cause}。` }] };
       }
-      return { ...current, stats, alteredHistory: current.alteredHistory || alternate, outcome: { title: alternate ? "历史改写" : success === false ? "事与愿违" : "诏令已行", text: resultText, effects, success, alternate }, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: event.title, note: `${option.label}。${resultText}` }].slice(-30) };
+      return { ...current, stats, randomCount, alteredHistory: current.alteredHistory || alternate, outcome: { title: alternate ? "历史改写" : success === false ? "事与愿违" : "诏令已行", text: resultText, effects, success, alternate }, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: event.title, note: `${option.label}。${resultText}` }].slice(-30) };
     });
   };
 
@@ -2301,7 +2342,8 @@ function App() {
       const effective = liveState(stats).effective;
       const lowArmyYears = effective.army < 55 ? current.lowArmyYears + 1 : 0;
       const unrestYears = effective.sentiment <= -60 ? current.unrestYears + 1 : 0;
-      return { ...current, year, elapsed: current.elapsed + 1, stats, seasonIndex: 0, outcome: null, annualNote: growth.note, lowArmyYears, unrestYears, events: buildYearEvents(current.scriptId, year, stats, lowArmyYears, unrestYears), chronicle: [...current.chronicle, { year, season: "春", title: "岁首国计", note: growth.note }].slice(-30) };
+      const yearEvents = buildYearEvents(current.scriptId, year, stats, lowArmyYears, unrestYears, current.randomSeed, current.randomCount);
+      return { ...current, year, elapsed: current.elapsed + 1, stats, seasonIndex: 0, outcome: null, annualNote: growth.note, lowArmyYears, unrestYears, events: yearEvents.events, randomCount: yearEvents.randomCount, chronicle: [...current.chronicle, { year, season: "春", title: "岁首国计", note: growth.note }].slice(-30) };
     });
   };
 
@@ -2479,7 +2521,7 @@ function Ending({ game, script, onRestart, onSaves }: { game: GameState; script:
 }
 
 function SaveDrawer({ saves, current, onClose, onSave, onLoad, onDelete }: { saves: (GameState | null)[]; current: GameState | null; onClose: () => void; onSave: (slot: number) => void; onLoad: (slot: number) => void; onDelete: (slot: number) => void }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="save-drawer" role="dialog" aria-modal="true" aria-label={current ? "存读档" : "读取存档"}><header><div><span>本地纪年库</span><h2>{current ? "存读档" : "读取存档"}</h2></div><button onClick={onClose} aria-label="关闭">×</button></header><p className="save-explain">存档只保存在这台设备的浏览器中。只有进入治国阶段才能写入或覆盖；读取与删除旧档不受限制。</p><div className="save-slots">{saves.map((save, index) => { const savedScript = save && scripts.find((item) => item.id === save.scriptId); return <article className={save ? "occupied" : ""} key={index}><span>档案 {index + 1}</span>{save ? <><h3>{savedScript?.title}</h3><p>{yearLabel(save.year)} · 国祚第{save.elapsed}年</p><small>人口 {save.stats.population}　钱粮 {save.stats.grain}　武备 {save.stats.army}</small><div><button onClick={() => onLoad(index)}>读取</button>{current && <button onClick={() => onSave(index)}>覆盖</button>}<button className="danger" onClick={() => onDelete(index)}>删除</button></div></> : <><h3>空白卷宗</h3><p>尚未写入任何王朝。</p>{current ? <button className="primary" onClick={() => onSave(index)}>存入此槽</button> : <small>进入治国阶段后方可存档</small>}</>}</article> })}</div></section></div>;
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="save-drawer" role="dialog" aria-modal="true" aria-label={current ? "存读档" : "读取存档"}><header><div><span>本地纪年库</span><h2>{current ? "存读档" : "读取存档"}</h2></div><button onClick={onClose} aria-label="关闭">×</button></header><p className="save-explain">存档只保存在这台设备的浏览器中。只有进入治国阶段才能写入或覆盖；读取与删除旧档不受限制。每局随机进程固定，读档不会重掷事件或判定结果。</p><div className="save-slots">{saves.map((save, index) => { const savedScript = save && scripts.find((item) => item.id === save.scriptId); return <article className={save ? "occupied" : ""} key={index}><span>档案 {index + 1}</span>{save ? <><h3>{savedScript?.title}</h3><p>{yearLabel(save.year)} · 国祚第{save.elapsed}年</p><small>人口 {save.stats.population}　钱粮 {save.stats.grain}　武备 {save.stats.army}</small><div><button onClick={() => onLoad(index)}>读取</button>{current && <button onClick={() => onSave(index)}>覆盖</button>}<button className="danger" onClick={() => onDelete(index)}>删除</button></div></> : <><h3>空白卷宗</h3><p>尚未写入任何王朝。</p>{current ? <button className="primary" onClick={() => onSave(index)}>存入此槽</button> : <small>进入治国阶段后方可存档</small>}</>}</article> })}</div></section></div>;
 }
 
 export default App;

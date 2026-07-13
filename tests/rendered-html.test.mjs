@@ -82,5 +82,10 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /对应专长使事件成功率 \+7%/);
   assert.match(page, /dynasty-save-\$\{slot\}/);
   assert.match(page, /\[0, 1, 2\]/);
+  assert.match(page, /randomSeed: number/);
+  assert.match(page, /randomCount: number/);
+  assert.match(page, /seededRandom\(current\.randomSeed, randomCount\)/);
+  assert.match(page, /randomCount: yearEvents\.randomCount/);
+  assert.match(page, /读档不会重掷事件或判定结果/);
   assert.match(page, /current\.elapsed >= 500/);
 });

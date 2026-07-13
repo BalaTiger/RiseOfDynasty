@@ -14,7 +14,7 @@ type Person = {
   id: string;
   name: string;
   role: Role;
-  secondaryRole: Role;
+  secondaryRoles: Role[];
   dynasty: string;
   quote: string;
   tags: SkillTag[];
@@ -126,35 +126,1627 @@ const policies = [
   { id: "reform", name: "整顿朝纲", seal: "治", desc: "考课百官，澄清吏治。官场风气更清明，剧烈改革也会触动既得利益。", effects: { grain: 4, integrity: 18, sentiment: -2 } as Partial<Stats>, tag: "吏治" as SkillTag },
 ];
 
-const people: Person[] = [
-  { id: "qinshihuang", name: "秦始皇", role: "皇帝", secondaryRole: "监察", dynasty: "秦", quote: "制度开创极猛，民力也真扛不住。", tags: ["吏治", "军事"], bonuses: { army: 12, integrity: 8, sentiment: -8 } },
-  { id: "liubang-emperor", name: "汉高祖", role: "皇帝", secondaryRole: "宰相", dynasty: "汉", quote: "最懂得让天下英才各得其所。", tags: ["谋略", "民生"], bonuses: { sentiment: 10, grain: 5 } },
-  { id: "hanwu-emperor", name: "汉武帝", role: "皇帝", secondaryRole: "名将", dynasty: "汉", quote: "雄才大略，国力与野心一同燃烧。", tags: ["军事", "财政"], bonuses: { army: 14, grain: -6 } },
-  { id: "caocao-emperor", name: "魏武帝", role: "皇帝", secondaryRole: "宰相", dynasty: "魏", quote: "乱世枭雄，唯才是举。", tags: ["谋略", "吏治"], bonuses: { army: 8, integrity: 8 } },
-  { id: "liubei-emperor", name: "汉昭烈帝", role: "皇帝", secondaryRole: "宰相", dynasty: "蜀汉", quote: "以仁为旗，百折不挠。", tags: ["民生", "谋略"], bonuses: { sentiment: 14, population: 5 } },
-  { id: "sunce-emperor", name: "孙策", role: "皇帝", secondaryRole: "名将", dynasty: "吴", quote: "江东小霸王，锐进如风。", tags: ["军事", "谋略"], bonuses: { army: 13, sentiment: 3 } },
-  { id: "liuyu-emperor", name: "宋武帝", role: "皇帝", secondaryRole: "名将", dynasty: "刘宋", quote: "寒门军功，气吞万里如虎。", tags: ["军事", "吏治"], bonuses: { army: 12, integrity: 5 } },
-  { id: "lishimin-emperor", name: "唐太宗", role: "皇帝", secondaryRole: "名将", dynasty: "唐", quote: "善战亦善纳谏，守成不逊开创。", tags: ["军事", "吏治"], bonuses: { army: 10, integrity: 12, sentiment: 5 } },
-  { id: "zhaokuangyin-emperor", name: "宋太祖", role: "皇帝", secondaryRole: "名将", dynasty: "宋", quote: "收兵权，重文治，宽厚养民。", tags: ["吏治", "民生"], bonuses: { integrity: 10, sentiment: 8 } },
-  { id: "genghis-emperor", name: "成吉思汗", role: "皇帝", secondaryRole: "名将", dynasty: "大蒙古国", quote: "聚草原诸部，铁骑横越万里。", tags: ["军事", "谋略"], bonuses: { army: 18, population: -3 } },
-  { id: "zhuyuanzhang-emperor", name: "明太祖", role: "皇帝", secondaryRole: "监察", dynasty: "明", quote: "知民间疾苦，也以严酷驭群臣。", tags: ["吏治", "民生"], bonuses: { integrity: 14, sentiment: 5, grain: 4 } },
-  { id: "xiaohe", name: "萧何", role: "宰相", secondaryRole: "财政", dynasty: "汉", quote: "镇国家，抚百姓，给馈饷。", tags: ["财政", "民生"], bonuses: { grain: 14, integrity: 4 } },
-  { id: "zhugeliang", name: "诸葛亮", role: "宰相", secondaryRole: "财政", dynasty: "蜀汉", quote: "治军理政皆一流，就是太爱事必躬亲。", tags: ["吏治", "谋略"], bonuses: { integrity: 16, grain: 6 } },
-  { id: "fangxuanling", name: "房玄龄", role: "宰相", secondaryRole: "监察", dynasty: "唐", quote: "善谋能断，润物无声。", tags: ["谋略", "吏治"], bonuses: { integrity: 10, sentiment: 5 } },
-  { id: "wanganshi", name: "王安石", role: "宰相", secondaryRole: "财政", dynasty: "宋", quote: "天变不足畏，祖宗不足法。", tags: ["财政", "吏治"], bonuses: { grain: 12, sentiment: -4 } },
-  { id: "hanxin", name: "韩信", role: "名将", secondaryRole: "宰相", dynasty: "汉", quote: "多多益善，兵锋无双。", tags: ["军事", "谋略"], bonuses: { army: 20, sentiment: -2 } },
-  { id: "lijing", name: "李靖", role: "名将", secondaryRole: "宰相", dynasty: "唐", quote: "谋定后动，千里破敌。", tags: ["军事", "谋略"], bonuses: { army: 17, grain: 3 } },
-  { id: "yuefei", name: "岳飞", role: "名将", secondaryRole: "监察", dynasty: "宋", quote: "冻死不拆屋，饿死不掳掠。", tags: ["军事", "民生"], bonuses: { army: 15, sentiment: 8 } },
-  { id: "xuda", name: "徐达", role: "名将", secondaryRole: "监察", dynasty: "明", quote: "持重有谋，军纪肃然。", tags: ["军事", "吏治"], bonuses: { army: 16, integrity: 5 } },
-  { id: "sang", name: "桑弘羊", role: "财政", secondaryRole: "宰相", dynasty: "汉", quote: "盐铁归官，富国强兵。", tags: ["财政", "谋略"], bonuses: { grain: 20, sentiment: -7 } },
-  { id: "liuyan", name: "刘晏", role: "财政", secondaryRole: "宰相", dynasty: "唐", quote: "理财以爱民为先。", tags: ["财政", "民生"], bonuses: { grain: 14, sentiment: 7 } },
-  { id: "zhangjuzheng", name: "张居正", role: "财政", secondaryRole: "监察", dynasty: "明", quote: "考成核实，一条鞭行天下。", tags: ["财政", "吏治"], bonuses: { grain: 17, integrity: 8 } },
-  { id: "wangjing", name: "王景", role: "财政", secondaryRole: "宰相", dynasty: "东汉", quote: "治河千里，水患遂息。", tags: ["民生", "财政"], bonuses: { population: 9, grain: 10 } },
-  { id: "weizheng", name: "魏征", role: "监察", secondaryRole: "宰相", dynasty: "唐", quote: "兼听则明，偏信则暗。", tags: ["吏治", "谋略"], bonuses: { integrity: 20, sentiment: 4 } },
-  { id: "baozheng", name: "包拯", role: "监察", secondaryRole: "宰相", dynasty: "宋", quote: "清心为治本，直道是身谋。", tags: ["吏治", "民生"], bonuses: { integrity: 17, sentiment: 7 } },
-  { id: "zhangtang", name: "张汤", role: "监察", secondaryRole: "财政", dynasty: "汉", quote: "法令必行，百官震肃。", tags: ["吏治", "财政"], bonuses: { integrity: 15, grain: 6, sentiment: -6 } },
-  { id: "hai", name: "海瑞", role: "监察", secondaryRole: "财政", dynasty: "明", quote: "刚峰之下，无所回避。", tags: ["吏治", "民生"], bonuses: { integrity: 19, sentiment: 5, grain: -3 } },
+const corePeople: Person[] = [
+  { id: "qinshihuang", name: "秦始皇", role: "皇帝", secondaryRoles: ["监察"], dynasty: "秦", quote: "制度开创极猛，民力也真扛不住。", tags: ["吏治", "军事"], bonuses: { army: 12, integrity: 8, sentiment: -8 } },
+  { id: "liubang-emperor", name: "汉高祖", role: "皇帝", secondaryRoles: ["宰相"], dynasty: "汉", quote: "最懂得让天下英才各得其所。", tags: ["谋略", "民生"], bonuses: { sentiment: 10, grain: 5 } },
+  { id: "hanwu-emperor", name: "汉武帝", role: "皇帝", secondaryRoles: ["名将"], dynasty: "汉", quote: "雄才大略，国力与野心一同燃烧。", tags: ["军事", "财政"], bonuses: { army: 14, grain: -6 } },
+  { id: "caocao-emperor", name: "魏武帝", role: "皇帝", secondaryRoles: ["宰相"], dynasty: "魏", quote: "乱世枭雄，唯才是举。", tags: ["谋略", "吏治"], bonuses: { army: 8, integrity: 8 } },
+  { id: "liubei-emperor", name: "汉昭烈帝", role: "皇帝", secondaryRoles: ["宰相"], dynasty: "蜀汉", quote: "以仁为旗，百折不挠。", tags: ["民生", "谋略"], bonuses: { sentiment: 14, population: 5 } },
+  { id: "sunce-emperor", name: "孙策", role: "皇帝", secondaryRoles: ["名将"], dynasty: "吴", quote: "江东小霸王，锐进如风。", tags: ["军事", "谋略"], bonuses: { army: 13, sentiment: 3 } },
+  { id: "liuyu-emperor", name: "宋武帝", role: "皇帝", secondaryRoles: ["名将"], dynasty: "刘宋", quote: "寒门军功，气吞万里如虎。", tags: ["军事", "吏治"], bonuses: { army: 12, integrity: 5 } },
+  { id: "lishimin-emperor", name: "唐太宗", role: "皇帝", secondaryRoles: ["名将"], dynasty: "唐", quote: "善战亦善纳谏，守成不逊开创。", tags: ["军事", "吏治"], bonuses: { army: 10, integrity: 12, sentiment: 5 } },
+  { id: "zhaokuangyin-emperor", name: "宋太祖", role: "皇帝", secondaryRoles: ["名将"], dynasty: "宋", quote: "收兵权，重文治，宽厚养民。", tags: ["吏治", "民生"], bonuses: { integrity: 10, sentiment: 8 } },
+  { id: "genghis-emperor", name: "成吉思汗", role: "皇帝", secondaryRoles: ["名将"], dynasty: "大蒙古国", quote: "聚草原诸部，铁骑横越万里。", tags: ["军事", "谋略"], bonuses: { army: 18, population: -3 } },
+  { id: "zhuyuanzhang-emperor", name: "明太祖", role: "皇帝", secondaryRoles: ["监察"], dynasty: "明", quote: "知民间疾苦，也以严酷驭群臣。", tags: ["吏治", "民生"], bonuses: { integrity: 14, sentiment: 5, grain: 4 } },
+  { id: "xiaohe", name: "萧何", role: "宰相", secondaryRoles: ["财政"], dynasty: "汉", quote: "镇国家，抚百姓，给馈饷。", tags: ["财政", "民生"], bonuses: { grain: 14, integrity: 4 } },
+  { id: "zhugeliang", name: "诸葛亮", role: "宰相", secondaryRoles: ["财政"], dynasty: "蜀汉", quote: "治军理政皆一流，就是太爱事必躬亲。", tags: ["吏治", "谋略"], bonuses: { integrity: 16, grain: 6 } },
+  { id: "fangxuanling", name: "房玄龄", role: "宰相", secondaryRoles: ["监察"], dynasty: "唐", quote: "善谋能断，润物无声。", tags: ["谋略", "吏治"], bonuses: { integrity: 10, sentiment: 5 } },
+  { id: "wanganshi", name: "王安石", role: "宰相", secondaryRoles: ["财政"], dynasty: "宋", quote: "天变不足畏，祖宗不足法。", tags: ["财政", "吏治"], bonuses: { grain: 12, sentiment: -4 } },
+  { id: "hanxin", name: "韩信", role: "名将", secondaryRoles: ["宰相"], dynasty: "汉", quote: "多多益善，兵锋无双。", tags: ["军事", "谋略"], bonuses: { army: 20, sentiment: -2 } },
+  { id: "lijing", name: "李靖", role: "名将", secondaryRoles: ["宰相"], dynasty: "唐", quote: "谋定后动，千里破敌。", tags: ["军事", "谋略"], bonuses: { army: 17, grain: 3 } },
+  { id: "yuefei", name: "岳飞", role: "名将", secondaryRoles: ["监察"], dynasty: "宋", quote: "冻死不拆屋，饿死不掳掠。", tags: ["军事", "民生"], bonuses: { army: 15, sentiment: 8 } },
+  { id: "xuda", name: "徐达", role: "名将", secondaryRoles: ["监察"], dynasty: "明", quote: "持重有谋，军纪肃然。", tags: ["军事", "吏治"], bonuses: { army: 16, integrity: 5 } },
+  { id: "sang", name: "桑弘羊", role: "财政", secondaryRoles: ["宰相"], dynasty: "汉", quote: "盐铁归官，富国强兵。", tags: ["财政", "谋略"], bonuses: { grain: 20, sentiment: -7 } },
+  { id: "liuyan", name: "刘晏", role: "财政", secondaryRoles: ["宰相"], dynasty: "唐", quote: "理财以爱民为先。", tags: ["财政", "民生"], bonuses: { grain: 14, sentiment: 7 } },
+  { id: "zhangjuzheng", name: "张居正", role: "财政", secondaryRoles: ["监察"], dynasty: "明", quote: "考成核实，一条鞭行天下。", tags: ["财政", "吏治"], bonuses: { grain: 17, integrity: 8 } },
+  { id: "wangjing", name: "王景", role: "财政", secondaryRoles: ["宰相"], dynasty: "东汉", quote: "治河千里，水患遂息。", tags: ["民生", "财政"], bonuses: { population: 9, grain: 10 } },
+  { id: "weizheng", name: "魏征", role: "监察", secondaryRoles: ["宰相"], dynasty: "唐", quote: "兼听则明，偏信则暗。", tags: ["吏治", "谋略"], bonuses: { integrity: 20, sentiment: 4 } },
+  { id: "baozheng", name: "包拯", role: "监察", secondaryRoles: ["宰相"], dynasty: "宋", quote: "清心为治本，直道是身谋。", tags: ["吏治", "民生"], bonuses: { integrity: 17, sentiment: 7 } },
+  { id: "zhangtang", name: "张汤", role: "监察", secondaryRoles: ["财政"], dynasty: "汉", quote: "法令必行，百官震肃。", tags: ["吏治", "财政"], bonuses: { integrity: 15, grain: 6, sentiment: -6 } },
+  { id: "hai", name: "海瑞", role: "监察", secondaryRoles: ["财政"], dynasty: "明", quote: "刚峰之下，无所回避。", tags: ["吏治", "民生"], bonuses: { integrity: 19, sentiment: 5, grain: -3 } },
 ];
+
+type OriginalPersonSeed = Pick<Person, "id" | "name" | "dynasty" | "role" | "secondaryRoles">;
+
+const originalPeopleSeeds: OriginalPersonSeed[] = [
+  {
+    "id": "original-hanwendi",
+    "name": "汉文帝",
+    "dynasty": "汉",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-guangwudi",
+    "name": "刘秀",
+    "dynasty": "汉",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-zhangliang",
+    "name": "张良",
+    "dynasty": "汉",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-chenping",
+    "name": "陈平",
+    "dynasty": "汉",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-weihuo",
+    "name": "卫青",
+    "dynasty": "汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-huoqubing",
+    "name": "霍去病",
+    "dynasty": "汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-lisi",
+    "name": "李斯",
+    "dynasty": "秦",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-shangyang",
+    "name": "商鞅",
+    "dynasty": "秦",
+    "role": "宰相",
+    "secondaryRoles": [
+      "财政",
+      "监察"
+    ],
+  },
+  {
+    "id": "original-wangjian",
+    "name": "王翦",
+    "dynasty": "秦",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-mengtian",
+    "name": "蒙恬",
+    "dynasty": "秦",
+    "role": "名将",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-huoguang",
+    "name": "霍光",
+    "dynasty": "汉",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-zhangqian",
+    "name": "张骞",
+    "dynasty": "汉",
+    "role": "监察",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-sunquan",
+    "name": "孙权",
+    "dynasty": "东吴",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "宰相",
+      "监察"
+    ],
+  },
+  {
+    "id": "original-simayi",
+    "name": "司马懿",
+    "dynasty": "曹魏",
+    "role": "宰相",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-xunyu",
+    "name": "荀彧",
+    "dynasty": "曹魏",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-guojia",
+    "name": "郭嘉",
+    "dynasty": "曹魏",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhouyu",
+    "name": "周瑜",
+    "dynasty": "东吴",
+    "role": "名将",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-luxun",
+    "name": "陆逊",
+    "dynasty": "东吴",
+    "role": "名将",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-dengai",
+    "name": "邓艾",
+    "dynasty": "曹魏",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yanghu",
+    "name": "羊祜",
+    "dynasty": "西晋",
+    "role": "名将",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-wangmeng",
+    "name": "王猛",
+    "dynasty": "前秦",
+    "role": "宰相",
+    "secondaryRoles": [
+      "财政",
+      "监察"
+    ],
+  },
+  {
+    "id": "original-xiean",
+    "name": "谢安",
+    "dynasty": "东晋",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-zut",
+    "name": "祖逖",
+    "dynasty": "东晋",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-huanwen",
+    "name": "桓温",
+    "dynasty": "东晋",
+    "role": "名将",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-taokan",
+    "name": "陶侃",
+    "dynasty": "东晋",
+    "role": "名将",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-suiwendi",
+    "name": "隋文帝",
+    "dynasty": "隋",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-wuzetian",
+    "name": "武则天",
+    "dynasty": "武周",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-tangxuanzong",
+    "name": "唐玄宗",
+    "dynasty": "唐",
+    "role": "皇帝",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-duruhui",
+    "name": "杜如晦",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-liji",
+    "name": "李绩",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-guoziyi",
+    "name": "郭子仪",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-liguangbi",
+    "name": "李光弼",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-peidu",
+    "name": "裴度",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-direnjie",
+    "name": "狄仁杰",
+    "dynasty": "武周",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-yaochong",
+    "name": "姚崇",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-songjing",
+    "name": "宋璟",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-songrenzong",
+    "name": "宋仁宗",
+    "dynasty": "北宋",
+    "role": "皇帝",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-fanzhongyan",
+    "name": "范仲淹",
+    "dynasty": "北宋",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-simaguang",
+    "name": "司马光",
+    "dynasty": "北宋",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-ouyangxiu",
+    "name": "欧阳修",
+    "dynasty": "北宋",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-hanshizhong",
+    "name": "韩世忠",
+    "dynasty": "南宋",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-wentianxiang",
+    "name": "文天祥",
+    "dynasty": "南宋",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-luxiufu",
+    "name": "陆秀夫",
+    "dynasty": "南宋",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-kubila",
+    "name": "忽必烈",
+    "dynasty": "元",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-yelvchucai",
+    "name": "耶律楚材",
+    "dynasty": "蒙古",
+    "role": "宰相",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-bayan",
+    "name": "伯颜",
+    "dynasty": "元",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-tuotuo",
+    "name": "脱脱",
+    "dynasty": "元",
+    "role": "宰相",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-zhudi",
+    "name": "朱棣",
+    "dynasty": "明",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-liubowen",
+    "name": "刘伯温",
+    "dynasty": "明",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-changyuchun",
+    "name": "常遇春",
+    "dynasty": "明",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yuqian",
+    "name": "于谦",
+    "dynasty": "明",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-qijiguang",
+    "name": "戚继光",
+    "dynasty": "明",
+    "role": "名将",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-lishanchang",
+    "name": "李善长",
+    "dynasty": "明",
+    "role": "宰相",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-zhenghe",
+    "name": "郑和",
+    "dynasty": "明",
+    "role": "财政",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-kangxi",
+    "name": "康熙",
+    "dynasty": "清",
+    "role": "皇帝",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yongzheng",
+    "name": "雍正",
+    "dynasty": "清",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "财政",
+      "监察"
+    ],
+  },
+  {
+    "id": "original-qianlong",
+    "name": "乾隆",
+    "dynasty": "清",
+    "role": "皇帝",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zengguofan",
+    "name": "曾国藩",
+    "dynasty": "清",
+    "role": "宰相",
+    "secondaryRoles": [
+      "名将",
+      "监察"
+    ],
+  },
+  {
+    "id": "original-zuozongtang",
+    "name": "左宗棠",
+    "dynasty": "清",
+    "role": "名将",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-lihongzhang",
+    "name": "李鸿章",
+    "dynasty": "清",
+    "role": "宰相",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-qingong",
+    "name": "秦孝公",
+    "dynasty": "秦",
+    "role": "皇帝",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-qinzhaoxiang",
+    "name": "秦昭襄王",
+    "dynasty": "秦",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-hanjingdi",
+    "name": "汉景帝",
+    "dynasty": "汉",
+    "role": "皇帝",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-hanxuandi",
+    "name": "汉宣帝",
+    "dynasty": "汉",
+    "role": "皇帝",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-hanmingdi",
+    "name": "汉明帝",
+    "dynasty": "东汉",
+    "role": "皇帝",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-hanzhangdi",
+    "name": "汉章帝",
+    "dynasty": "东汉",
+    "role": "皇帝",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-caocan",
+    "name": "曹参",
+    "dynasty": "汉",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhoubo",
+    "name": "周勃",
+    "dynasty": "汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-guanying",
+    "name": "灌婴",
+    "dynasty": "汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-fankuai",
+    "name": "樊哙",
+    "dynasty": "汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-liguang",
+    "name": "李广",
+    "dynasty": "汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhaochongguo",
+    "name": "赵充国",
+    "dynasty": "汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhaoguo",
+    "name": "赵过",
+    "dynasty": "汉",
+    "role": "财政",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-dongzhongshu",
+    "name": "董仲舒",
+    "dynasty": "汉",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-jima",
+    "name": "汲黯",
+    "dynasty": "汉",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-bingji",
+    "name": "丙吉",
+    "dynasty": "汉",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-weixiang",
+    "name": "魏相",
+    "dynasty": "汉",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhufuyan",
+    "name": "主父偃",
+    "dynasty": "汉",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-fengtang",
+    "name": "冯唐",
+    "dynasty": "汉",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-douwan",
+    "name": "窦婴",
+    "dynasty": "汉",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-zhidu",
+    "name": "郅都",
+    "dynasty": "汉",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-chentang",
+    "name": "陈汤",
+    "dynasty": "汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-banchao",
+    "name": "班超",
+    "dynasty": "东汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-ban-gu",
+    "name": "班固",
+    "dynasty": "东汉",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-mayuan",
+    "name": "马援",
+    "dynasty": "东汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-dengyu",
+    "name": "邓禹",
+    "dynasty": "东汉",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-wuhan",
+    "name": "吴汉",
+    "dynasty": "东汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-guanyu",
+    "name": "关羽",
+    "dynasty": "蜀汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhangfei",
+    "name": "张飞",
+    "dynasty": "蜀汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhaoyun",
+    "name": "赵云",
+    "dynasty": "蜀汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-machao",
+    "name": "马超",
+    "dynasty": "蜀汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-huangzhong",
+    "name": "黄忠",
+    "dynasty": "蜀汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-fazheng",
+    "name": "法正",
+    "dynasty": "蜀汉",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-pangtong",
+    "name": "庞统",
+    "dynasty": "蜀汉",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-jiangwei",
+    "name": "姜维",
+    "dynasty": "蜀汉",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-lusu",
+    "name": "鲁肃",
+    "dynasty": "东吴",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-lvmeng",
+    "name": "吕蒙",
+    "dynasty": "东吴",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhangliao",
+    "name": "张辽",
+    "dynasty": "曹魏",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-dianwei",
+    "name": "典韦",
+    "dynasty": "曹魏",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-xuchu",
+    "name": "许褚",
+    "dynasty": "曹魏",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-xiahoudun",
+    "name": "夏侯惇",
+    "dynasty": "曹魏",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-xiahouyuan",
+    "name": "夏侯渊",
+    "dynasty": "曹魏",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-lukang",
+    "name": "陆抗",
+    "dynasty": "东吴",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-duyu",
+    "name": "杜预",
+    "dynasty": "西晋",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-zhouchu",
+    "name": "周处",
+    "dynasty": "西晋",
+    "role": "监察",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-murongchui",
+    "name": "慕容垂",
+    "dynasty": "后燕",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-tuobatao",
+    "name": "拓跋焘",
+    "dynasty": "北魏",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-gaohuan",
+    "name": "高欢",
+    "dynasty": "东魏",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-yuwentai",
+    "name": "宇文泰",
+    "dynasty": "西魏",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-weixiaokuan",
+    "name": "韦孝宽",
+    "dynasty": "北周",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-chenqingzhi",
+    "name": "陈庆之",
+    "dynasty": "南梁",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-tandaoji",
+    "name": "檀道济",
+    "dynasty": "刘宋",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-gaochanggong",
+    "name": "高长恭",
+    "dynasty": "北齐",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-cuihao",
+    "name": "崔浩",
+    "dynasty": "北魏",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-suchuo",
+    "name": "苏绰",
+    "dynasty": "西魏",
+    "role": "宰相",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-yangguang",
+    "name": "隋炀帝",
+    "dynasty": "隋",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-gaojiong",
+    "name": "高颎",
+    "dynasty": "隋",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yangsu",
+    "name": "杨素",
+    "dynasty": "隋",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhangsunwuji",
+    "name": "长孙无忌",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-mazhou",
+    "name": "马周",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-chusuiliang",
+    "name": "褚遂良",
+    "dynasty": "唐",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-zhangjianzhi",
+    "name": "张柬之",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-guoyuanzhen",
+    "name": "郭元振",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhangyue",
+    "name": "张说",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhangjiuling",
+    "name": "张九龄",
+    "dynasty": "唐",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-limi_tang",
+    "name": "李泌",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-luzhi",
+    "name": "陆贽",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-hanyu",
+    "name": "韩愈",
+    "dynasty": "唐",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-liuzongyuan",
+    "name": "柳宗元",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-lideyu",
+    "name": "李德裕",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-niusengru",
+    "name": "牛僧孺",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-yan-zhenqing",
+    "name": "颜真卿",
+    "dynasty": "唐",
+    "role": "监察",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-xuerengui",
+    "name": "薛仁贵",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-sudingfang",
+    "name": "苏定方",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-peixingjian",
+    "name": "裴行俭",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-wangzhongsi",
+    "name": "王忠嗣",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-gaoxianzhi",
+    "name": "高仙芝",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-geshuhan",
+    "name": "哥舒翰",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-weigao",
+    "name": "韦皋",
+    "dynasty": "唐",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-liugu",
+    "name": "柳公绰",
+    "dynasty": "唐",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-hunyuan",
+    "name": "浑瑊",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhaopu",
+    "name": "赵普",
+    "dynasty": "北宋",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-koushun",
+    "name": "寇准",
+    "dynasty": "北宋",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-fubi",
+    "name": "富弼",
+    "dynasty": "北宋",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-hanqi",
+    "name": "韩琦",
+    "dynasty": "北宋",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-lvmengzheng",
+    "name": "吕蒙正",
+    "dynasty": "北宋",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-caixiang",
+    "name": "蔡襄",
+    "dynasty": "北宋",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-wangdan",
+    "name": "王旦",
+    "dynasty": "北宋",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhangdun",
+    "name": "章惇",
+    "dynasty": "北宋",
+    "role": "宰相",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-ligang",
+    "name": "李纲",
+    "dynasty": "南宋",
+    "role": "监察",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-zhaoding",
+    "name": "赵鼎",
+    "dynasty": "南宋",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yuyunwen",
+    "name": "虞允文",
+    "dynasty": "南宋",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-xinqiji",
+    "name": "辛弃疾",
+    "dynasty": "南宋",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-menggong",
+    "name": "孟珙",
+    "dynasty": "南宋",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yujie",
+    "name": "余玠",
+    "dynasty": "南宋",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-jiasidao",
+    "name": "贾似道",
+    "dynasty": "南宋",
+    "role": "宰相",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-zhangshijie",
+    "name": "张世杰",
+    "dynasty": "南宋",
+    "role": "监察",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-ashu",
+    "name": "阿术",
+    "dynasty": "元",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-haojing",
+    "name": "郝经",
+    "dynasty": "元",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-liubingzhong",
+    "name": "刘秉忠",
+    "dynasty": "元",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhanghongfan",
+    "name": "张弘范",
+    "dynasty": "元",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-wanyanaguda",
+    "name": "完颜阿骨打",
+    "dynasty": "金",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-wanyanzongbi",
+    "name": "完颜宗弼",
+    "dynasty": "金",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-wanyanzongwang",
+    "name": "完颜宗望",
+    "dynasty": "金",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-shitanze",
+    "name": "史天泽",
+    "dynasty": "元",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-xuheng",
+    "name": "许衡",
+    "dynasty": "元",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhubiao",
+    "name": "朱标",
+    "dynasty": "明",
+    "role": "皇帝",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhuzhanji",
+    "name": "朱瞻基",
+    "dynasty": "明",
+    "role": "皇帝",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yansong",
+    "name": "严嵩",
+    "dynasty": "明",
+    "role": "宰相",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-gaogong",
+    "name": "高拱",
+    "dynasty": "明",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-xujie",
+    "name": "徐阶",
+    "dynasty": "明",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yangtinghe",
+    "name": "杨廷和",
+    "dynasty": "明",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yangshiqi",
+    "name": "杨士奇",
+    "dynasty": "明",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yangrong",
+    "name": "杨荣",
+    "dynasty": "明",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yangpu",
+    "name": "杨溥",
+    "dynasty": "明",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yuanchonghuan",
+    "name": "袁崇焕",
+    "dynasty": "明",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-xiongtingbi",
+    "name": "熊廷弼",
+    "dynasty": "明",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-lichengliang",
+    "name": "李成梁",
+    "dynasty": "明",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-sunchengzong",
+    "name": "孙承宗",
+    "dynasty": "明",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-luxiangsheng",
+    "name": "卢象升",
+    "dynasty": "明",
+    "role": "监察",
+    "secondaryRoles": [
+      "名将"
+    ],
+  },
+  {
+    "id": "original-hongchengchou",
+    "name": "洪承畴",
+    "dynasty": "明清",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-shilang",
+    "name": "施琅",
+    "dynasty": "清",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-niangengyao",
+    "name": "年羹尧",
+    "dynasty": "清",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-yuezhongqi",
+    "name": "岳钟琪",
+    "dynasty": "清",
+    "role": "名将",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-linzexu",
+    "name": "林则徐",
+    "dynasty": "清",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-hulin-yi",
+    "name": "胡林翼",
+    "dynasty": "清",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-dingbaozhen",
+    "name": "丁宝桢",
+    "dynasty": "清",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-liutongxun",
+    "name": "刘统勋",
+    "dynasty": "清",
+    "role": "监察",
+    "secondaryRoles": [
+      "宰相"
+    ],
+  },
+  {
+    "id": "original-jixiaolan",
+    "name": "纪晓岚",
+    "dynasty": "清",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-zhangtingyu",
+    "name": "张廷玉",
+    "dynasty": "清",
+    "role": "宰相",
+    "secondaryRoles": [],
+  },
+  {
+    "id": "original-eertai",
+    "name": "鄂尔泰",
+    "dynasty": "清",
+    "role": "宰相",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-aobai",
+    "name": "鳌拜",
+    "dynasty": "清",
+    "role": "宰相",
+    "secondaryRoles": [
+      "财政"
+    ],
+  },
+  {
+    "id": "original-duoergun",
+    "name": "多尔衮",
+    "dynasty": "清",
+    "role": "皇帝",
+    "secondaryRoles": [
+      "名将"
+    ],
+  }
+];
+
+const roleProfile: Record<Role, Pick<Person, "tags" | "bonuses">> = {
+  皇帝: { tags: ["谋略", "民生"], bonuses: { sentiment: 8, integrity: 6 } },
+  宰相: { tags: ["谋略", "吏治"], bonuses: { integrity: 10, grain: 5 } },
+  名将: { tags: ["军事", "谋略"], bonuses: { army: 14, grain: -2 } },
+  财政: { tags: ["财政", "民生"], bonuses: { grain: 15, population: 3 } },
+  监察: { tags: ["吏治", "民生"], bonuses: { integrity: 15, sentiment: 3 } },
+};
+
+const primaryRoleOverrides: Partial<Record<string, Role>> = {
+  商鞅: "财政", 王猛: "财政", 苏绰: "财政", 高颎: "财政", 陆贽: "财政", 姚崇: "财政", 范仲淹: "财政",
+  耶律楚材: "财政", 脱脱: "财政", 李善长: "财政", 李鸿章: "财政", 章惇: "财政", 鄂尔泰: "财政", 曹参: "财政",
+  蒙恬: "财政", 赵充国: "财政", 邓艾: "财政", 陶侃: "财政", 李绩: "财政", 郭子仪: "财政", 左宗棠: "财政",
+  戚继光: "财政", 孟珙: "财政", 郭元振: "财政",
+  张良: "监察", 陈平: "监察", 荀彧: "监察", 谢安: "监察", 裴度: "监察", 司马光: "监察", 欧阳修: "监察",
+  刘伯温: "监察", 徐阶: "监察", 赵云: "监察", 周瑜: "监察", 陆逊: "监察", 羊祜: "监察", 韦孝宽: "监察", 辛弃疾: "监察",
+};
+
+const quoteOpenings: Record<Role, string[]> = {
+  皇帝: ["驾驭全局的能力突出", "善于在乱局中确立方向", "有重塑国家秩序的雄心", "适合掌舵长期国运"],
+  宰相: ["能把庞杂政务理出头绪", "长于统筹朝堂与地方", "面对积弊仍有整顿办法", "是维持国家运转的中枢型人才"],
+  名将: ["临阵决断与统兵能力出众", "最擅长在危局中争取主动", "能迅速提升军队的执行力", "守边与攻坚都值得托付"],
+  财政: ["懂得把有限资源用在要害", "长于经营钱粮与民生", "能为王朝建立更耐久的家底", "擅长从制度中寻找财源"],
+  监察: ["敢于触碰盘根错节的积弊", "能给膨胀的权力及时纠偏", "整饬官风时很有分量", "适合替朝廷守住制度底线"],
+};
+
+const quoteTradeoffs: Record<Role, string[]> = {
+  皇帝: ["但大方向越鲜明，越考验班底的制衡。", "只是雄心落地仍要看国力能否承受。", "若能克制急进，长线会更稳。", "用得好能开新局，用得急也会透支民力。"],
+  宰相: ["不过权责太重时，也需要君主充分信任。", "适合处理长线问题，不宜被短期噪声牵着走。", "若有合适同僚配合，治理上限会更高。", "强项在执行，仍需留意朝堂阻力。"],
+  名将: ["只是军功越盛，后勤与朝廷协调越重要。", "适合承担硬仗，但不能让国库长期陪跑。", "若武备基础不足，再强的将领也难独撑。", "用兵之外，还得有人替他守住钱粮。"],
+  财政: ["但增收方式不同，民情代价也会不同。", "账面好看之后，更要防止地方层层加码。", "适合积累优势，不能只追求一时入库。", "若官风不正，再好的制度也可能走样。"],
+  监察: ["不过整顿过猛，也可能让官场暂时失速。", "需要君主撑腰，才能把查案变成制度。", "清议能正人心，执行尺度仍要拿稳。", "若兼顾民情，整饬效果会更持久。"],
+};
+
+function rosterQuote(seed: OriginalPersonSeed) {
+  const hash = [...seed.id].reduce((sum, char) => sum + (char.codePointAt(0) || 0), 0);
+  const opening = quoteOpenings[seed.role][hash % quoteOpenings[seed.role].length];
+  const tradeoff = quoteTradeoffs[seed.role][Math.floor(hash / 3) % quoteTradeoffs[seed.role].length];
+  return `${opening}，${tradeoff}`;
+}
+
+const importedPeople: Person[] = originalPeopleSeeds.map((seed) => {
+  const role = primaryRoleOverrides[seed.name] || seed.role;
+  const secondaryRoles = role === seed.role
+    ? seed.secondaryRoles
+    : [seed.role, ...seed.secondaryRoles].filter((item, index, items) => item !== role && items.indexOf(item) === index);
+  return {
+    ...seed,
+    role,
+    secondaryRoles,
+    quote: rosterQuote({ ...seed, role }),
+    tags: [...roleProfile[role].tags],
+    bonuses: { ...roleProfile[role].bonuses },
+  };
+});
+
+const people: Person[] = [...corePeople, ...importedPeople];
 
 const randomEvents: EventTemplate[] = [
   { id: "spring-plough", title: "劝课农桑", category: "民生", text: "春耕将启，地方上奏：水渠年久失修，若不整治恐误农时；但国库也等着发军饷。", options: [
@@ -328,7 +1920,7 @@ function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYe
   return events;
 }
 
-const canServe = (person: Person, role: Role) => person.role === role || person.secondaryRole === role;
+const canServe = (person: Person, role: Role) => person.role === role || person.secondaryRoles.includes(role);
 
 function assignLegacyRoster(ids: string[]) {
   const seats = emptySeats();
@@ -336,7 +1928,10 @@ function assignLegacyRoster(ids: string[]) {
     const person = people.find((item) => item.id === id);
     if (!person) return;
     if (!seats[person.role]) seats[person.role] = id;
-    else if (!seats[person.secondaryRole]) seats[person.secondaryRole] = id;
+    else {
+      const secondary = person.secondaryRoles.find((role) => !seats[role]);
+      if (secondary) seats[secondary] = id;
+    }
   });
   return seats;
 }
@@ -355,8 +1950,16 @@ function normalizeSave(raw: unknown): GameState | null {
 }
 
 function drawRosterCandidates(seats: SeatAssignments, selectedIds: string[]) {
-  const eligible = people.filter((person) => !selectedIds.includes(person.id) && (!seats[person.role] || !seats[person.secondaryRole]));
-  return [...eligible].sort(() => Math.random() - .5).slice(0, 12).map((person) => person.id);
+  const eligible = people.filter((person) => !selectedIds.includes(person.id) && (!seats[person.role] || person.secondaryRoles.some((role) => !seats[role])));
+  const pools = [...roles].sort(() => Math.random() - .5).map((role) => eligible.filter((person) => person.role === role).sort(() => Math.random() - .5));
+  const candidates: Person[] = [];
+  for (let depth = 0; candidates.length < 12 && pools.some((pool) => pool[depth]); depth += 1) {
+    for (const pool of pools) {
+      if (pool[depth]) candidates.push(pool[depth]);
+      if (candidates.length === 12) break;
+    }
+  }
+  return candidates.map((person) => person.id);
 }
 
 function App() {
@@ -395,7 +1998,7 @@ function App() {
   const redrawCandidates = () => setCandidateIds(drawRosterCandidates(rosterSeats, rosterIds));
 
   const selectPerson = (person: Person) => {
-    const target = !rosterSeats[person.role] ? person.role : !rosterSeats[person.secondaryRole] ? person.secondaryRole : null;
+    const target = !rosterSeats[person.role] ? person.role : person.secondaryRoles.find((role) => !rosterSeats[role]) || null;
     if (!target || rosterIds.includes(person.id) || rosterRound >= 5) return;
     const nextSeats = { ...rosterSeats, [target]: person.id };
     const nextIds = roles.map((role) => nextSeats[role]).filter(Boolean) as string[];
@@ -577,9 +2180,9 @@ function PolicySelect({ selected, onSelect, onBack, onNext }: { selected: string
 
 function RosterSelect({ seats, round, candidates, activePersonId, onActivate, onCanMove, onMove, onRedraw, onSelect, onBack, onStart }: { seats: SeatAssignments; round: number; candidates: Person[]; activePersonId: string | null; onActivate: (id: string | null) => void; onCanMove: (id: string, role: Role) => boolean; onMove: (id: string, role: Role) => void; onRedraw: () => void; onSelect: (person: Person) => void; onBack: () => void; onStart: () => void }) {
   return <section className="setup-page roster-page"><Progress active={2} /><header className="setup-heading"><span>第三诏</span><h2>五轮抽签 · 组建班底</h2><p>每轮从随机名册中择一人。主职空缺则优先入主职，否则转入次职。</p></header>
-    <div className="seats roster-seats">{roles.map((role) => { const person = people.find((item) => item.id === seats[role]); const isActive = !!person && activePersonId === person.id; const valid = !!activePersonId && onCanMove(activePersonId, role); return <button type="button" draggable={!!person} className={`seat ${person ? "filled" : ""} ${isActive ? "dragging" : ""} ${valid ? "valid-drop" : ""}`} key={role} onClick={() => activePersonId && activePersonId !== person?.id ? onMove(activePersonId, role) : onActivate(person ? (isActive ? null : person.id) : null)} onDragStart={(event) => { if (!person) return; event.dataTransfer.setData("text/plain", person.id); onActivate(person.id); }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const personId = event.dataTransfer.getData("text/plain") || activePersonId; if (personId) onMove(personId, role); }}><span>{role}</span><b>{person?.name || "待定"}</b><small>{person ? `主·${person.role}　次·${person.secondaryRole}` : "等待抽签入席"}</small>{person && <em>拖拽或点击换位</em>}</button> })}</div>
+    <div className="seats roster-seats">{roles.map((role) => { const person = people.find((item) => item.id === seats[role]); const isActive = !!person && activePersonId === person.id; const valid = !!activePersonId && onCanMove(activePersonId, role); return <button type="button" draggable={!!person} className={`seat ${person ? "filled" : ""} ${isActive ? "dragging" : ""} ${valid ? "valid-drop" : ""}`} key={role} onClick={() => activePersonId && activePersonId !== person?.id ? onMove(activePersonId, role) : onActivate(person ? (isActive ? null : person.id) : null)} onDragStart={(event) => { if (!person) return; event.dataTransfer.setData("text/plain", person.id); onActivate(person.id); }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const personId = event.dataTransfer.getData("text/plain") || activePersonId; if (personId) onMove(personId, role); }}><span>{role}</span><b>{person?.name || "待定"}</b><small>{person ? `主·${person.role}　次·${person.secondaryRoles.join("/") || "无"}` : "等待抽签入席"}</small>{person && <em>拖拽或点击换位</em>}</button> })}</div>
     <div className="roster-hint"><span>调位规则</span><p>拖动已选人物到高亮席位；若目标已有角色，只有对方也能胜任原席位时才会交换。触屏设备可先点人物，再点高亮席位。</p></div>
-    {round < 5 ? <section className="roster-draw"><header><div><span>第 {round + 1} 轮 / 共 5 轮</span><h3>本轮随机候选</h3></div><button className="ghost" onClick={onRedraw}>换一批人才</button></header><div className="random-candidates">{candidates.map((person) => <button className="person-card draw-card" onClick={() => onSelect(person)} key={person.id}><div><h3>{person.name}</h3><span>{person.dynasty}</span></div><p>{person.quote}</p><div className="role-directions"><i>主 · {person.role}</i><i>次 · {person.secondaryRole}</i></div><small>{person.tags.map((tag) => <i key={tag}>{tag}</i>)}</small></button>)}</div></section> : <div className="roster-complete"><span>五轮抽签已毕</span><h3>开国五席俱全</h3><p>仍可拖拽或点击上方人物调整任职方向；确认无误后开始治国。</p></div>}
+    {round < 5 ? <section className="roster-draw"><header><div><span>第 {round + 1} 轮 / 共 5 轮</span><h3>本轮随机候选</h3></div><button className="ghost" onClick={onRedraw}>换一批人才</button></header><div className="random-candidates">{candidates.map((person) => <button className="person-card draw-card" onClick={() => onSelect(person)} key={person.id}><div><h3>{person.name}</h3><span>{person.dynasty}</span></div><p>{person.quote}</p><div className="role-directions"><i>主 · {person.role}</i><i>次 · {person.secondaryRoles.join("/") || "无"}</i></div><small>{person.tags.map((tag) => <i key={tag}>{tag}</i>)}</small></button>)}</div></section> : <div className="roster-complete"><span>五轮抽签已毕</span><h3>开国五席俱全</h3><p>仍可拖拽或点击上方人物调整任职方向；确认无误后开始治国。</p></div>}
     <div className="setup-actions sticky-actions"><button className="ghost" onClick={onBack}>返回改策</button><div><span>已完成 {round} / 5 轮</span><button className="primary" disabled={round !== 5 || roles.some((role) => !seats[role])} onClick={onStart}>班底已定 · 开始治国</button></div></div>
   </section>;
 }

@@ -22,14 +22,20 @@ test("server renders the dynasty game landing page", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });
 
-test("includes five-round dual-role selection, history events, and reign-only saves", async () => {
+test("includes the expanded five-round roster, history events, and reign-only saves", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   for (const title of ["秦始皇纪", "汉高祖纪", "汉武帝纪", "曹操传", "刘备传", "孙策传", "刘裕传", "唐太宗纪", "宋太祖纪", "成吉思汗纪", "明太祖纪"]) assert.match(page, new RegExp(title));
   assert.match(page, /剧本只决定时代与历史事件/);
   assert.match(page, /role: "皇帝"/);
-  assert.match(page, /secondaryRole: "名将"/);
-  assert.match(page, /const target = !rosterSeats\[person\.role\].*person\.secondaryRole/);
-  assert.match(page, /slice\(0, 12\)/);
+  assert.match(page, /secondaryRoles: \["名将"\]/);
+  assert.match(page, /person\.secondaryRoles\.find\(\(role\) => !rosterSeats\[role\]\)/);
+  assert.match(page, /eligible\.filter\(\(person\) => person\.role === role\)/);
+  for (const name of ["汉文帝", "刘秀", "武则天", "忽必烈", "雍正", "张良", "司马懿", "范仲淹", "卫青", "霍去病", "戚继光", "赵过", "汲黯", "狄仁杰", "林则徐"]) assert.match(page, new RegExp(name));
+  assert.match(page, /quoteOpenings: Record<Role, string\[\]>/);
+  assert.match(page, /quote: rosterQuote\(\{ \.\.\.seed, role \}\)/);
+  assert.match(page, /primaryRoleOverrides: Partial<Record<string, Role>>/);
+  assert.match(page, /商鞅: "财政"/);
+  assert.match(page, /张良: "监察"/);
   assert.match(page, /第 \{round \+ 1\} 轮 \/ 共 5 轮/);
   assert.match(page, /draggable=\{!!person\}/);
   assert.match(page, /displayPhase !== "reign"/);

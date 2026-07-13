@@ -49,7 +49,7 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.doesNotMatch(page, /读取旧档/);
   assert.match(page, /已存入档案 \$\{slot \+ 1\}/);
   assert.match(page, /className="save-toast" role="status" aria-live="polite"/);
-  assert.match(page, /historicalEvents\.filter/);
+  assert.match(page, /historicalEvents[\s\S]{0,120}\.filter/);
   for (const scriptId of ["qin", "liubang", "hanwu", "caocao", "liubei", "sunce", "liuyu", "taizong", "song", "genghis", "ming"]) {
     const eventCount = page.match(new RegExp(`scriptId: "${scriptId}"`, "g"))?.length || 0;
     assert.ok(eventCount >= 4, `${scriptId} should have at least four historical events`);
@@ -96,9 +96,22 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /randomSeed: number/);
   assert.match(page, /randomCount: number/);
   assert.match(page, /historyFlags: string\[\]/);
+  assert.match(page, /qinConquestIndex: number/);
+  assert.match(page, /qinConquestDelay: number/);
+  assert.match(page, /qinConquestRetries: number/);
+  assert.match(page, /version: 5/);
+  assert.match(page, /legacyQinConquestIndex\(saved\)/);
   assert.match(page, /historyEventAvailable\(event, historyFlags\)/);
   assert.match(page, /seededRandom\(current\.randomSeed, randomCount\)/);
   assert.match(page, /randomCount: yearEvents\.randomCount/);
+  assert.match(page, /function scaleConquestEffects/);
+  assert.match(page, /value < 0 \? value - Math\.ceil\(Math\.abs\(value\) \* retries \* \.35\) : value/);
+  assert.match(page, /shiftCalendarYear\(event\.year, progress\.qinConquestDelay\)/);
+  assert.match(page, /event\.qinConquestStage !== progress\.qinConquestIndex/);
+  assert.match(page, /function suppressLaterHistoricalEvents/);
+  assert.match(page, /seededShuffle\(pool, randomSeed, randomCount\)/);
+  assert.match(page, /randomCount = suppressed\.randomCount/);
+  assert.match(page, /此国未亡，来年仍须再决；本次之后的秦线大事也将顺延/);
   assert.match(page, /读档不会重掷事件或判定结果/);
   assert.match(page, /current\.elapsed >= 500/);
 
@@ -140,6 +153,61 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.deepEqual(qinAccession.options[1].setHistoryFlags, ["qin_court_independent"]);
   assert.doesNotMatch(JSON.stringify(qinAccession.options), /嫪毐|宫中索人|蕲年/);
   assert.deepEqual(qinEntry.options.map((option) => option.setHistoryFlags), [["qin_lao_ai_admitted"], ["qin_lao_ai_prevented"]]);
+
+  const conquestIds = ["qin-conquer-han", "qin-conquer-zhao", "qin-conquer-wei", "qin-conquer-chu", "qin-conquer-yan", "qin-unification"];
+  const conquestYears = [-230, -228, -225, -223, -222, -221];
+  const conquestEvents = conquestIds.map((id) => historicalEvents.find((event) => event.id === id));
+  assert.ok(conquestEvents.every(Boolean), "all six Qin conquest stages should exist");
+  conquestEvents.forEach((event, stage) => {
+    assert.equal(event.qinConquestStage, stage, `${event.title} should be conquest stage ${stage}`);
+    assert.equal(event.year, conquestYears[stage]);
+    assert.deepEqual(event.options.map((option) => option.qinConquest).sort(), ["advance", "delay"]);
+    const advance = event.options.find((option) => option.qinConquest === "advance");
+    const delay = event.options.find((option) => option.qinConquest === "delay");
+    assert.equal(advance.failOnUnmet, true, `${event.title} should require enough strength to destroy the state`);
+    assert.ok(Object.keys(advance.requirements || {}).length > 0);
+    const delayOutcomes = [delay.effects, delay.successEffects, delay.failEffects].filter(Boolean);
+    assert.ok(delayOutcomes.length > 0, `${event.title} delay should have a real cost`);
+    assert.ok(delayOutcomes.every((effects) => Object.values(effects).some((value) => value < 0)), `${event.title} delay outcomes should all retain a cost`);
+  });
+
+  const shiftYear = (year, delay) => {
+    const shifted = year + delay;
+    return year < 0 && shifted >= 0 ? shifted + 1 : shifted;
+  };
+  const scheduledQinIds = (year, progress) => historicalEvents.filter((event) => {
+    if (event.scriptId !== "qin" || event.year < -230) return false;
+    if (event.qinConquestStage !== undefined && event.qinConquestStage !== progress.index) return false;
+    return shiftYear(event.year, progress.delay) === year;
+  }).map((event) => event.id);
+  assert.ok(scheduledQinIds(-230, { index: 0, delay: 0 }).includes("qin-conquer-han"));
+  assert.ok(scheduledQinIds(-229, { index: 0, delay: 1 }).includes("qin-conquer-han"), "delayed Han should return next year");
+  assert.ok(scheduledQinIds(-227, { index: 1, delay: 1 }).includes("qin-conquer-zhao"), "advancing should unlock the next conquest on the shifted timeline");
+  assert.ok(scheduledQinIds(-226, { index: 0, delay: 1 }).includes("qin-jing-ke"), "non-conquest Qin history should shift with the conquest delay");
+  assert.ok(scheduledQinIds(-226, { index: 1, delay: 2 }).includes("qin-conquer-zhao"), "a delayed Zhao should recur next year");
+  assert.ok(scheduledQinIds(-225, { index: 1, delay: 2 }).includes("qin-jing-ke"), "later Qin history should continue to slide");
+
+  const pressure = (effects, retries) => Object.fromEntries(Object.entries(effects).map(([key, value]) => [
+    key,
+    value < 0 ? value - Math.ceil(Math.abs(value) * retries * .35) : value,
+  ]));
+  for (const event of conquestEvents) {
+    for (const option of event.options) {
+      for (const effects of [option.effects, option.successEffects, option.failEffects].filter(Boolean)) {
+        const firstRetry = pressure(effects, 1);
+        const secondRetry = pressure(effects, 2);
+        for (const [key, value] of Object.entries(effects)) {
+          if (value < 0) {
+            assert.ok(firstRetry[key] < value, `${event.title} / ${option.label} should cost more after one delay`);
+            assert.ok(secondRetry[key] < firstRetry[key], `${event.title} / ${option.label} should keep worsening`);
+          } else {
+            assert.equal(firstRetry[key], value, `${event.title} / ${option.label} should not inflate its upside`);
+            assert.equal(secondRetry[key], value, `${event.title} / ${option.label} should preserve positive effects`);
+          }
+        }
+      }
+    }
+  }
 
   const punitiveIds = ["qin-lao-ai", "liubang-qin-resistance", "caocao-luoyang-rescript", "sunce-yuanshu-remnants", "genghis-noble-vanguard"];
   assert.deepEqual(historicalEvents.filter((event) => event.punitive).map((event) => event.id).sort(), [...punitiveIds].sort());

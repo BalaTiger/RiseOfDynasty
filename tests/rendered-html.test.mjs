@@ -56,10 +56,10 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /const governance = Math\.sign\(stats\.integrity\) \* Math\.round\(Math\.abs\(stats\.integrity\) \/ 16\)/);
   assert.match(page, /const governanceGrowth = effective\.integrity \/ 48/);
   assert.match(page, /live\.modifiers\.governance > 0 \? "清明" : "贪腐"/);
-  assert.match(page, /const teamBoost = members \* 15 \+ policyBoost/);
-  assert.match(page, /\(effective\.army - 70\) \/ 10/);
-  assert.match(page, /effective\.sentiment \/ 10/);
-  assert.match(page, /\(effective\.integrity \+ effective\.sentiment\) \/ 10/);
+  assert.match(page, /const teamBoost = members \* 7 \+ policyBoost/);
+  assert.match(page, /\(effective\.army - 70\) \/ 20/);
+  assert.match(page, /effective\.sentiment \/ 20/);
+  assert.match(page, /\(effective\.integrity \+ effective\.sentiment\) \/ 20/);
   assert.match(page, /clamp\(option\.chance \+ teamBoost \+ statBoost, 1, 100\)/);
   assert.match(page, /成功率 \$\{finalOptionChance\(option, game\.stats, roster, policy\)\}%/);
   assert.doesNotMatch(page, /基础成功率 \$\{option\.chance\}/);
@@ -72,7 +72,7 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /role="tooltip"/);
   assert.doesNotMatch(page, /官风惯性|贪腐积弊|盛治回调/);
   assert.match(page, /<StatPanel stats=\{game\.stats\} policyId=\{game\.policyId\} \/>/);
-  assert.match(page, /对应专长使事件成功率 \+15%/);
+  assert.match(page, /对应专长使事件成功率 \+7%/);
   assert.match(page, /dynasty-save-\$\{slot\}/);
   assert.match(page, /\[0, 1, 2\]/);
   assert.match(page, /current\.elapsed >= 500/);

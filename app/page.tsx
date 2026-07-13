@@ -1,18 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 type Phase = "landing" | "script" | "policy" | "roster" | "reign" | "ending";
 type StatKey = "population" | "grain" | "army" | "sentiment" | "integrity";
 type Season = "春" | "夏" | "秋" | "冬";
 type SkillTag = "民生" | "财政" | "军事" | "吏治" | "谋略";
+type Role = "皇帝" | "宰相" | "名将" | "财政" | "监察";
 
 type Stats = Record<StatKey, number>;
 
 type Person = {
   id: string;
   name: string;
-  role: string;
+  role: Role;
+  secondaryRole: Role;
   dynasty: string;
   quote: string;
   tags: SkillTag[];
@@ -70,11 +72,12 @@ type Outcome = {
 type Chronicle = { year: number; season: Season; title: string; note: string };
 
 type GameState = {
-  version: 1;
+  version: 2;
   phase: Phase;
   scriptId: string;
   policyId: string;
   rosterIds: string[];
+  seatAssignments: SeatAssignments;
   year: number;
   elapsed: number;
   seasonIndex: number;
@@ -90,7 +93,11 @@ type GameState = {
   endingVictory: boolean;
 };
 
+type SeatAssignments = Record<Role, string | null>;
+
 const seasons: Season[] = ["春", "夏", "秋", "冬"];
+const roles: Role[] = ["皇帝", "宰相", "名将", "财政", "监察"];
+const emptySeats = (): SeatAssignments => ({ 皇帝: null, 宰相: null, 名将: null, 财政: null, 监察: null });
 const statNames: Record<StatKey, string> = {
   population: "人口",
   grain: "钱粮",
@@ -120,33 +127,33 @@ const policies = [
 ];
 
 const people: Person[] = [
-  { id: "qinshihuang", name: "秦始皇", role: "皇帝", dynasty: "秦", quote: "制度开创极猛，民力也真扛不住。", tags: ["吏治", "军事"], bonuses: { army: 12, integrity: 8, sentiment: -8 } },
-  { id: "liubang-emperor", name: "汉高祖", role: "皇帝", dynasty: "汉", quote: "最懂得让天下英才各得其所。", tags: ["谋略", "民生"], bonuses: { sentiment: 10, grain: 5 } },
-  { id: "hanwu-emperor", name: "汉武帝", role: "皇帝", dynasty: "汉", quote: "雄才大略，国力与野心一同燃烧。", tags: ["军事", "财政"], bonuses: { army: 14, grain: -6 } },
-  { id: "caocao-emperor", name: "魏武帝", role: "皇帝", dynasty: "魏", quote: "乱世枭雄，唯才是举。", tags: ["谋略", "吏治"], bonuses: { army: 8, integrity: 8 } },
-  { id: "liubei-emperor", name: "汉昭烈帝", role: "皇帝", dynasty: "蜀汉", quote: "以仁为旗，百折不挠。", tags: ["民生", "谋略"], bonuses: { sentiment: 14, population: 5 } },
-  { id: "sunce-emperor", name: "孙策", role: "皇帝", dynasty: "吴", quote: "江东小霸王，锐进如风。", tags: ["军事", "谋略"], bonuses: { army: 13, sentiment: 3 } },
-  { id: "liuyu-emperor", name: "宋武帝", role: "皇帝", dynasty: "刘宋", quote: "寒门军功，气吞万里如虎。", tags: ["军事", "吏治"], bonuses: { army: 12, integrity: 5 } },
-  { id: "lishimin-emperor", name: "唐太宗", role: "皇帝", dynasty: "唐", quote: "善战亦善纳谏，守成不逊开创。", tags: ["军事", "吏治"], bonuses: { army: 10, integrity: 12, sentiment: 5 } },
-  { id: "zhaokuangyin-emperor", name: "宋太祖", role: "皇帝", dynasty: "宋", quote: "收兵权，重文治，宽厚养民。", tags: ["吏治", "民生"], bonuses: { integrity: 10, sentiment: 8 } },
-  { id: "genghis-emperor", name: "成吉思汗", role: "皇帝", dynasty: "大蒙古国", quote: "聚草原诸部，铁骑横越万里。", tags: ["军事", "谋略"], bonuses: { army: 18, population: -3 } },
-  { id: "zhuyuanzhang-emperor", name: "明太祖", role: "皇帝", dynasty: "明", quote: "知民间疾苦，也以严酷驭群臣。", tags: ["吏治", "民生"], bonuses: { integrity: 14, sentiment: 5, grain: 4 } },
-  { id: "xiaohe", name: "萧何", role: "宰相", dynasty: "汉", quote: "镇国家，抚百姓，给馈饷。", tags: ["财政", "民生"], bonuses: { grain: 14, integrity: 4 } },
-  { id: "zhugeliang", name: "诸葛亮", role: "宰相", dynasty: "蜀汉", quote: "治戎为长，奇谋为短。", tags: ["吏治", "谋略"], bonuses: { integrity: 16, grain: 6 } },
-  { id: "fangxuanling", name: "房玄龄", role: "宰相", dynasty: "唐", quote: "善谋能断，润物无声。", tags: ["谋略", "吏治"], bonuses: { integrity: 10, sentiment: 5 } },
-  { id: "wanganshi", name: "王安石", role: "宰相", dynasty: "宋", quote: "天变不足畏，祖宗不足法。", tags: ["财政", "吏治"], bonuses: { grain: 12, sentiment: -4 } },
-  { id: "hanxin", name: "韩信", role: "名将", dynasty: "汉", quote: "多多益善，兵锋无双。", tags: ["军事", "谋略"], bonuses: { army: 20, sentiment: -2 } },
-  { id: "lijing", name: "李靖", role: "名将", dynasty: "唐", quote: "谋定后动，千里破敌。", tags: ["军事", "谋略"], bonuses: { army: 17, grain: 3 } },
-  { id: "yuefei", name: "岳飞", role: "名将", dynasty: "宋", quote: "冻死不拆屋，饿死不掳掠。", tags: ["军事", "民生"], bonuses: { army: 15, sentiment: 8 } },
-  { id: "xuda", name: "徐达", role: "名将", dynasty: "明", quote: "持重有谋，军纪肃然。", tags: ["军事", "吏治"], bonuses: { army: 16, integrity: 5 } },
-  { id: "sang", name: "桑弘羊", role: "司农", dynasty: "汉", quote: "盐铁归官，富国强兵。", tags: ["财政", "谋略"], bonuses: { grain: 20, sentiment: -7 } },
-  { id: "liuyan", name: "刘晏", role: "司农", dynasty: "唐", quote: "理财以爱民为先。", tags: ["财政", "民生"], bonuses: { grain: 14, sentiment: 7 } },
-  { id: "zhangjuzheng", name: "张居正", role: "司农", dynasty: "明", quote: "考成核实，一条鞭行天下。", tags: ["财政", "吏治"], bonuses: { grain: 17, integrity: 8 } },
-  { id: "wangjing", name: "王景", role: "司农", dynasty: "东汉", quote: "治河千里，水患遂息。", tags: ["民生", "财政"], bonuses: { population: 9, grain: 10 } },
-  { id: "weizheng", name: "魏征", role: "监察", dynasty: "唐", quote: "兼听则明，偏信则暗。", tags: ["吏治", "谋略"], bonuses: { integrity: 20, sentiment: 4 } },
-  { id: "baozheng", name: "包拯", role: "监察", dynasty: "宋", quote: "清心为治本，直道是身谋。", tags: ["吏治", "民生"], bonuses: { integrity: 17, sentiment: 7 } },
-  { id: "zhangtang", name: "张汤", role: "监察", dynasty: "汉", quote: "法令必行，百官震肃。", tags: ["吏治", "财政"], bonuses: { integrity: 15, grain: 6, sentiment: -6 } },
-  { id: "hai", name: "海瑞", role: "监察", dynasty: "明", quote: "刚峰之下，无所回避。", tags: ["吏治", "民生"], bonuses: { integrity: 19, sentiment: 5, grain: -3 } },
+  { id: "qinshihuang", name: "秦始皇", role: "皇帝", secondaryRole: "监察", dynasty: "秦", quote: "制度开创极猛，民力也真扛不住。", tags: ["吏治", "军事"], bonuses: { army: 12, integrity: 8, sentiment: -8 } },
+  { id: "liubang-emperor", name: "汉高祖", role: "皇帝", secondaryRole: "宰相", dynasty: "汉", quote: "最懂得让天下英才各得其所。", tags: ["谋略", "民生"], bonuses: { sentiment: 10, grain: 5 } },
+  { id: "hanwu-emperor", name: "汉武帝", role: "皇帝", secondaryRole: "名将", dynasty: "汉", quote: "雄才大略，国力与野心一同燃烧。", tags: ["军事", "财政"], bonuses: { army: 14, grain: -6 } },
+  { id: "caocao-emperor", name: "魏武帝", role: "皇帝", secondaryRole: "宰相", dynasty: "魏", quote: "乱世枭雄，唯才是举。", tags: ["谋略", "吏治"], bonuses: { army: 8, integrity: 8 } },
+  { id: "liubei-emperor", name: "汉昭烈帝", role: "皇帝", secondaryRole: "宰相", dynasty: "蜀汉", quote: "以仁为旗，百折不挠。", tags: ["民生", "谋略"], bonuses: { sentiment: 14, population: 5 } },
+  { id: "sunce-emperor", name: "孙策", role: "皇帝", secondaryRole: "名将", dynasty: "吴", quote: "江东小霸王，锐进如风。", tags: ["军事", "谋略"], bonuses: { army: 13, sentiment: 3 } },
+  { id: "liuyu-emperor", name: "宋武帝", role: "皇帝", secondaryRole: "名将", dynasty: "刘宋", quote: "寒门军功，气吞万里如虎。", tags: ["军事", "吏治"], bonuses: { army: 12, integrity: 5 } },
+  { id: "lishimin-emperor", name: "唐太宗", role: "皇帝", secondaryRole: "名将", dynasty: "唐", quote: "善战亦善纳谏，守成不逊开创。", tags: ["军事", "吏治"], bonuses: { army: 10, integrity: 12, sentiment: 5 } },
+  { id: "zhaokuangyin-emperor", name: "宋太祖", role: "皇帝", secondaryRole: "名将", dynasty: "宋", quote: "收兵权，重文治，宽厚养民。", tags: ["吏治", "民生"], bonuses: { integrity: 10, sentiment: 8 } },
+  { id: "genghis-emperor", name: "成吉思汗", role: "皇帝", secondaryRole: "名将", dynasty: "大蒙古国", quote: "聚草原诸部，铁骑横越万里。", tags: ["军事", "谋略"], bonuses: { army: 18, population: -3 } },
+  { id: "zhuyuanzhang-emperor", name: "明太祖", role: "皇帝", secondaryRole: "监察", dynasty: "明", quote: "知民间疾苦，也以严酷驭群臣。", tags: ["吏治", "民生"], bonuses: { integrity: 14, sentiment: 5, grain: 4 } },
+  { id: "xiaohe", name: "萧何", role: "宰相", secondaryRole: "财政", dynasty: "汉", quote: "镇国家，抚百姓，给馈饷。", tags: ["财政", "民生"], bonuses: { grain: 14, integrity: 4 } },
+  { id: "zhugeliang", name: "诸葛亮", role: "宰相", secondaryRole: "财政", dynasty: "蜀汉", quote: "治戎为长，奇谋为短。", tags: ["吏治", "谋略"], bonuses: { integrity: 16, grain: 6 } },
+  { id: "fangxuanling", name: "房玄龄", role: "宰相", secondaryRole: "监察", dynasty: "唐", quote: "善谋能断，润物无声。", tags: ["谋略", "吏治"], bonuses: { integrity: 10, sentiment: 5 } },
+  { id: "wanganshi", name: "王安石", role: "宰相", secondaryRole: "财政", dynasty: "宋", quote: "天变不足畏，祖宗不足法。", tags: ["财政", "吏治"], bonuses: { grain: 12, sentiment: -4 } },
+  { id: "hanxin", name: "韩信", role: "名将", secondaryRole: "宰相", dynasty: "汉", quote: "多多益善，兵锋无双。", tags: ["军事", "谋略"], bonuses: { army: 20, sentiment: -2 } },
+  { id: "lijing", name: "李靖", role: "名将", secondaryRole: "宰相", dynasty: "唐", quote: "谋定后动，千里破敌。", tags: ["军事", "谋略"], bonuses: { army: 17, grain: 3 } },
+  { id: "yuefei", name: "岳飞", role: "名将", secondaryRole: "监察", dynasty: "宋", quote: "冻死不拆屋，饿死不掳掠。", tags: ["军事", "民生"], bonuses: { army: 15, sentiment: 8 } },
+  { id: "xuda", name: "徐达", role: "名将", secondaryRole: "监察", dynasty: "明", quote: "持重有谋，军纪肃然。", tags: ["军事", "吏治"], bonuses: { army: 16, integrity: 5 } },
+  { id: "sang", name: "桑弘羊", role: "财政", secondaryRole: "宰相", dynasty: "汉", quote: "盐铁归官，富国强兵。", tags: ["财政", "谋略"], bonuses: { grain: 20, sentiment: -7 } },
+  { id: "liuyan", name: "刘晏", role: "财政", secondaryRole: "宰相", dynasty: "唐", quote: "理财以爱民为先。", tags: ["财政", "民生"], bonuses: { grain: 14, sentiment: 7 } },
+  { id: "zhangjuzheng", name: "张居正", role: "财政", secondaryRole: "监察", dynasty: "明", quote: "考成核实，一条鞭行天下。", tags: ["财政", "吏治"], bonuses: { grain: 17, integrity: 8 } },
+  { id: "wangjing", name: "王景", role: "财政", secondaryRole: "宰相", dynasty: "东汉", quote: "治河千里，水患遂息。", tags: ["民生", "财政"], bonuses: { population: 9, grain: 10 } },
+  { id: "weizheng", name: "魏征", role: "监察", secondaryRole: "宰相", dynasty: "唐", quote: "兼听则明，偏信则暗。", tags: ["吏治", "谋略"], bonuses: { integrity: 20, sentiment: 4 } },
+  { id: "baozheng", name: "包拯", role: "监察", secondaryRole: "宰相", dynasty: "宋", quote: "清心为治本，直道是身谋。", tags: ["吏治", "民生"], bonuses: { integrity: 17, sentiment: 7 } },
+  { id: "zhangtang", name: "张汤", role: "监察", secondaryRole: "财政", dynasty: "汉", quote: "法令必行，百官震肃。", tags: ["吏治", "财政"], bonuses: { integrity: 15, grain: 6, sentiment: -6 } },
+  { id: "hai", name: "海瑞", role: "监察", secondaryRole: "财政", dynasty: "明", quote: "刚峰之下，无所回避。", tags: ["吏治", "民生"], bonuses: { integrity: 19, sentiment: 5, grain: -3 } },
 ];
 
 const randomEvents: EventTemplate[] = [
@@ -321,11 +328,45 @@ function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYe
   return events;
 }
 
+const canServe = (person: Person, role: Role) => person.role === role || person.secondaryRole === role;
+
+function assignLegacyRoster(ids: string[]) {
+  const seats = emptySeats();
+  ids.forEach((id) => {
+    const person = people.find((item) => item.id === id);
+    if (!person) return;
+    if (!seats[person.role]) seats[person.role] = id;
+    else if (!seats[person.secondaryRole]) seats[person.secondaryRole] = id;
+  });
+  return seats;
+}
+
+function normalizeSave(raw: unknown): GameState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const saved = raw as Partial<GameState> & { rosterIds?: string[]; seatAssignments?: Partial<SeatAssignments> };
+  if (!saved.scriptId || !saved.policyId || !saved.stats || !saved.events || !saved.rosterIds) return null;
+  const fallback = assignLegacyRoster(saved.rosterIds);
+  const seatAssignments = roles.reduce((result, role) => {
+    result[role] = saved.seatAssignments?.[role] || fallback[role];
+    return result;
+  }, emptySeats());
+  const rosterIds = roles.map((role) => seatAssignments[role]).filter(Boolean) as string[];
+  return { ...saved, version: 2, seatAssignments, rosterIds } as GameState;
+}
+
+function drawRosterCandidates(seats: SeatAssignments, selectedIds: string[]) {
+  const eligible = people.filter((person) => !selectedIds.includes(person.id) && (!seats[person.role] || !seats[person.secondaryRole]));
+  return [...eligible].sort(() => Math.random() - .5).slice(0, 12).map((person) => person.id);
+}
+
 function App() {
   const [phase, setPhase] = useState<Phase>("landing");
   const [scriptId, setScriptId] = useState("qin");
   const [policyId, setPolicyId] = useState("rest");
-  const [rosterIds, setRosterIds] = useState<string[]>([]);
+  const [rosterSeats, setRosterSeats] = useState<SeatAssignments>(emptySeats);
+  const [rosterRound, setRosterRound] = useState(0);
+  const [candidateIds, setCandidateIds] = useState<string[]>([]);
+  const [activePersonId, setActivePersonId] = useState<string | null>(null);
   const [game, setGame] = useState<GameState | null>(null);
   const [savesOpen, setSavesOpen] = useState(false);
   const [saveMeta, setSaveMeta] = useState<(GameState | null)[]>(() => {
@@ -333,23 +374,52 @@ function App() {
     return [0, 1, 2].map((slot) => {
       try {
         const raw = localStorage.getItem(`dynasty-save-${slot}`);
-        return raw ? JSON.parse(raw) : null;
+        return raw ? normalizeSave(JSON.parse(raw)) : null;
       } catch { return null; }
     });
   });
 
   const script = scripts.find((item) => item.id === scriptId) || scripts[0];
   const policy = policies.find((item) => item.id === policyId) || policies[0];
+  const rosterIds = roles.map((role) => rosterSeats[role]).filter(Boolean) as string[];
   const roster = rosterIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[];
 
-  const roleGroups = useMemo(() => ["皇帝", "宰相", "名将", "司农", "监察"].map((role) => ({ role, candidates: people.filter((person) => person.role === role) })), []);
   const displayPhase: Phase = game?.phase === "ending" ? "ending" : phase;
 
+  const beginRoster = () => {
+    const seats = emptySeats();
+    setRosterSeats(seats); setRosterRound(0); setActivePersonId(null);
+    setCandidateIds(drawRosterCandidates(seats, [])); setPhase("roster");
+  };
+
+  const redrawCandidates = () => setCandidateIds(drawRosterCandidates(rosterSeats, rosterIds));
+
   const selectPerson = (person: Person) => {
-    setRosterIds((current) => {
-      const withoutRole = current.filter((id) => people.find((p) => p.id === id)?.role !== person.role);
-      return [...withoutRole, person.id];
-    });
+    const target = !rosterSeats[person.role] ? person.role : !rosterSeats[person.secondaryRole] ? person.secondaryRole : null;
+    if (!target || rosterIds.includes(person.id) || rosterRound >= 5) return;
+    const nextSeats = { ...rosterSeats, [target]: person.id };
+    const nextIds = roles.map((role) => nextSeats[role]).filter(Boolean) as string[];
+    const nextRound = rosterRound + 1;
+    setRosterSeats(nextSeats); setRosterRound(nextRound); setActivePersonId(null);
+    setCandidateIds(nextRound < 5 ? drawRosterCandidates(nextSeats, nextIds) : []);
+  };
+
+  const canMovePerson = (personId: string, target: Role) => {
+    const source = roles.find((role) => rosterSeats[role] === personId);
+    const person = people.find((item) => item.id === personId);
+    if (!source || !person || source === target || !canServe(person, target)) return false;
+    const targetId = rosterSeats[target];
+    if (!targetId) return true;
+    const targetPerson = people.find((item) => item.id === targetId);
+    return !!targetPerson && canServe(targetPerson, source);
+  };
+
+  const movePerson = (personId: string, target: Role) => {
+    if (!canMovePerson(personId, target)) return;
+    const source = roles.find((role) => rosterSeats[role] === personId)!;
+    const targetId = rosterSeats[target];
+    setRosterSeats({ ...rosterSeats, [source]: targetId, [target]: personId });
+    setActivePersonId(null);
   };
 
   const startReign = () => {
@@ -361,9 +431,9 @@ function App() {
     const growth = annualGrowth(stats, policyId);
     stats = addEffects(stats, growth.effects);
     const initial: GameState = {
-      version: 1, phase: "reign", scriptId, policyId, rosterIds, year: script.startYear, elapsed: 1, seasonIndex: 0,
+      version: 2, phase: "reign", scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
       stats, events: buildYearEvents(scriptId, script.startYear, stats, 0, 0), outcome: null,
-      chronicle: [{ year: script.startYear, season: "春", title: "开国建元", note: `${roster.find((person) => person.role === "皇帝")?.name || "新君"}与开国班底共治天下。${growth.note}` }],
+      chronicle: [{ year: script.startYear, season: "春", title: "开国建元", note: `${people.find((person) => person.id === rosterSeats.皇帝)?.name || "新君"}与开国班底共治天下。${growth.note}` }],
       lowArmyYears: stats.army < 55 ? 1 : 0, unrestYears: stats.sentiment <= -60 ? 1 : 0, alteredHistory: false,
       annualNote: growth.note, endingReason: "", endingVictory: false,
     };
@@ -428,7 +498,7 @@ function App() {
   };
 
   const saveGame = (slot: number) => {
-    if (!game) return;
+    if (!game || displayPhase !== "reign") return;
     localStorage.setItem(`dynasty-save-${slot}`, JSON.stringify({ ...game, phase: game.phase === "ending" ? "ending" : "reign" }));
     setSaveMeta((items) => items.map((item, index) => index === slot ? game : item));
   };
@@ -436,7 +506,7 @@ function App() {
   const loadGame = (slot: number) => {
     const saved = saveMeta[slot];
     if (!saved) return;
-    setGame(saved); setScriptId(saved.scriptId); setPolicyId(saved.policyId); setRosterIds(saved.rosterIds); setPhase(saved.phase); setSavesOpen(false);
+    setGame(saved); setScriptId(saved.scriptId); setPolicyId(saved.policyId); setRosterSeats(saved.seatAssignments); setRosterRound(5); setCandidateIds([]); setPhase(saved.phase); setSavesOpen(false);
   };
 
   const deleteSave = (slot: number) => {
@@ -444,21 +514,21 @@ function App() {
     setSaveMeta((items) => items.map((item, index) => index === slot ? null : item));
   };
 
-  const restart = () => { setGame(null); setPhase("script"); setRosterIds([]); setSavesOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const restart = () => { setGame(null); setPhase("script"); setRosterSeats(emptySeats()); setRosterRound(0); setCandidateIds([]); setActivePersonId(null); setSavesOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   return (
     <main className={`app phase-${displayPhase}`}>
       <div className="grain-overlay" />
-      {displayPhase !== "landing" && <TopBar setPhase={setPhase} openSaves={() => setSavesOpen(true)} game={game} />}
+      {displayPhase !== "landing" && <TopBar setPhase={setPhase} openSaves={() => setSavesOpen(true)} game={game} canSave={displayPhase === "reign"} />}
 
       {displayPhase === "landing" && <Landing onStart={() => setPhase("script")} onLoad={() => setSavesOpen(true)} />}
       {displayPhase === "script" && <ScriptSelect selected={scriptId} onSelect={setScriptId} onNext={() => setPhase("policy")} />}
-      {displayPhase === "policy" && <PolicySelect selected={policyId} onSelect={setPolicyId} onBack={() => setPhase("script")} onNext={() => setPhase("roster")} />}
-      {displayPhase === "roster" && <RosterSelect groups={roleGroups} selected={rosterIds} onSelect={selectPerson} onBack={() => setPhase("policy")} onStart={startReign} />}
+      {displayPhase === "policy" && <PolicySelect selected={policyId} onSelect={setPolicyId} onBack={() => setPhase("script")} onNext={beginRoster} />}
+      {displayPhase === "roster" && <RosterSelect seats={rosterSeats} round={rosterRound} candidates={candidateIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[]} activePersonId={activePersonId} onActivate={setActivePersonId} onCanMove={canMovePerson} onMove={movePerson} onRedraw={redrawCandidates} onSelect={selectPerson} onBack={() => setPhase("policy")} onStart={startReign} />}
       {displayPhase === "reign" && game && <Reign game={game} script={script} policy={policy} roster={roster} onChoose={chooseOption} onContinue={continueSeason} onNextYear={beginNextYear} onSave={() => setSavesOpen(true)} />}
       {displayPhase === "ending" && game && <Ending game={game} script={script} onRestart={restart} onSaves={() => setSavesOpen(true)} />}
 
-      {savesOpen && <SaveDrawer saves={saveMeta} current={game} onClose={() => setSavesOpen(false)} onSave={saveGame} onLoad={loadGame} onDelete={deleteSave} />}
+      {savesOpen && <SaveDrawer saves={saveMeta} current={displayPhase === "reign" ? game : null} onClose={() => setSavesOpen(false)} onSave={saveGame} onLoad={loadGame} onDelete={deleteSave} />}
     </main>
   );
 }
@@ -505,16 +575,17 @@ function PolicySelect({ selected, onSelect, onBack, onNext }: { selected: string
   return <section className="setup-page narrow"><Progress active={1} /><header className="setup-heading"><span>第二诏</span><h2>选择国策方向</h2><p>国策不是永久锁定，却会塑造开国三十年的惯性。</p></header><div className="policy-grid">{policies.map((item) => <button key={item.id} onClick={() => onSelect(item.id)} className={`policy-card ${selected === item.id ? "selected" : ""}`}><i>{item.seal}</i><span>国策</span><h3>{item.name}</h3><p>{item.desc}</p><small>{effectText(item.effects)}</small></button>)}</div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回择史</button><button className="primary" onClick={onNext}>颁布国策</button></div></section>;
 }
 
-function RosterSelect({ groups, selected, onSelect, onBack, onStart }: { groups: { role: string; candidates: Person[] }[]; selected: string[]; onSelect: (person: Person) => void; onBack: () => void; onStart: () => void }) {
-  return <section className="setup-page roster-page"><Progress active={2} /><header className="setup-heading"><span>第三诏</span><h2>组建开国班底</h2><p>剧本与皇帝互不绑定。为五个位置各择一人，他们的长项会改变事件成功率。</p></header>
-    <div className="seats">{groups.map(({ role }) => { const person = people.find((p) => selected.includes(p.id) && p.role === role); return <div className={`seat ${person ? "filled" : ""}`} key={role}><span>{role}</span><b>{person?.name || "待定"}</b><small>{person ? person.tags.join(" · ") : "请从下方择一"}</small></div> })}</div>
-    <div className="candidate-groups">{groups.map(({ role, candidates }) => <section className="candidate-row" key={role}><div className="role-label"><span>{role}</span><small>择一入席</small></div>{candidates.map((person) => <button className={`person-card ${selected.includes(person.id) ? "selected" : ""}`} onClick={() => onSelect(person)} key={person.id}><div><h3>{person.name}</h3><span>{person.dynasty}</span></div><p>{person.quote}</p><small>{person.tags.map((tag) => <i key={tag}>{tag}</i>)}</small></button>)}</section>)}</div>
-    <div className="setup-actions sticky-actions"><button className="ghost" onClick={onBack}>返回改策</button><div><span>已入席 {selected.length} / 5</span><button className="primary" disabled={selected.length !== 5} onClick={onStart}>班底已定 · 开始治国</button></div></div>
+function RosterSelect({ seats, round, candidates, activePersonId, onActivate, onCanMove, onMove, onRedraw, onSelect, onBack, onStart }: { seats: SeatAssignments; round: number; candidates: Person[]; activePersonId: string | null; onActivate: (id: string | null) => void; onCanMove: (id: string, role: Role) => boolean; onMove: (id: string, role: Role) => void; onRedraw: () => void; onSelect: (person: Person) => void; onBack: () => void; onStart: () => void }) {
+  return <section className="setup-page roster-page"><Progress active={2} /><header className="setup-heading"><span>第三诏</span><h2>五轮抽签 · 组建班底</h2><p>每轮从随机名册中择一人。主职空缺则优先入主职，否则转入次职。</p></header>
+    <div className="seats roster-seats">{roles.map((role) => { const person = people.find((item) => item.id === seats[role]); const isActive = !!person && activePersonId === person.id; const valid = !!activePersonId && onCanMove(activePersonId, role); return <button type="button" draggable={!!person} className={`seat ${person ? "filled" : ""} ${isActive ? "dragging" : ""} ${valid ? "valid-drop" : ""}`} key={role} onClick={() => activePersonId && activePersonId !== person?.id ? onMove(activePersonId, role) : onActivate(person ? (isActive ? null : person.id) : null)} onDragStart={(event) => { if (!person) return; event.dataTransfer.setData("text/plain", person.id); onActivate(person.id); }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const personId = event.dataTransfer.getData("text/plain") || activePersonId; if (personId) onMove(personId, role); }}><span>{role}</span><b>{person?.name || "待定"}</b><small>{person ? `主·${person.role}　次·${person.secondaryRole}` : "等待抽签入席"}</small>{person && <em>拖拽或点击换位</em>}</button> })}</div>
+    <div className="roster-hint"><span>调位规则</span><p>拖动已选人物到高亮席位；若目标已有角色，只有对方也能胜任原席位时才会交换。触屏设备可先点人物，再点高亮席位。</p></div>
+    {round < 5 ? <section className="roster-draw"><header><div><span>第 {round + 1} 轮 / 共 5 轮</span><h3>本轮随机候选</h3></div><button className="ghost" onClick={onRedraw}>换一批人才</button></header><div className="random-candidates">{candidates.map((person) => <button className="person-card draw-card" onClick={() => onSelect(person)} key={person.id}><div><h3>{person.name}</h3><span>{person.dynasty}</span></div><p>{person.quote}</p><div className="role-directions"><i>主 · {person.role}</i><i>次 · {person.secondaryRole}</i></div><small>{person.tags.map((tag) => <i key={tag}>{tag}</i>)}</small></button>)}</div></section> : <div className="roster-complete"><span>五轮抽签已毕</span><h3>开国五席俱全</h3><p>仍可拖拽或点击上方人物调整任职方向；确认无误后开始治国。</p></div>}
+    <div className="setup-actions sticky-actions"><button className="ghost" onClick={onBack}>返回改策</button><div><span>已完成 {round} / 5 轮</span><button className="primary" disabled={round !== 5 || roles.some((role) => !seats[role])} onClick={onStart}>班底已定 · 开始治国</button></div></div>
   </section>;
 }
 
-function TopBar({ setPhase, openSaves, game }: { setPhase: (phase: Phase) => void; openSaves: () => void; game: GameState | null }) {
-  return <nav className="topbar"><button className="brand" onClick={() => !game && setPhase("landing")}><i>祚</i><span>五百年王朝<small>RISE OF DYNASTY</small></span></button><div><span className="top-status">{game ? `${yearLabel(game.year)} · 国祚第${game.elapsed}年` : "正在开国"}</span><button className="nav-button" onClick={openSaves}>▣ 存读档</button></div></nav>;
+function TopBar({ setPhase, openSaves, game, canSave }: { setPhase: (phase: Phase) => void; openSaves: () => void; game: GameState | null; canSave: boolean }) {
+  return <nav className="topbar"><button className="brand" onClick={() => !game && setPhase("landing")}><i>祚</i><span>五百年王朝<small>RISE OF DYNASTY</small></span></button><div><span className="top-status">{game ? `${yearLabel(game.year)} · 国祚第${game.elapsed}年` : "正在开国"}</span><button className="nav-button" onClick={openSaves}>▣ {canSave ? "存读档" : "读取旧档"}</button></div></nav>;
 }
 
 function StatPanel({ stats }: { stats: Stats }) {
@@ -529,8 +600,9 @@ function AxisStat({ label, value, text, left, right }: { label: string; value: n
 function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear, onSave }: { game: GameState; script: Script; policy: typeof policies[number]; roster: Person[]; onChoose: (option: EventOption) => void; onContinue: () => void; onNextYear: () => void; onSave: () => void }) {
   const event = game.events[Math.min(game.seasonIndex, 3)];
   const isYearEnd = game.seasonIndex === 4;
-  const emperor = roster.find((person) => person.role === "皇帝");
-  return <section className="reign-page"><div className="reign-header"><div><span>{script.title} · 君主 {emperor?.name}</span><h1>{yearLabel(game.year)}</h1><p>国祚第 {game.elapsed} 年 · 国策「{policy.name}」{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div><div className="reign-actions"><button onClick={onSave}>存档</button></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} /><div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +7%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roster.filter((person) => person.role !== "皇帝").map((person) => <div className="cabinet-person" key={person.id}><div><small>{person.role}</small><b>{person.name}</b></div><span>{person.tags.join(" · ")}</span></div>)}</div></aside>
+  const assigned = (role: Role) => roster.find((person) => person.id === game.seatAssignments[role]);
+  const emperor = assigned("皇帝");
+  return <section className="reign-page"><div className="reign-header"><div><span>{script.title} · 君主 {emperor?.name}</span><h1>{yearLabel(game.year)}</h1><p>国祚第 {game.elapsed} 年 · 国策「{policy.name}」{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div><div className="reign-actions"><button onClick={onSave}>存档</button></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} /><div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +7%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className="cabinet-person" key={role}><div><small>{role}</small><b>{person?.name}</b></div><span>{person?.tags.join(" · ")}</span></div> })}</div></aside>
       <article className="court"><div className="yearline">{seasons.map((season, index) => <div className={index < game.seasonIndex ? "done" : index === game.seasonIndex ? "active" : ""} key={season}><i>{index < game.seasonIndex ? "✓" : season}</i><span>{season}{index === 0 ? "耕" : index === 1 ? "长" : index === 2 ? "收" : "藏"}</span></div>)}</div>
         {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {seasons[game.seasonIndex]}季</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}　`}{option.chance && `基础成功率 ${option.chance}%　`}{option.effects && effectText(option.effects)}</small></div><span>决断</span></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === 3 ? "封存本年奏牍" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
         <Chronicle entries={game.chronicle} /></article></div></section>;
@@ -551,7 +623,7 @@ function Ending({ game, script, onRestart, onSaves }: { game: GameState; script:
 }
 
 function SaveDrawer({ saves, current, onClose, onSave, onLoad, onDelete }: { saves: (GameState | null)[]; current: GameState | null; onClose: () => void; onSave: (slot: number) => void; onLoad: (slot: number) => void; onDelete: (slot: number) => void }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="save-drawer" role="dialog" aria-modal="true" aria-label="存读档"><header><div><span>本地纪年库</span><h2>存读档</h2></div><button onClick={onClose} aria-label="关闭">×</button></header><p className="save-explain">存档只保存在这台设备的浏览器中。当前事件、选项、国家属性、班底与历史线进度都会一并记录。</p><div className="save-slots">{saves.map((save, index) => { const savedScript = save && scripts.find((item) => item.id === save.scriptId); return <article className={save ? "occupied" : ""} key={index}><span>档案 {index + 1}</span>{save ? <><h3>{savedScript?.title}</h3><p>{yearLabel(save.year)} · 国祚第{save.elapsed}年</p><small>人口 {save.stats.population}　钱粮 {save.stats.grain}　武备 {save.stats.army}</small><div><button onClick={() => onLoad(index)}>读取</button>{current && <button onClick={() => onSave(index)}>覆盖</button>}<button className="danger" onClick={() => onDelete(index)}>删除</button></div></> : <><h3>空白卷宗</h3><p>尚未写入任何王朝。</p>{current ? <button className="primary" onClick={() => onSave(index)}>存入此槽</button> : <small>开局后即可存档</small>}</>}</article> })}</div></section></div>;
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="save-drawer" role="dialog" aria-modal="true" aria-label={current ? "存读档" : "读取存档"}><header><div><span>本地纪年库</span><h2>{current ? "存读档" : "读取存档"}</h2></div><button onClick={onClose} aria-label="关闭">×</button></header><p className="save-explain">存档只保存在这台设备的浏览器中。只有进入治国阶段才能写入或覆盖；读取与删除旧档不受限制。</p><div className="save-slots">{saves.map((save, index) => { const savedScript = save && scripts.find((item) => item.id === save.scriptId); return <article className={save ? "occupied" : ""} key={index}><span>档案 {index + 1}</span>{save ? <><h3>{savedScript?.title}</h3><p>{yearLabel(save.year)} · 国祚第{save.elapsed}年</p><small>人口 {save.stats.population}　钱粮 {save.stats.grain}　武备 {save.stats.army}</small><div><button onClick={() => onLoad(index)}>读取</button>{current && <button onClick={() => onSave(index)}>覆盖</button>}<button className="danger" onClick={() => onDelete(index)}>删除</button></div></> : <><h3>空白卷宗</h3><p>尚未写入任何王朝。</p>{current ? <button className="primary" onClick={() => onSave(index)}>存入此槽</button> : <small>进入治国阶段后方可存档</small>}</>}</article> })}</div></section></div>;
 }
 
 export default App;

@@ -61,9 +61,12 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /effectiveCurrent\.sentiment \/ 10/);
   assert.match(page, /\(effectiveCurrent\.integrity \+ effectiveCurrent\.sentiment\) \/ 10/);
   assert.match(page, /clamp\(option\.chance \+ teamChance\(option\.tag\) \+ statBoost, 1, 100\)/);
-  assert.match(page, /const effects = \{ population, grain \}/);
+  assert.match(page, /const integrity = -2/);
+  assert.match(page, /const effects = \{ population, grain, integrity \}/);
   assert.match(page, /formatDelta\(growth\.effects\.population\)/);
   assert.match(page, /formatDelta\(growth\.effects\.grain\)/);
+  assert.match(page, /annualChange=\{growth\.effects\.integrity\}/);
+  assert.match(page, /className="axis-values"/);
   assert.match(page, /role="tooltip"/);
   assert.doesNotMatch(page, /官风惯性|贪腐积弊|盛治回调/);
   assert.match(page, /<StatPanel stats=\{game\.stats\} policyId=\{game\.policyId\} \/>/);

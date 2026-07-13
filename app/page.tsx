@@ -2343,10 +2343,11 @@ function annualGrowth(stats: Stats, policyId: string) {
   const governanceGrowth = effective.integrity / 48;
   const population = clamp(2.2 + effective.sentiment / 32 + rest + governanceGrowth, -8, 8);
   const grain = clamp(stats.population * .075 + (policyId === "rest" ? 5 : 0) + effective.integrity / 18 - stats.population * .05 - effective.army * .025, -20, 20);
-  const effects = { population, grain };
+  const integrity = -2;
+  const effects = { population, grain, integrity };
   return {
     effects,
-    note: `户口${population >= 0 ? "增" : "减"}${Math.abs(population)}，府库${grain >= 0 ? "盈" : "耗"}${Math.abs(grain)}。`,
+    note: `户口${population >= 0 ? "增" : "减"}${Math.abs(population)}，府库${grain >= 0 ? "盈" : "耗"}${Math.abs(grain)}，官风自然损耗${Math.abs(integrity)}。`,
     breakdown: {
       population: [
         { label: `民情 ${formatDelta(effective.sentiment / 32)}`, value: effective.sentiment / 32, detail: `有效民情 ${effective.sentiment} ÷ 32 = ${formatDelta(effective.sentiment / 32)}，计入每年人口增长；民情变化后立即重算。` },
@@ -2360,6 +2361,7 @@ function annualGrowth(stats: Stats, policyId: string) {
         { label: `官风 ${formatDelta(effective.integrity / 18)}`, value: effective.integrity / 18, detail: `当前有效官风 ${effective.integrity} ÷ 18 = ${formatDelta(effective.integrity / 18)}，计入每年钱粮增长；官风变化后立即重算。` },
         ...(policyId === "rest" ? [{ label: "休养 +5", value: 5, detail: "国策“休养生息”固定使每年钱粮增长 +5；更换国策后消失。" }] : []),
       ],
+      integrity: [{ label: "积弊滋生 -2", value: integrity, detail: "官场每年都会自然滋生积弊，岁首固定扣减官风 2 点。此项不改变当前官风，只有进入下一年时才结算；需要通过事件中的整饬吏治持续弥补。" }],
     },
   };
 }
@@ -2425,7 +2427,7 @@ function StatPanel({ stats, policyId }: { stats: Stats; policyId: string }) {
     <div className="number-stat"><span>仓</span><div><small>钱粮 · 国用</small><strong>{stats.grain}<b className={growth.effects.grain >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.grain)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.grain.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
     <div className="number-stat"><span>兵</span><div><small>武备 · 基础 {stats.army}</small><strong>{live.effective.army}</strong><em>当前实效</em><div className="stat-buffs"><ModifierChip item={{ label: `人口 +${live.modifiers.army}`, value: live.modifiers.army, detail: `基础人口 ${stats.population} × 0.18 并四舍五入，为当前武备 +${live.modifiers.army}；人口变化后立即重算。` }} /></div></div></div>
     <AxisStat label="民情" value={live.effective.sentiment} baseValue={stats.sentiment} modifiers={sentimentBuffs} text={axisLabel("sentiment", live.effective.sentiment)} left="民怨沸腾" right="安居乐业" />
-    <AxisStat label="官场风气" value={live.effective.integrity} baseValue={stats.integrity} modifiers={integrityBuffs} text={axisLabel("integrity", live.effective.integrity)} left="贪墨成风" right="海内澄清" />
+    <AxisStat label="官场风气" value={live.effective.integrity} baseValue={stats.integrity} modifiers={integrityBuffs} annualChange={growth.effects.integrity} annualDetail={growth.breakdown.integrity[0].detail} text={axisLabel("integrity", live.effective.integrity)} left="贪墨成风" right="海内澄清" />
   </div>;
 }
 
@@ -2435,8 +2437,8 @@ function ModifierChip({ item }: { item: ModifierView }) {
   return <i className={item.value < 0 ? "debuff" : "buff"} tabIndex={0}>{item.label}<span role="tooltip">{item.detail}</span></i>;
 }
 
-function AxisStat({ label, value, baseValue, modifiers, text, left, right }: { label: string; value: number; baseValue: number; modifiers: ModifierView[]; text: string; left: string; right: string }) {
-  return <div className="axis-stat"><div><small>{label} · 基础 {baseValue}</small><strong>{text}</strong><b>{value > 0 ? "+" : ""}{value}</b></div>{modifiers.length > 0 && <div className="stat-buffs">{modifiers.map((item) => <ModifierChip item={item} key={item.label} />)}</div>}<div className="axis"><i style={{ left: `${(value + 100) / 2}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
+function AxisStat({ label, value, baseValue, modifiers, annualChange, annualDetail, text, left, right }: { label: string; value: number; baseValue: number; modifiers: ModifierView[]; annualChange?: number; annualDetail?: string; text: string; left: string; right: string }) {
+  return <div className="axis-stat"><div><small>{label} · 基础 {baseValue}</small><strong>{text}</strong><span className="axis-values"><b>{value}</b>{annualChange !== undefined && <em className={annualChange < 0 ? "annual-delta negative" : "annual-delta positive"} tabIndex={0}>{formatDelta(annualChange)}<span role="tooltip">{annualDetail}</span></em>}</span></div>{modifiers.length > 0 && <div className="stat-buffs">{modifiers.map((item) => <ModifierChip item={item} key={item.label} />)}</div>}<div className="axis"><i style={{ left: `${(value + 100) / 2}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
 }
 
 function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear, onSave }: { game: GameState; script: Script; policy: typeof policies[number]; roster: Person[]; onChoose: (option: EventOption) => void; onContinue: () => void; onNextYear: () => void; onSave: () => void }) {
@@ -2453,7 +2455,7 @@ function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear,
 function YearEnd({ game, onNext }: { game: GameState; onNext: () => void }) {
   const effective = liveState(game.stats).effective;
   const growth = annualGrowth(game.stats, game.policyId).effects;
-  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁只结算人口与钱粮的当前增长值。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {growth.population >= 0 ? "+" : ""}{growth.population}　钱粮 {growth.grain >= 0 ? "+" : ""}{growth.grain}</strong></div><div className="warning-row">{effective.army < 55 && <span>⚑ 武备低迷，来年边患概率上升</span>}{effective.sentiment <= -60 && <span>⚠ 民怨沸腾，起义正在酝酿</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
+  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁结算人口、钱粮增长与官风自然损耗。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {formatDelta(growth.population)}　钱粮 {formatDelta(growth.grain)}　官风 {formatDelta(growth.integrity)}</strong></div><div className="warning-row">{effective.army < 55 && <span>⚑ 武备低迷，来年边患概率上升</span>}{effective.sentiment <= -60 && <span>⚠ 民怨沸腾，起义正在酝酿</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
 }
 
 function Chronicle({ entries }: { entries: Chronicle[] }) {

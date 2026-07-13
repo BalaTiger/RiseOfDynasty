@@ -1,0 +1,557 @@
+"use client";
+
+import { useMemo, useState } from "react";
+
+type Phase = "landing" | "script" | "policy" | "roster" | "reign" | "ending";
+type StatKey = "population" | "grain" | "army" | "sentiment" | "integrity";
+type Season = "春" | "夏" | "秋" | "冬";
+type SkillTag = "民生" | "财政" | "军事" | "吏治" | "谋略";
+
+type Stats = Record<StatKey, number>;
+
+type Person = {
+  id: string;
+  name: string;
+  role: string;
+  dynasty: string;
+  quote: string;
+  tags: SkillTag[];
+  bonuses: Partial<Stats>;
+};
+
+type Script = {
+  id: string;
+  title: string;
+  ruler: string;
+  dynasty: string;
+  startYear: number;
+  startLabel: string;
+  color: string;
+  motto: string;
+  description: string;
+  base: Stats;
+};
+
+type Requirement = Partial<Record<StatKey, number>>;
+
+type EventOption = {
+  label: string;
+  detail: string;
+  effects?: Partial<Stats>;
+  successEffects?: Partial<Stats>;
+  failEffects?: Partial<Stats>;
+  chance?: number;
+  tag?: SkillTag;
+  requirements?: Requirement;
+  failOnUnmet?: boolean;
+  rewardRequirements?: Requirement;
+  alternateText?: string;
+};
+
+type EventTemplate = {
+  id: string;
+  title: string;
+  category: string;
+  text: string;
+  historical?: boolean;
+  scriptId?: string;
+  year?: number;
+  options: EventOption[];
+};
+
+type Outcome = {
+  title: string;
+  text: string;
+  effects: Partial<Stats>;
+  success?: boolean;
+  alternate?: boolean;
+};
+
+type Chronicle = { year: number; season: Season; title: string; note: string };
+
+type GameState = {
+  version: 1;
+  phase: Phase;
+  scriptId: string;
+  policyId: string;
+  rosterIds: string[];
+  year: number;
+  elapsed: number;
+  seasonIndex: number;
+  stats: Stats;
+  events: EventTemplate[];
+  outcome: Outcome | null;
+  chronicle: Chronicle[];
+  lowArmyYears: number;
+  unrestYears: number;
+  alteredHistory: boolean;
+  annualNote: string;
+  endingReason: string;
+  endingVictory: boolean;
+};
+
+const seasons: Season[] = ["春", "夏", "秋", "冬"];
+const statNames: Record<StatKey, string> = {
+  population: "人口",
+  grain: "钱粮",
+  army: "武备",
+  sentiment: "民情",
+  integrity: "官风",
+};
+
+const scripts: Script[] = [
+  { id: "qin", title: "秦始皇纪", ruler: "嬴政", dynasty: "秦", startYear: -221, startLabel: "始皇二十六年 · 一统六国", color: "#b78b3e", motto: "六合一统，法度初成", description: "从登基称帝之年开始。疆域空前，制度锋利，而天下民力已经绷紧。", base: { population: 92, grain: 98, army: 92, sentiment: -18, integrity: 18 } },
+  { id: "liubang", title: "汉高祖纪", ruler: "刘邦", dynasty: "汉", startYear: -209, startLabel: "秦二世元年 · 沛县起兵", color: "#a23e32", motto: "约法三章，群雄逐鹿", description: "从沛县起兵开始。根基浅薄，却最懂得把天下英才放在合适的位置。", base: { population: 74, grain: 70, army: 66, sentiment: 12, integrity: 4 } },
+  { id: "hanwu", title: "汉武帝纪", ruler: "刘彻", dynasty: "汉", startYear: -141, startLabel: "建元元年 · 少年天子", color: "#9b2f28", motto: "内强国本，外攘夷狄", description: "从登基之年开始。文景遗产丰厚，雄心也足以把储备燃烧殆尽。", base: { population: 112, grain: 142, army: 78, sentiment: 28, integrity: 24 } },
+  { id: "caocao", title: "曹操传", ruler: "曹操", dynasty: "魏", startYear: 189, startLabel: "中平六年 · 陈留起兵", color: "#556b72", motto: "挟天子令诸侯", description: "从陈留散家财起兵开始。乱世中，秩序本身就是最稀缺的资源。", base: { population: 58, grain: 62, army: 72, sentiment: -8, integrity: 12 } },
+  { id: "liubei", title: "刘备传", ruler: "刘备", dynasty: "蜀汉", startYear: 184, startLabel: "中平元年 · 涿郡起兵", color: "#54704e", motto: "以仁为旗，匡扶汉室", description: "从涿郡聚众开始。名望可聚民心，但每一块立足之地都得艰难争取。", base: { population: 48, grain: 52, army: 58, sentiment: 32, integrity: 20 } },
+  { id: "sunce", title: "孙策传", ruler: "孙策", dynasty: "吴", startYear: 194, startLabel: "兴平元年 · 江东创业", color: "#326c67", motto: "江东猛虎，席卷六郡", description: "从借兵渡江开始。扩张速度惊人，年轻的霸业却暗藏致命裂隙。", base: { population: 54, grain: 58, army: 76, sentiment: 18, integrity: 8 } },
+  { id: "liuyu", title: "刘裕传", ruler: "刘裕", dynasty: "宋", startYear: 404, startLabel: "元兴三年 · 京口举义", color: "#6e5d49", motto: "金戈北指，再造河山", description: "从京口举义开始。寒门军功登上舞台，北方故土仍在视线尽头。", base: { population: 66, grain: 64, army: 82, sentiment: 16, integrity: -2 } },
+  { id: "taizong", title: "唐太宗纪", ruler: "李世民", dynasty: "唐", startYear: 617, startLabel: "大业十三年 · 晋阳起兵", color: "#8b4f35", motto: "济世安民，贞观将启", description: "从晋阳起兵开始。军略与纳谏兼备，但通往帝位的门前横着血亲。", base: { population: 62, grain: 72, army: 84, sentiment: 20, integrity: 24 } },
+  { id: "song", title: "宋太祖纪", ruler: "赵匡胤", dynasty: "宋", startYear: 951, startLabel: "广顺元年 · 从军定乱", color: "#806b3c", motto: "收兵权，兴文治", description: "从投身军旅、平定乱局开始。五代兵骄将悍，必须重塑权力的规则。", base: { population: 72, grain: 78, army: 80, sentiment: 10, integrity: 6 } },
+  { id: "genghis", title: "成吉思汗纪", ruler: "铁木真", dynasty: "大蒙古国", startYear: 1189, startLabel: "淳熙十六年 · 草原称汗", color: "#65704a", motto: "聚诸部，开万里", description: "从被推举为汗开始。骑兵锐不可当，治理辽阔疆域才是真正考验。", base: { population: 42, grain: 48, army: 96, sentiment: 8, integrity: -8 } },
+  { id: "ming", title: "明太祖纪", ruler: "朱元璋", dynasty: "明", startYear: 1352, startLabel: "至正十二年 · 濠州投军", color: "#8c302d", motto: "驱逐胡虏，重整山河", description: "从濠州投军开始。最懂百姓饥寒，也最警惕功臣与贪官。", base: { population: 52, grain: 56, army: 68, sentiment: 24, integrity: 18 } },
+];
+
+const policies = [
+  { id: "martial", name: "尚武开边", seal: "武", desc: "整军备边，主动争夺战略空间。军事事件成功率提高，钱粮消耗也更大。", effects: { army: 12, grain: -8, sentiment: -4 } as Partial<Stats>, tag: "军事" as SkillTag },
+  { id: "rest", name: "休养生息", seal: "养", desc: "轻徭薄赋，蓄积人口钱粮。自然增长更快，但边患来临时更依赖名将。", effects: { population: 10, grain: 10, army: -6, sentiment: 10 } as Partial<Stats>, tag: "民生" as SkillTag },
+  { id: "reform", name: "整顿朝纲", seal: "治", desc: "考课百官，澄清吏治。官场风气更清明，剧烈改革也会触动既得利益。", effects: { grain: 4, integrity: 18, sentiment: -2 } as Partial<Stats>, tag: "吏治" as SkillTag },
+];
+
+const people: Person[] = [
+  { id: "qinshihuang", name: "秦始皇", role: "皇帝", dynasty: "秦", quote: "制度开创极猛，民力也真扛不住。", tags: ["吏治", "军事"], bonuses: { army: 12, integrity: 8, sentiment: -8 } },
+  { id: "liubang-emperor", name: "汉高祖", role: "皇帝", dynasty: "汉", quote: "最懂得让天下英才各得其所。", tags: ["谋略", "民生"], bonuses: { sentiment: 10, grain: 5 } },
+  { id: "hanwu-emperor", name: "汉武帝", role: "皇帝", dynasty: "汉", quote: "雄才大略，国力与野心一同燃烧。", tags: ["军事", "财政"], bonuses: { army: 14, grain: -6 } },
+  { id: "caocao-emperor", name: "魏武帝", role: "皇帝", dynasty: "魏", quote: "乱世枭雄，唯才是举。", tags: ["谋略", "吏治"], bonuses: { army: 8, integrity: 8 } },
+  { id: "liubei-emperor", name: "汉昭烈帝", role: "皇帝", dynasty: "蜀汉", quote: "以仁为旗，百折不挠。", tags: ["民生", "谋略"], bonuses: { sentiment: 14, population: 5 } },
+  { id: "sunce-emperor", name: "孙策", role: "皇帝", dynasty: "吴", quote: "江东小霸王，锐进如风。", tags: ["军事", "谋略"], bonuses: { army: 13, sentiment: 3 } },
+  { id: "liuyu-emperor", name: "宋武帝", role: "皇帝", dynasty: "刘宋", quote: "寒门军功，气吞万里如虎。", tags: ["军事", "吏治"], bonuses: { army: 12, integrity: 5 } },
+  { id: "lishimin-emperor", name: "唐太宗", role: "皇帝", dynasty: "唐", quote: "善战亦善纳谏，守成不逊开创。", tags: ["军事", "吏治"], bonuses: { army: 10, integrity: 12, sentiment: 5 } },
+  { id: "zhaokuangyin-emperor", name: "宋太祖", role: "皇帝", dynasty: "宋", quote: "收兵权，重文治，宽厚养民。", tags: ["吏治", "民生"], bonuses: { integrity: 10, sentiment: 8 } },
+  { id: "genghis-emperor", name: "成吉思汗", role: "皇帝", dynasty: "大蒙古国", quote: "聚草原诸部，铁骑横越万里。", tags: ["军事", "谋略"], bonuses: { army: 18, population: -3 } },
+  { id: "zhuyuanzhang-emperor", name: "明太祖", role: "皇帝", dynasty: "明", quote: "知民间疾苦，也以严酷驭群臣。", tags: ["吏治", "民生"], bonuses: { integrity: 14, sentiment: 5, grain: 4 } },
+  { id: "xiaohe", name: "萧何", role: "宰相", dynasty: "汉", quote: "镇国家，抚百姓，给馈饷。", tags: ["财政", "民生"], bonuses: { grain: 14, integrity: 4 } },
+  { id: "zhugeliang", name: "诸葛亮", role: "宰相", dynasty: "蜀汉", quote: "治戎为长，奇谋为短。", tags: ["吏治", "谋略"], bonuses: { integrity: 16, grain: 6 } },
+  { id: "fangxuanling", name: "房玄龄", role: "宰相", dynasty: "唐", quote: "善谋能断，润物无声。", tags: ["谋略", "吏治"], bonuses: { integrity: 10, sentiment: 5 } },
+  { id: "wanganshi", name: "王安石", role: "宰相", dynasty: "宋", quote: "天变不足畏，祖宗不足法。", tags: ["财政", "吏治"], bonuses: { grain: 12, sentiment: -4 } },
+  { id: "hanxin", name: "韩信", role: "名将", dynasty: "汉", quote: "多多益善，兵锋无双。", tags: ["军事", "谋略"], bonuses: { army: 20, sentiment: -2 } },
+  { id: "lijing", name: "李靖", role: "名将", dynasty: "唐", quote: "谋定后动，千里破敌。", tags: ["军事", "谋略"], bonuses: { army: 17, grain: 3 } },
+  { id: "yuefei", name: "岳飞", role: "名将", dynasty: "宋", quote: "冻死不拆屋，饿死不掳掠。", tags: ["军事", "民生"], bonuses: { army: 15, sentiment: 8 } },
+  { id: "xuda", name: "徐达", role: "名将", dynasty: "明", quote: "持重有谋，军纪肃然。", tags: ["军事", "吏治"], bonuses: { army: 16, integrity: 5 } },
+  { id: "sang", name: "桑弘羊", role: "司农", dynasty: "汉", quote: "盐铁归官，富国强兵。", tags: ["财政", "谋略"], bonuses: { grain: 20, sentiment: -7 } },
+  { id: "liuyan", name: "刘晏", role: "司农", dynasty: "唐", quote: "理财以爱民为先。", tags: ["财政", "民生"], bonuses: { grain: 14, sentiment: 7 } },
+  { id: "zhangjuzheng", name: "张居正", role: "司农", dynasty: "明", quote: "考成核实，一条鞭行天下。", tags: ["财政", "吏治"], bonuses: { grain: 17, integrity: 8 } },
+  { id: "wangjing", name: "王景", role: "司农", dynasty: "东汉", quote: "治河千里，水患遂息。", tags: ["民生", "财政"], bonuses: { population: 9, grain: 10 } },
+  { id: "weizheng", name: "魏征", role: "监察", dynasty: "唐", quote: "兼听则明，偏信则暗。", tags: ["吏治", "谋略"], bonuses: { integrity: 20, sentiment: 4 } },
+  { id: "baozheng", name: "包拯", role: "监察", dynasty: "宋", quote: "清心为治本，直道是身谋。", tags: ["吏治", "民生"], bonuses: { integrity: 17, sentiment: 7 } },
+  { id: "zhangtang", name: "张汤", role: "监察", dynasty: "汉", quote: "法令必行，百官震肃。", tags: ["吏治", "财政"], bonuses: { integrity: 15, grain: 6, sentiment: -6 } },
+  { id: "hai", name: "海瑞", role: "监察", dynasty: "明", quote: "刚峰之下，无所回避。", tags: ["吏治", "民生"], bonuses: { integrity: 19, sentiment: 5, grain: -3 } },
+];
+
+const randomEvents: EventTemplate[] = [
+  { id: "spring-plough", title: "劝课农桑", category: "民生", text: "春耕将启，地方上奏：水渠年久失修，若不整治恐误农时；但国库也等着发军饷。", options: [
+    { label: "发帑兴修水利", detail: "以眼前钱粮换来长期生计。", effects: { grain: -8, population: 4, sentiment: 8 }, tag: "民生" },
+    { label: "令州县自行筹措", detail: "成败取决于官吏是否得力。", chance: 58, tag: "吏治", successEffects: { grain: 5, sentiment: 4 }, failEffects: { sentiment: -9, integrity: -8 } },
+    { label: "军务为先，暂缓一年", detail: "保存库藏，但百姓会记住。", effects: { grain: 3, sentiment: -7 } },
+  ]},
+  { id: "merchant-tax", title: "商路榷税", category: "财政", text: "南北商旅渐盛，度支司建议增设关津之税。市肆可为国用，也可能因盘剥而凋敝。", options: [
+    { label: "轻税通商", detail: "让民间先富起来。", effects: { grain: 6, sentiment: 5, integrity: 2 } },
+    { label: "设官榷税", detail: "考验财政官的执行能力。", chance: 62, tag: "财政", successEffects: { grain: 15, integrity: 3 }, failEffects: { grain: 4, sentiment: -8, integrity: -7 } },
+    { label: "交由豪商包税", detail: "见效最快，也最容易滋生勾结。", effects: { grain: 12, sentiment: -8, integrity: -10 } },
+  ]},
+  { id: "official-audit", title: "郡县考课", category: "吏治", text: "御史发现数郡账册彼此矛盾。有人主张彻查，也有人担心牵连太广、政务停摆。", options: [
+    { label: "限期彻查", detail: "清理积弊，阻力不小。", chance: 55, tag: "吏治", successEffects: { grain: 9, integrity: 13, sentiment: 4 }, failEffects: { grain: -5, integrity: -5, sentiment: -3 } },
+    { label: "惩首恶而安其余", detail: "在震慑与稳定之间取中。", effects: { integrity: 5, sentiment: 2 } },
+    { label: "压下案卷", detail: "朝堂暂时安静，蛀虫继续长大。", effects: { grain: 5, integrity: -12 } },
+  ]},
+  { id: "frontier-market", title: "互市与烽燧", category: "边患", text: "边地部族请求开放互市，守将则称其中混有探子。是以利驭之，还是以兵拒之？", options: [
+    { label: "开互市，遣使结盟", detail: "柔远之策需要谋略支撑。", chance: 60, tag: "谋略", successEffects: { grain: 10, sentiment: 3, army: 3 }, failEffects: { grain: -3, army: -8 } },
+    { label: "耀兵塞上", detail: "武备足则震慑，不足则露怯。", chance: 48, tag: "军事", successEffects: { army: 10, sentiment: 2 }, failEffects: { army: -12, grain: -7 } },
+    { label: "闭关拒绝", detail: "最稳妥，也失去一条财路。", effects: { army: 2, grain: -3 } },
+  ]},
+  { id: "flood", title: "河决千里", category: "灾异", text: "连日暴雨，河堤溃决。灾民扶老携幼涌向州城，粮价一夜三涨。", options: [
+    { label: "开仓赈济，蠲免田租", detail: "先保人，再谈来年。", effects: { grain: -16, population: -2, sentiment: 15 } },
+    { label: "以工代赈，堵口复堤", detail: "钱粮与能吏缺一不可。", chance: 52, tag: "民生", successEffects: { grain: -8, population: 2, sentiment: 10 }, failEffects: { grain: -14, population: -7, sentiment: -8 } },
+    { label: "封锁灾区", detail: "保住库藏，但民怨会越过堤坝。", effects: { population: -8, sentiment: -18, integrity: -5 } },
+  ]},
+  { id: "drought", title: "赤地无雨", category: "灾异", text: "入夏无雨，禾苗枯卷。太史令称需祈雨，司农则请求立刻调粮。", options: [
+    { label: "跨郡转运", detail: "损耗巨大，却最可靠。", effects: { grain: -14, population: -1, sentiment: 12 } },
+    { label: "减膳祈雨并平粜", detail: "仪式与实政并行。", chance: 60, tag: "财政", successEffects: { grain: -7, sentiment: 9 }, failEffects: { grain: -10, population: -4, sentiment: -7 } },
+    { label: "听其自救", detail: "朝廷没有损失，天下却有。", effects: { population: -9, sentiment: -16 } },
+  ]},
+  { id: "auspicious", title: "甘露降庭", category: "祥瑞", text: "宫苑老柏降下甘露，百官请上尊号、大赦天下。民间也在等待朝廷的态度。", options: [
+    { label: "大赦并减今年租", detail: "把祥瑞变成百姓摸得到的恩典。", effects: { grain: -6, sentiment: 13 } },
+    { label: "却尊号，奖农桑", detail: "不迷信天意，把功劳归于万民。", effects: { sentiment: 7, integrity: 7, grain: 3 } },
+    { label: "大兴庆典", detail: "盛世声势很足，花费也很足。", effects: { grain: -10, sentiment: 5, integrity: -3 } },
+  ]},
+  { id: "academy", title: "太学论政", category: "文教", text: "太学生上书议论时政，有言辞激烈者。朝臣争论：年轻人的声音是国之元气，还是朋党之始？", options: [
+    { label: "召见问策", detail: "纳言也考验君臣的胸襟。", chance: 65, tag: "谋略", successEffects: { sentiment: 9, integrity: 7 }, failEffects: { sentiment: -2, integrity: -3 } },
+    { label: "令有司择善而行", detail: "制度化吸收意见。", effects: { sentiment: 4, integrity: 5 } },
+    { label: "严禁妄议", detail: "朝堂安静得更快。", effects: { integrity: -5, sentiment: -10 } },
+  ]},
+  { id: "army-pay", title: "军饷迟发", category: "军务", text: "北营军饷已迟发两月，将士虽未哗变，营门前却多了卖甲换酒的人。", options: [
+    { label: "足额补发", detail: "军心不可试。", effects: { grain: -12, army: 10 } },
+    { label: "清查空饷后补发", detail: "若查得好，还能拔出一串蛀虫。", chance: 58, tag: "吏治", successEffects: { grain: -4, army: 8, integrity: 8 }, failEffects: { grain: -10, army: -8, integrity: -4 } },
+    { label: "以爵赏抵饷", detail: "省下今日的钱，透支明日的制度。", effects: { grain: 3, army: 3, integrity: -10 } },
+  ]},
+  { id: "locust", title: "飞蝗蔽日", category: "灾异", text: "蝗群越过州界，如云压城。受灾郡县请求动用常平仓，邻郡却担心本地储备不足。", options: [
+    { label: "倾力捕蝗赈灾", detail: "全天下共担一地之灾。", effects: { grain: -13, population: -2, sentiment: 11 } },
+    { label: "悬赏收蝗", detail: "把灾异变成一场全民动员。", chance: 64, tag: "民生", successEffects: { grain: -5, sentiment: 8 }, failEffects: { grain: -9, population: -5, sentiment: -5 } },
+    { label: "祭神禳灾", detail: "耗费不多，效果交给天意。", chance: 25, successEffects: { sentiment: 6 }, failEffects: { population: -7, grain: -7, sentiment: -8 } },
+  ]},
+  { id: "refugees", title: "流民入境", category: "民生", text: "邻境战乱，数万流民叩关求生。他们既是等待安置的嘴，也是可垦荒、可从军的人。", options: [
+    { label: "授田安置", detail: "短期费粮，长期添户。", effects: { grain: -10, population: 10, sentiment: 8 } },
+    { label: "择壮者编入军屯", detail: "成败在于军政协调。", chance: 55, tag: "军事", successEffects: { population: 5, army: 9, grain: -5 }, failEffects: { population: 2, sentiment: -8, army: -3 } },
+    { label: "闭关遣返", detail: "不添负担，也伤仁德。", effects: { sentiment: -9 } },
+  ]},
+  { id: "palace", title: "营建宫室", category: "朝堂", text: "将作监称旧宫狭陋，不足彰显国威；群臣都知道，这笔账最终要落在百姓头上。", options: [
+    { label: "罢役，修官舍学校", detail: "国威不只在宫阙。", effects: { grain: -4, sentiment: 9, integrity: 4 } },
+    { label: "量入为出，小修旧宫", detail: "顾全体面，也控制开支。", effects: { grain: -7, sentiment: 1 } },
+    { label: "大兴土木", detail: "壮丽工程能提振威仪，但代价沉重。", effects: { grain: -20, population: -3, sentiment: -14, integrity: -4 } },
+  ]},
+  { id: "rebellion", title: "揭竿四起", category: "民变", text: "长期积压的民怨终于点燃。饥民攻破县城，裹挟者日众，地方官已无法收拾。", options: [
+    { label: "赈抚并诛贪官", detail: "需要足够钱粮与清明官风。", requirements: { grain: 35, integrity: -20 }, failOnUnmet: true, effects: { grain: -18, sentiment: 25, integrity: 10, army: -3 } },
+    { label: "遣精兵平乱", detail: "武备不足，出兵就是押上国运。", requirements: { army: 75 }, failOnUnmet: true, effects: { army: -12, population: -8, sentiment: -12 } },
+    { label: "招安首领", detail: "暂息兵火，后患难测。", chance: 48, tag: "谋略", successEffects: { sentiment: 12, army: 3 }, failEffects: { army: -14, grain: -9, sentiment: -8 } },
+  ]},
+  { id: "invasion", title: "烽火入塞", category: "边患", text: "敌骑越塞，三郡告急。多年的武备松弛在这一刻都写进了战报。", options: [
+    { label: "亲征迎敌", detail: "武力不足则国门洞开。", requirements: { army: 70 }, failOnUnmet: true, effects: { army: -10, grain: -10, sentiment: 8 } },
+    { label: "坚壁清野", detail: "以空间换时间。", effects: { population: -5, grain: -8, army: 4, sentiment: -7 } },
+    { label: "遣使议和", detail: "谋臣能争来喘息，也可能换来屈辱。", chance: 52, tag: "谋略", successEffects: { grain: -8, army: 2 }, failEffects: { grain: -15, sentiment: -10, army: -6 } },
+  ]},
+];
+
+const historicalEvents: EventTemplate[] = [
+  { id: "qin-sandhill", scriptId: "qin", year: -210, historical: true, title: "沙丘风雷", category: "历史大事", text: "东巡途中，皇帝病势沉重。中车府令与丞相在车驾外交换眼色，一纸遗诏将决定帝国走向。", options: [
+    { label: "公开遗诏，扶苏即位", detail: "若朝纲清明、民心未失，可斩断沙丘之谋。", rewardRequirements: { integrity: 35, sentiment: 0 }, alternateText: "沙丘之谋未成，扶苏与蒙恬稳住帝国，秦亡的旧轨被彻底改写。", effects: { integrity: 12, sentiment: 14, army: 4 } },
+    { label: "秘不发丧，依旧东归", detail: "官风腐败时，密谋将吞噬王朝。", requirements: { integrity: 5 }, failOnUnmet: true, effects: { integrity: -18, sentiment: -12 } },
+    { label: "召集重臣共议国本", detail: "以制度约束阴谋。", chance: 62, tag: "吏治", successEffects: { integrity: 10, sentiment: 8 }, failEffects: { integrity: -15, sentiment: -10 } },
+  ]},
+  { id: "liubang-hongmen", scriptId: "liubang", year: -206, historical: true, title: "鸿门宴", category: "历史大事", text: "项羽四十万大军驻鸿门，席间剑影逼人。能否从宴席全身而退，将决定关中归属。", options: [
+    { label: "卑辞谢罪，伺机脱身", detail: "谋臣越强，生门越宽。", chance: 58, tag: "谋略", successEffects: { army: 6, sentiment: 4 }, failEffects: { army: -15, grain: -8 } },
+    { label: "掷杯为号，席间搏杀", detail: "武备不足便是王朝未立先亡。", requirements: { army: 82 }, failOnUnmet: true, effects: { army: -18, sentiment: 10 } },
+  ]},
+  { id: "hanwu-mobei", scriptId: "hanwu", year: -119, historical: true, title: "漠北决战", category: "历史大事", text: "大军将深入漠北，追击匈奴主力。此战若胜可绝边患，粮道若断则数十年积蓄尽空。", options: [
+    { label: "倾国出塞，封狼居胥", detail: "钱粮与武备必须同时经得住考验。", requirements: { grain: 95, army: 100 }, failOnUnmet: true, rewardRequirements: { grain: 130, army: 115 }, alternateText: "漠北主力尽破，边境获得数十年安宁，帝国没有被战争拖空。", effects: { grain: -35, army: -16, sentiment: 7 } },
+    { label: "分路蚕食，保全粮道", detail: "稳健推进，战果有限。", chance: 64, tag: "军事", successEffects: { grain: -14, army: 5 }, failEffects: { grain: -20, army: -8 } },
+  ]},
+  { id: "caocao-guandu", scriptId: "caocao", year: 200, historical: true, title: "官渡孤注", category: "历史大事", text: "袁绍大军压境，我军粮尽。许攸夜奔来投，献出乌巢粮仓的位置。", options: [
+    { label: "轻骑夜袭乌巢", detail: "这是以少胜多的一次豪赌。", chance: 52, tag: "谋略", successEffects: { army: 18, grain: 15, sentiment: 8 }, failEffects: { army: -24, grain: -12 } },
+    { label: "坚守待变", detail: "没有足够钱粮，坚守就是慢性败亡。", requirements: { grain: 55 }, failOnUnmet: true, effects: { grain: -22, army: -5 } },
+  ]},
+  { id: "liubei-yiling", scriptId: "liubei", year: 221, historical: true, title: "夷陵东征", category: "历史大事", text: "关羽已死，荆州已失。群臣劝阻东征，军中复仇之声却沸反盈天。", options: [
+    { label: "止戈养民，转谋北伐", detail: "民心与朝纲足够稳固，才压得住复仇声浪。", rewardRequirements: { sentiment: 45, integrity: 35 }, alternateText: "夷陵之火没有燃起，蜀汉保存精锐，为后来北伐留下全新的可能。", effects: { sentiment: 10, army: 8, grain: 6 } },
+    { label: "举国东征", detail: "武备不足，连营七百里就是绝路。", requirements: { army: 92 }, failOnUnmet: true, effects: { army: -22, grain: -20, population: -6 } },
+  ]},
+  { id: "sunce-assassin", scriptId: "sunce", year: 200, historical: true, title: "丹徒遇刺", category: "历史大事", text: "江东初定，旧怨未平。一次轻装出猎，把年轻君主暴露在刺客的弩箭前。", options: [
+    { label: "整肃宿卫，收编旧部", detail: "清明官风可提前识破刺客。", rewardRequirements: { integrity: 32, sentiment: 25 }, alternateText: "刺客在动手前落网。孙策得以继续北图中原，江东命运由此改写。", effects: { integrity: 9, army: 7 } },
+    { label: "照常出猎，不疑左右", detail: "若武备与民心不能震慑宵小，此行便是终局。", requirements: { army: 95, sentiment: 10 }, failOnUnmet: true, effects: { army: -8, sentiment: -8 } },
+  ]},
+  { id: "liuyu-north", scriptId: "liuyu", year: 417, historical: true, title: "长安得失", category: "历史大事", text: "北伐连克洛阳、长安，关中父老夹道相迎。但后方权力不稳，留守与回师只能二选一。", options: [
+    { label: "增兵关中，完成北定", detail: "国力雄厚、朝纲清明，才守得住胜利。", requirements: { grain: 90, army: 105 }, failOnUnmet: true, rewardRequirements: { grain: 125, army: 120, integrity: 35 }, alternateText: "关中守住，北魏受挫，南北统一第一次真正成为现实。", effects: { grain: -25, army: -12, sentiment: 15 } },
+    { label: "回师建康，稳固根本", detail: "放弃长安，换取南方权力。", effects: { army: -8, integrity: 10, sentiment: -5 } },
+  ]},
+  { id: "taizong-xuanwu", scriptId: "taizong", year: 626, historical: true, title: "玄武门前", category: "历史大事", text: "兄弟相逼，储位之争已无退路。玄武门紧闭之前，所有人都在等待第一支箭。", options: [
+    { label: "先发制人", detail: "军心不足，宫门之变必败。", requirements: { army: 90 }, failOnUnmet: true, effects: { army: -8, integrity: -10, sentiment: -6 } },
+    { label: "请高祖召集廷议", detail: "朝纲清明到足以约束诸王，或可避开骨肉相残。", rewardRequirements: { integrity: 55, sentiment: 35 }, alternateText: "储位争端在廷议中解决，玄武门没有染血，贞观以另一种方式开启。", effects: { integrity: 10, sentiment: 8 } },
+  ]},
+  { id: "song-cup", scriptId: "song", year: 961, historical: true, title: "杯酒释兵权", category: "历史大事", text: "宿将掌禁军，五代旧习仍在。今夜一席酒，可以不流血地重写君臣边界。", options: [
+    { label: "厚赐田宅，劝其归第", detail: "需要充足钱粮与君臣互信。", requirements: { grain: 85, integrity: 15 }, failOnUnmet: true, effects: { grain: -14, integrity: 15, army: -7, sentiment: 5 } },
+    { label: "强夺兵权", detail: "简单直接，军中反弹难免。", chance: 50, tag: "军事", successEffects: { integrity: 8, army: 3 }, failEffects: { army: -18, sentiment: -8 } },
+  ]},
+  { id: "genghis-khwarazm", scriptId: "genghis", year: 1219, historical: true, title: "西征花剌子模", category: "历史大事", text: "商队被杀，使者受辱。草原诸部请战，但西方城池、长途补给都不同于旧日征伐。", options: [
+    { label: "诸路西征", detail: "强军与粮秣缺一不可。", requirements: { army: 115, grain: 80 }, failOnUnmet: true, effects: { army: -16, grain: -24, population: 5 } },
+    { label: "止兵问罪，重开商道", detail: "谋略足够，可将复仇变成长期收益。", chance: 45, tag: "谋略", successEffects: { grain: 18, sentiment: 5 }, failEffects: { army: -7, sentiment: -7 } },
+  ]},
+  { id: "ming-poyang", scriptId: "ming", year: 1363, historical: true, title: "鄱阳湖决战", category: "历史大事", text: "陈友谅巨舰蔽江，我军舟小势弱。湖口风向与每一道军令，都可能改变天下归属。", options: [
+    { label: "火攻连舰", detail: "将帅与谋臣需抓住稍纵即逝的风。", chance: 55, tag: "谋略", successEffects: { army: 20, grain: 12, sentiment: 10 }, failEffects: { army: -22, grain: -15 } },
+    { label: "固守湖口，断其粮道", detail: "自身储备先要撑得住。", requirements: { grain: 72 }, failOnUnmet: true, effects: { grain: -18, army: 8 } },
+  ]},
+];
+
+const clamp = (n: number, min = -100, max = 999) => Math.max(min, Math.min(max, Math.round(n)));
+const addEffects = (stats: Stats, effects: Partial<Stats>): Stats => ({
+  population: clamp(stats.population + (effects.population || 0), 0),
+  grain: clamp(stats.grain + (effects.grain || 0), 0),
+  army: clamp(stats.army + (effects.army || 0), 0, 240),
+  sentiment: clamp(stats.sentiment + (effects.sentiment || 0), -100, 100),
+  integrity: clamp(stats.integrity + (effects.integrity || 0), -100, 100),
+});
+
+const nextCalendarYear = (year: number) => year === -1 ? 1 : year + 1;
+const yearLabel = (year: number) => year < 0 ? `公元前${Math.abs(year)}年` : `公元${year}年`;
+const axisLabel = (key: "sentiment" | "integrity", value: number) => {
+  if (key === "sentiment") return value < -60 ? "民怨沸腾" : value < -20 ? "怨声渐起" : value < 25 ? "人心未定" : value < 65 ? "政通人和" : "安居乐业";
+  return value < -60 ? "贪墨成风" : value < -20 ? "积弊丛生" : value < 25 ? "清浊相杂" : value < 65 ? "吏治有序" : "海内澄清";
+};
+
+const effectText = (effects: Partial<Stats>) => (Object.entries(effects) as [StatKey, number][])
+  .filter(([, value]) => value !== 0)
+  .map(([key, value]) => `${statNames[key]} ${value > 0 ? "+" : ""}${value}`)
+  .join(" · ");
+const requirementText = (requirements: Requirement) => (Object.entries(requirements) as [StatKey, number][])
+  .map(([key, value]) => `${statNames[key]} ≥ ${value}`)
+  .join(" · ");
+
+const meets = (stats: Stats, req?: Requirement) => !req || (Object.entries(req) as [StatKey, number][]).every(([key, value]) => stats[key] >= value);
+
+function seededShuffle<T>(items: T[], seed: number) {
+  const copy = [...items];
+  let value = Math.abs(seed) + 1;
+  for (let i = copy.length - 1; i > 0; i--) {
+    value = (value * 9301 + 49297) % 233280;
+    const j = Math.floor((value / 233280) * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYears: number, unrestYears: number) {
+  const required = historicalEvents.filter((event) => event.scriptId === scriptId && event.year === year).slice(0, 4);
+  const conditional: EventTemplate[] = [];
+  if (stats.army < 55 && lowArmyYears >= 1) conditional.push(randomEvents.find((event) => event.id === "invasion")!);
+  if (stats.sentiment <= -60 && unrestYears >= 1) conditional.push(randomEvents.find((event) => event.id === "rebellion")!);
+  const excluded = new Set(conditional.map((event) => event.id));
+  const base = randomEvents.filter((event) => !["invasion", "rebellion"].includes(event.id) && !excluded.has(event.id));
+  const picked = seededShuffle(base, year * 37 + stats.population * 11 + stats.grain).slice(0, 4);
+  const events = [...conditional, ...picked].slice(0, 4);
+  while (events.length < 4) events.push(picked[events.length % picked.length]);
+  required.forEach((event, index) => { events[(Math.abs(year) + index) % 4] = event; });
+  return events;
+}
+
+function App() {
+  const [phase, setPhase] = useState<Phase>("landing");
+  const [scriptId, setScriptId] = useState("qin");
+  const [policyId, setPolicyId] = useState("rest");
+  const [rosterIds, setRosterIds] = useState<string[]>([]);
+  const [game, setGame] = useState<GameState | null>(null);
+  const [savesOpen, setSavesOpen] = useState(false);
+  const [saveMeta, setSaveMeta] = useState<(GameState | null)[]>(() => {
+    if (typeof window === "undefined") return [null, null, null];
+    return [0, 1, 2].map((slot) => {
+      try {
+        const raw = localStorage.getItem(`dynasty-save-${slot}`);
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
+    });
+  });
+
+  const script = scripts.find((item) => item.id === scriptId) || scripts[0];
+  const policy = policies.find((item) => item.id === policyId) || policies[0];
+  const roster = rosterIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[];
+
+  const roleGroups = useMemo(() => ["皇帝", "宰相", "名将", "司农", "监察"].map((role) => ({ role, candidates: people.filter((person) => person.role === role) })), []);
+  const displayPhase: Phase = game?.phase === "ending" ? "ending" : phase;
+
+  const selectPerson = (person: Person) => {
+    setRosterIds((current) => {
+      const withoutRole = current.filter((id) => people.find((p) => p.id === id)?.role !== person.role);
+      return [...withoutRole, person.id];
+    });
+  };
+
+  const startReign = () => {
+    const variance = (offset: number) => ((Date.now() >> offset) % 11) - 5;
+    let stats = { ...script.base };
+    stats = addEffects(stats, policy.effects);
+    roster.forEach((person) => { stats = addEffects(stats, person.bonuses); });
+    stats = addEffects(stats, { population: variance(2), grain: variance(4), army: variance(6), sentiment: variance(8), integrity: variance(10) });
+    const growth = annualGrowth(stats, policyId);
+    stats = addEffects(stats, growth.effects);
+    const initial: GameState = {
+      version: 1, phase: "reign", scriptId, policyId, rosterIds, year: script.startYear, elapsed: 1, seasonIndex: 0,
+      stats, events: buildYearEvents(scriptId, script.startYear, stats, 0, 0), outcome: null,
+      chronicle: [{ year: script.startYear, season: "春", title: "开国建元", note: `${roster.find((person) => person.role === "皇帝")?.name || "新君"}与开国班底共治天下。${growth.note}` }],
+      lowArmyYears: stats.army < 55 ? 1 : 0, unrestYears: stats.sentiment <= -60 ? 1 : 0, alteredHistory: false,
+      annualNote: growth.note, endingReason: "", endingVictory: false,
+    };
+    setGame(initial); setPhase("reign"); window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const teamChance = (tag?: SkillTag) => {
+    if (!tag) return 0;
+    const members = roster.filter((person) => person.tags.includes(tag)).length;
+    const policyBoost = policy.tag === tag ? 8 : 0;
+    return members * 7 + policyBoost;
+  };
+
+  const chooseOption = (option: EventOption) => {
+    setGame((current) => {
+      if (!current || current.outcome) return current;
+      const event = current.events[current.seasonIndex];
+      if (option.failOnUnmet && !meets(current.stats, option.requirements)) {
+        return { ...current, phase: "ending", endingVictory: false, endingReason: `${event.title}中，国力未达到「${option.label}」的最低要求。仓促的决断成为王朝覆亡的最后一根稻草。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "国祚中绝", note: `${event.title}处置失当，王朝陨落。` }] };
+      }
+      let effects = option.effects || {};
+      let success: boolean | undefined;
+      let resultText = option.detail;
+      if (option.chance) {
+        const statBoost = option.tag === "军事" ? Math.max(-8, (current.stats.army - 70) / 5) : option.tag === "财政" ? (current.stats.grain - 70) / 10 : option.tag === "吏治" ? current.stats.integrity / 10 : option.tag === "民生" ? current.stats.sentiment / 12 : (current.stats.integrity + current.stats.sentiment) / 20;
+        const finalChance = clamp(option.chance + teamChance(option.tag) + statBoost, 10, 95);
+        success = Math.random() * 100 < finalChance;
+        effects = success ? (option.successEffects || {}) : (option.failEffects || {});
+        resultText = success ? `班底各展所长，决策奏效（成功率 ${Math.round(finalChance)}%）。` : `局势未如所愿，代价已经显现（成功率 ${Math.round(finalChance)}%）。`;
+      }
+      const alternate = !!option.alternateText && meets(current.stats, option.rewardRequirements);
+      if (alternate) resultText = option.alternateText!;
+      const stats = addEffects(current.stats, effects);
+      if (stats.population < 18 || stats.grain <= 0) {
+        const cause = stats.population < 18 ? "人口跌破王朝存续底线" : "国库钱粮耗尽";
+        return { ...current, stats, phase: "ending", endingVictory: false, endingReason: `${cause}。地方失去供养与秩序，国祚就此断绝。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "山河易色", note: `${event.title}之后，${cause}。` }] };
+      }
+      return { ...current, stats, alteredHistory: current.alteredHistory || alternate, outcome: { title: alternate ? "历史改写" : success === false ? "事与愿违" : "诏令已行", text: resultText, effects, success, alternate }, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: event.title, note: `${option.label}。${resultText}` }].slice(-30) };
+    });
+  };
+
+  const continueSeason = () => {
+    setGame((current) => {
+      if (!current || !current.outcome) return current;
+      if (current.seasonIndex < 3) return { ...current, seasonIndex: current.seasonIndex + 1, outcome: null };
+      return { ...current, outcome: null, seasonIndex: 4 };
+    });
+  };
+
+  const beginNextYear = () => {
+    setGame((current) => {
+      if (!current) return current;
+      if (current.elapsed >= 500) return { ...current, phase: "ending", endingVictory: true, endingReason: "五百年间国祚不断，制度与民生经受住一代代风雨。你的王朝已成真正的千古一朝。" };
+      const year = nextCalendarYear(current.year);
+      const growth = annualGrowth(current.stats, current.policyId);
+      const stats = addEffects(current.stats, growth.effects);
+      if (stats.population < 18 || stats.grain <= 0) return { ...current, year, stats, phase: "ending", endingVictory: false, endingReason: stats.grain <= 0 ? "岁首核账，国库已经无粮可支，天下由此土崩瓦解。" : "连年凋敝后，编户不足以支撑国家，王朝悄然终结。" };
+      const lowArmyYears = stats.army < 55 ? current.lowArmyYears + 1 : 0;
+      const unrestYears = stats.sentiment <= -60 ? current.unrestYears + 1 : 0;
+      return { ...current, year, elapsed: current.elapsed + 1, stats, seasonIndex: 0, outcome: null, annualNote: growth.note, lowArmyYears, unrestYears, events: buildYearEvents(current.scriptId, year, stats, lowArmyYears, unrestYears), chronicle: [...current.chronicle, { year, season: "春", title: "岁首国计", note: growth.note }].slice(-30) };
+    });
+  };
+
+  const saveGame = (slot: number) => {
+    if (!game) return;
+    localStorage.setItem(`dynasty-save-${slot}`, JSON.stringify({ ...game, phase: game.phase === "ending" ? "ending" : "reign" }));
+    setSaveMeta((items) => items.map((item, index) => index === slot ? game : item));
+  };
+
+  const loadGame = (slot: number) => {
+    const saved = saveMeta[slot];
+    if (!saved) return;
+    setGame(saved); setScriptId(saved.scriptId); setPolicyId(saved.policyId); setRosterIds(saved.rosterIds); setPhase(saved.phase); setSavesOpen(false);
+  };
+
+  const deleteSave = (slot: number) => {
+    localStorage.removeItem(`dynasty-save-${slot}`);
+    setSaveMeta((items) => items.map((item, index) => index === slot ? null : item));
+  };
+
+  const restart = () => { setGame(null); setPhase("script"); setRosterIds([]); setSavesOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
+
+  return (
+    <main className={`app phase-${displayPhase}`}>
+      <div className="grain-overlay" />
+      {displayPhase !== "landing" && <TopBar setPhase={setPhase} openSaves={() => setSavesOpen(true)} game={game} />}
+
+      {displayPhase === "landing" && <Landing onStart={() => setPhase("script")} onLoad={() => setSavesOpen(true)} />}
+      {displayPhase === "script" && <ScriptSelect selected={scriptId} onSelect={setScriptId} onNext={() => setPhase("policy")} />}
+      {displayPhase === "policy" && <PolicySelect selected={policyId} onSelect={setPolicyId} onBack={() => setPhase("script")} onNext={() => setPhase("roster")} />}
+      {displayPhase === "roster" && <RosterSelect groups={roleGroups} selected={rosterIds} onSelect={selectPerson} onBack={() => setPhase("policy")} onStart={startReign} />}
+      {displayPhase === "reign" && game && <Reign game={game} script={script} policy={policy} roster={roster} onChoose={chooseOption} onContinue={continueSeason} onNextYear={beginNextYear} onSave={() => setSavesOpen(true)} />}
+      {displayPhase === "ending" && game && <Ending game={game} script={script} onRestart={restart} onSaves={() => setSavesOpen(true)} />}
+
+      {savesOpen && <SaveDrawer saves={saveMeta} current={game} onClose={() => setSavesOpen(false)} onSave={saveGame} onLoad={loadGame} onDelete={deleteSave} />}
+    </main>
+  );
+}
+
+function annualGrowth(stats: Stats, policyId: string) {
+  const rest = policyId === "rest" ? 1.5 : 0;
+  const corruptionDrag = Math.max(0, -stats.integrity) / 16;
+  const crowdingDrag = stats.population > stats.grain * 1.25 ? 5 : 0;
+  const population = clamp(2.2 + stats.sentiment / 32 + rest - corruptionDrag / 3, -8, 8);
+  const grain = clamp(stats.population * .075 + (policyId === "rest" ? 5 : 0) + stats.integrity / 18 - stats.population * .05 - stats.army * .025, -20, 20);
+  const sentiment = clamp((stats.grain < stats.population * .7 ? -8 : 2) - crowdingDrag - corruptionDrag + (policyId === "rest" ? 3 : 0), -16, 8);
+  const integrity = stats.integrity < -20 ? -2 : stats.integrity > 60 ? -1 : 0;
+  const effects = { population, grain, sentiment, integrity };
+  return { effects, note: `户口${population >= 0 ? "增" : "减"}${Math.abs(population)}，府库${grain >= 0 ? "盈" : "耗"}${Math.abs(grain)}；${sentiment < 0 ? "生计压力使民情转冷" : "年景尚可，人心稍安"}。` };
+}
+
+function Landing({ onStart, onLoad }: { onStart: () => void; onLoad: () => void }) {
+  return <section className="landing">
+    <div className="mountain mountain-a" /><div className="mountain mountain-b" />
+    <div className="landing-inner">
+      <div className="eyebrow"><span />五人开朝 · 四时治世<span /></div>
+      <div className="seal">国<br />祚</div>
+      <h1>五百年<br /><em>王朝</em></h1>
+      <p className="hero-copy">择一段历史为局，定一条治国之道，携四位股肱之臣走过每个春夏秋冬。<br />这一次，结局不由一次随机判词决定。</p>
+      <div className="hero-actions"><button className="primary xl" onClick={onStart}>选择剧本 · 开国</button><button className="ghost" onClick={onLoad}>读取旧档</button></div>
+      <div className="hero-rules"><span>五项国势彼此牵引</span><i>◆</i><span>历史大事必然发生</span><i>◆</i><span>五百年方成千古一朝</span></div>
+    </div>
+  </section>;
+}
+
+function Progress({ active }: { active: number }) {
+  return <div className="progress" aria-label="开国进度">{["历史剧本", "国策方向", "开国班底"].map((label, index) => <div className={index <= active ? "active" : ""} key={label}><b>0{index + 1}</b><span>{label}</span></div>)}</div>;
+}
+
+function ScriptSelect({ selected, onSelect, onNext }: { selected: string; onSelect: (id: string) => void; onNext: () => void }) {
+  const chosen = scripts.find((item) => item.id === selected)!;
+  return <section className="setup-page"><Progress active={0} /><header className="setup-heading"><span>第一诏</span><h2>选择历史剧本</h2><p>历史给你一道开局，但不会替你写下结局。</p></header>
+    <div className="script-layout"><div className="script-grid">{scripts.map((item) => <button key={item.id} className={`script-card ${selected === item.id ? "selected" : ""}`} onClick={() => onSelect(item.id)} style={{ "--accent": item.color } as React.CSSProperties}><span className="dynasty">{item.dynasty}</span><h3>{item.title}</h3><p>{item.motto}</p><small>{item.startLabel}</small></button>)}</div>
+      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">历史原型</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span></div><button className="primary" onClick={onNext}>以此纪开局</button></aside>
+    </div></section>;
+}
+
+function PolicySelect({ selected, onSelect, onBack, onNext }: { selected: string; onSelect: (id: string) => void; onBack: () => void; onNext: () => void }) {
+  return <section className="setup-page narrow"><Progress active={1} /><header className="setup-heading"><span>第二诏</span><h2>选择国策方向</h2><p>国策不是永久锁定，却会塑造开国三十年的惯性。</p></header><div className="policy-grid">{policies.map((item) => <button key={item.id} onClick={() => onSelect(item.id)} className={`policy-card ${selected === item.id ? "selected" : ""}`}><i>{item.seal}</i><span>国策</span><h3>{item.name}</h3><p>{item.desc}</p><small>{effectText(item.effects)}</small></button>)}</div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回择史</button><button className="primary" onClick={onNext}>颁布国策</button></div></section>;
+}
+
+function RosterSelect({ groups, selected, onSelect, onBack, onStart }: { groups: { role: string; candidates: Person[] }[]; selected: string[]; onSelect: (person: Person) => void; onBack: () => void; onStart: () => void }) {
+  return <section className="setup-page roster-page"><Progress active={2} /><header className="setup-heading"><span>第三诏</span><h2>组建开国班底</h2><p>剧本与皇帝互不绑定。为五个位置各择一人，他们的长项会改变事件成功率。</p></header>
+    <div className="seats">{groups.map(({ role }) => { const person = people.find((p) => selected.includes(p.id) && p.role === role); return <div className={`seat ${person ? "filled" : ""}`} key={role}><span>{role}</span><b>{person?.name || "待定"}</b><small>{person ? person.tags.join(" · ") : "请从下方择一"}</small></div> })}</div>
+    <div className="candidate-groups">{groups.map(({ role, candidates }) => <section className="candidate-row" key={role}><div className="role-label"><span>{role}</span><small>择一入席</small></div>{candidates.map((person) => <button className={`person-card ${selected.includes(person.id) ? "selected" : ""}`} onClick={() => onSelect(person)} key={person.id}><div><h3>{person.name}</h3><span>{person.dynasty}</span></div><p>{person.quote}</p><small>{person.tags.map((tag) => <i key={tag}>{tag}</i>)}</small></button>)}</section>)}</div>
+    <div className="setup-actions sticky-actions"><button className="ghost" onClick={onBack}>返回改策</button><div><span>已入席 {selected.length} / 5</span><button className="primary" disabled={selected.length !== 5} onClick={onStart}>班底已定 · 开始治国</button></div></div>
+  </section>;
+}
+
+function TopBar({ setPhase, openSaves, game }: { setPhase: (phase: Phase) => void; openSaves: () => void; game: GameState | null }) {
+  return <nav className="topbar"><button className="brand" onClick={() => !game && setPhase("landing")}><i>祚</i><span>五百年王朝<small>RISE OF DYNASTY</small></span></button><div><span className="top-status">{game ? `${yearLabel(game.year)} · 国祚第${game.elapsed}年` : "正在开国"}</span><button className="nav-button" onClick={openSaves}>▣ 存读档</button></div></nav>;
+}
+
+function StatPanel({ stats }: { stats: Stats }) {
+  const effectiveArmy = clamp(stats.army + stats.population * .18, 0, 260);
+  return <div className="stats-panel"><div className="number-stat"><span>户</span><div><small>人口 · 万户</small><strong>{stats.population}</strong><em>{stats.population > 100 ? "户口充盈" : stats.population < 45 ? "人丁凋敝" : "生息渐稳"}</em></div></div><div className="number-stat"><span>仓</span><div><small>钱粮 · 国用</small><strong>{stats.grain}</strong><em>{stats.grain < 35 ? "仓廪告急" : stats.grain > 120 ? "府库充盈" : "尚可支应"}</em></div></div><div className="number-stat"><span>兵</span><div><small>武备 · 实效 {effectiveArmy}</small><strong>{stats.army}</strong><em>人口加成 +{Math.round(stats.population * .18)}</em></div></div><AxisStat label="民情" value={stats.sentiment} text={axisLabel("sentiment", stats.sentiment)} left="民怨沸腾" right="安居乐业" /><AxisStat label="官场风气" value={stats.integrity} text={axisLabel("integrity", stats.integrity)} left="贪墨成风" right="海内澄清" /></div>;
+}
+
+function AxisStat({ label, value, text, left, right }: { label: string; value: number; text: string; left: string; right: string }) {
+  return <div className="axis-stat"><div><small>{label}</small><strong>{text}</strong><b>{value > 0 ? "+" : ""}{value}</b></div><div className="axis"><i style={{ left: `${(value + 100) / 2}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
+}
+
+function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear, onSave }: { game: GameState; script: Script; policy: typeof policies[number]; roster: Person[]; onChoose: (option: EventOption) => void; onContinue: () => void; onNextYear: () => void; onSave: () => void }) {
+  const event = game.events[Math.min(game.seasonIndex, 3)];
+  const isYearEnd = game.seasonIndex === 4;
+  const emperor = roster.find((person) => person.role === "皇帝");
+  return <section className="reign-page"><div className="reign-header"><div><span>{script.title} · 君主 {emperor?.name}</span><h1>{yearLabel(game.year)}</h1><p>国祚第 {game.elapsed} 年 · 国策「{policy.name}」{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div><div className="reign-actions"><button onClick={onSave}>存档</button></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} /><div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +7%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roster.filter((person) => person.role !== "皇帝").map((person) => <div className="cabinet-person" key={person.id}><div><small>{person.role}</small><b>{person.name}</b></div><span>{person.tags.join(" · ")}</span></div>)}</div></aside>
+      <article className="court"><div className="yearline">{seasons.map((season, index) => <div className={index < game.seasonIndex ? "done" : index === game.seasonIndex ? "active" : ""} key={season}><i>{index < game.seasonIndex ? "✓" : season}</i><span>{season}{index === 0 ? "耕" : index === 1 ? "长" : index === 2 ? "收" : "藏"}</span></div>)}</div>
+        {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {seasons[game.seasonIndex]}季</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}　`}{option.chance && `基础成功率 ${option.chance}%　`}{option.effects && effectText(option.effects)}</small></div><span>决断</span></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === 3 ? "封存本年奏牍" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
+        <Chronicle entries={game.chronicle} /></article></div></section>;
+}
+
+function YearEnd({ game, onNext }: { game: GameState; onNext: () => void }) {
+  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>这一年的四道决断已经写入起居注。钱粮与人口将在新岁自然增长或衰减，贪腐、军备低迷与生计压力也会继续相互作用。</p><div className="annual-note"><i>岁首旧录</i><strong>{game.annualNote}</strong></div><div className="warning-row">{game.stats.army < 55 && <span>⚑ 武备低迷，来年边患概率上升</span>}{game.stats.sentiment <= -60 && <span>⚠ 民怨沸腾，起义正在酝酿</span>}{game.stats.grain < game.stats.population * .7 && <span>▱ 人多粮少，民情将受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀钱粮与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
+}
+
+function Chronicle({ entries }: { entries: Chronicle[] }) {
+  const visible = entries.slice(-6).reverse();
+  return <div className="chronicle"><header><span>起居注</span><small>最近六则</small></header>{visible.map((entry, index) => <div key={`${entry.year}-${entry.season}-${index}`}><time>{yearLabel(entry.year)} · {entry.season}</time><b>{entry.title}</b><p>{entry.note}</p></div>)}</div>;
+}
+
+function Ending({ game, script, onRestart, onSaves }: { game: GameState; script: Script; onRestart: () => void; onSaves: () => void }) {
+  const score = clamp(game.elapsed * 2 + game.stats.population + game.stats.grain + game.stats.army + game.stats.sentiment + game.stats.integrity, 0, 9999);
+  return <section className={`ending ${game.endingVictory ? "victory" : "defeat"}`}><div className="ending-card"><span className="ending-kicker">{game.endingVictory ? "千古一朝" : "国祚已终"}</span><div className="ending-seal">{game.endingVictory ? "盛" : "殁"}</div><h1>{script.dynasty}祚 · {game.elapsed}年</h1><p>{game.endingReason}</p><div className="ending-stats"><div><small>最后年份</small><strong>{yearLabel(game.year)}</strong></div><div><small>治世评定</small><strong>{score}</strong></div><div><small>历史线</small><strong>{game.alteredHistory ? "另开新史" : "大势未改"}</strong></div></div><blockquote>“{game.chronicle[game.chronicle.length - 1]?.note}”</blockquote><div><button className="primary" onClick={onRestart}>再开一纪</button><button className="ghost" onClick={onSaves}>读取旧档</button></div></div></section>;
+}
+
+function SaveDrawer({ saves, current, onClose, onSave, onLoad, onDelete }: { saves: (GameState | null)[]; current: GameState | null; onClose: () => void; onSave: (slot: number) => void; onLoad: (slot: number) => void; onDelete: (slot: number) => void }) {
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="save-drawer" role="dialog" aria-modal="true" aria-label="存读档"><header><div><span>本地纪年库</span><h2>存读档</h2></div><button onClick={onClose} aria-label="关闭">×</button></header><p className="save-explain">存档只保存在这台设备的浏览器中。当前事件、选项、国家属性、班底与历史线进度都会一并记录。</p><div className="save-slots">{saves.map((save, index) => { const savedScript = save && scripts.find((item) => item.id === save.scriptId); return <article className={save ? "occupied" : ""} key={index}><span>档案 {index + 1}</span>{save ? <><h3>{savedScript?.title}</h3><p>{yearLabel(save.year)} · 国祚第{save.elapsed}年</p><small>人口 {save.stats.population}　钱粮 {save.stats.grain}　武备 {save.stats.army}</small><div><button onClick={() => onLoad(index)}>读取</button>{current && <button onClick={() => onSave(index)}>覆盖</button>}<button className="danger" onClick={() => onDelete(index)}>删除</button></div></> : <><h3>空白卷宗</h3><p>尚未写入任何王朝。</p>{current ? <button className="primary" onClick={() => onSave(index)}>存入此槽</button> : <small>开局后即可存档</small>}</>}</article> })}</div></section></div>;
+}
+
+export default App;

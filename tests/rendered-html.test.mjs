@@ -18,7 +18,7 @@ test("server renders the dynasty game landing page", async () => {
   const html = await response.text();
   assert.match(html, /<title>五百年王朝｜四时治世<\/title>/i);
   assert.match(html, /五百年/);
-  assert.match(html, /选择剧本/);
+  assert.match(html, /选择难度/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });
 
@@ -76,15 +76,15 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /\(effective\.army - 70\) \/ 20/);
   assert.match(page, /effective\.sentiment \/ 20/);
   assert.match(page, /\(effective\.integrity \+ effective\.sentiment\) \/ 20/);
-  assert.match(page, /clamp\(option\.chance \+ teamBoost \+ statBoost, 1, 100\)/);
-  assert.match(page, /成功率 \$\{finalOptionChance\(option, game\.stats, roster, policy\)\}%/);
+  assert.match(page, /clamp\(option\.chance \+ teamBoost \+ statBoost - difficultyRule\(difficulty\)\.chancePenalty, 1, 100\)/);
+  assert.match(page, /成功率 \$\{finalOptionChance\(option, game\.stats, roster, policy, game\.difficulty\)\}%/);
   assert.doesNotMatch(page, /基础成功率 \$\{option\.chance\}/);
   assert.match(page, /判定成功。班底各展所长，决策奏效。/);
   assert.match(page, /判定失败。局势未如所愿，代价已经显现。/);
   assert.doesNotMatch(page, /决策奏效（成功率/);
-  assert.match(page, /const integrity = -6/);
-  assert.match(page, /积弊滋生 -6/);
-  assert.match(page, /岁首固定扣减官风 6 点/);
+  assert.match(page, /const integrity = -6 - rule\.integrityDecayPenalty/);
+  assert.match(page, /积弊滋生 \$\{integrity\}/);
+  assert.match(page, /岁首合计扣减 \$\{Math\.abs\(integrity\)\} 点/);
   assert.match(page, /const effects = \{ population, grain, integrity \}/);
   assert.match(page, /formatDelta\(growth\.effects\.population\)/);
   assert.match(page, /formatDelta\(growth\.effects\.grain\)/);
@@ -92,7 +92,7 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /className="axis-values"/);
   assert.match(page, /role="tooltip"/);
   assert.doesNotMatch(page, /官风惯性|贪腐积弊|盛治回调/);
-  assert.match(page, /<StatPanel stats=\{game\.stats\} policyId=\{game\.policyId\} \/>/);
+  assert.match(page, /<StatPanel stats=\{game\.stats\} policyId=\{game\.policyId\} difficulty=\{game\.difficulty\} \/>/);
   assert.match(page, /对应专长使事件成功率 \+7%/);
   assert.match(page, /dynasty-save-\$\{slot\}/);
   assert.match(page, /\[0, 1, 2\]/);
@@ -103,7 +103,25 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /qinConquestDelay: number/);
   assert.match(page, /qinConquestRetries: number/);
   assert.match(page, /qinConquestRequirementRelief: number/);
-  assert.match(page, /version: 6/);
+  assert.match(page, /version: 7/);
+  assert.match(page, /type DifficultyId = "easy" \| "hard" \| "hell"/);
+  assert.match(page, /difficulty: DifficultyId/);
+  assert.match(page, /integrityDecayPenalty: 0, chancePenalty: 0/);
+  assert.match(page, /integrityDecayPenalty: 3, chancePenalty: 10/);
+  assert.match(page, /integrityDecayPenalty: 6, chancePenalty: 20/);
+  assert.match(page, /const difficulty: DifficultyId = difficulties\.some/);
+  assert.match(page, /saved\.difficulty! : "easy"/);
+  assert.match(page, /setDifficulty\(saved\.difficulty\)/);
+  assert.match(page, /\["难度选择", "历史剧本", "国策方向", "开国班底"\]/);
+  assert.match(page, /难度一经进入治国阶段便随本局固定，并写入存档/);
+  assert.match(page, /difficultyRule\(save\.difficulty\)\.name\}难度/);
+  const difficultyRules = {
+    easy: { integrityDecayPenalty: 0, chancePenalty: 0 },
+    hard: { integrityDecayPenalty: 3, chancePenalty: 10 },
+    hell: { integrityDecayPenalty: 6, chancePenalty: 20 },
+  };
+  assert.deepEqual(Object.fromEntries(Object.entries(difficultyRules).map(([id, rule]) => [id, -6 - rule.integrityDecayPenalty])), { easy: -6, hard: -9, hell: -12 });
+  assert.deepEqual(Object.fromEntries(Object.entries(difficultyRules).map(([id, rule]) => [id, Math.max(1, Math.min(100, 65 - rule.chancePenalty))])), { easy: 65, hard: 55, hell: 45 });
   assert.match(page, /legacyQinConquestIndex\(saved\)/);
   assert.match(page, /historyEventAvailable\(event, historyFlags\)/);
   assert.match(page, /seededRandom\(current\.randomSeed, randomCount\)/);

@@ -86,6 +86,10 @@ button { border:0; cursor:pointer; }
 .policy-card p { min-height:96px; line-height:1.8; color:#796d59; font-size:14px; }
 .policy-card.selected p { color:#c9ba98; }
 .policy-card small { display:block; border-top:1px solid rgba(151,127,78,.3); padding-top:20px; color:#9b7f47; line-height:1.7; }
+.difficulty-grid .policy-card { min-height:350px; }
+.difficulty-grid .policy-card p { min-height:82px; }
+.difficulty-grid .policy-card small { font-size:13px; line-height:2; }
+.difficulty-actions .ghost { opacity:.72; }
 .setup-actions { display:flex; justify-content:space-between; align-items:center; margin-top:32px; }
 
 .roster-page { width:min(1180px,calc(100% - 40px)); }

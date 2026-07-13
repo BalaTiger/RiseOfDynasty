@@ -99,4 +99,21 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /randomCount: yearEvents\.randomCount/);
   assert.match(page, /读档不会重掷事件或判定结果/);
   assert.match(page, /current\.elapsed >= 500/);
+
+  const randomEventSource = page.match(/const randomEvents: EventTemplate\[\] = (\[[\s\S]*?\n\]);\n\nconst additionalHistoricalEvents/);
+  assert.ok(randomEventSource, "random event definitions should be readable");
+  const randomEvents = Function(`return ${randomEventSource[1]}`)();
+  const statKeys = ["population", "grain", "army", "sentiment", "integrity"];
+  for (const event of randomEvents) {
+    const deterministic = event.options.filter((option) => option.effects);
+    for (const option of deterministic) {
+      const values = statKeys.map((key) => option.effects[key] || 0);
+      assert.ok(values.some((value) => value > 0), `${event.title} / ${option.label} should have an explicit upside`);
+      for (const alternative of deterministic.filter((item) => item !== option)) {
+        const alternativeValues = statKeys.map((key) => alternative.effects[key] || 0);
+        const strictlyDominated = alternativeValues.every((value, index) => value >= values[index]) && alternativeValues.some((value, index) => value > values[index]);
+        assert.equal(strictlyDominated, false, `${event.title} / ${option.label} should not be strictly dominated by ${alternative.label}`);
+      }
+    }
+  }
 });

@@ -1949,12 +1949,12 @@ const randomEvents: EventTemplate[] = [
   { id: "flood", title: "河决千里", category: "灾异", text: "连日暴雨，河堤溃决。灾民扶老携幼涌向州城，粮价一夜三涨。", options: [
     { label: "开仓赈济，蠲免田租", detail: "先保人，再谈来年。", effects: { grain: -16, population: -2, sentiment: 15 } },
     { label: "以工代赈，堵口复堤", detail: "钱粮与能吏缺一不可。", chance: 52, tag: "民生", successEffects: { grain: -8, population: 2, sentiment: 10 }, failEffects: { grain: -14, population: -7, sentiment: -8 } },
-    { label: "封锁灾区", detail: "保住库藏，但民怨会越过堤坝。", effects: { population: -8, sentiment: -18, integrity: -5 } },
+    { label: "封锁灾区", detail: "不动国库赈粮，强行隔绝灾区以保全邻郡。", effects: { grain: 7, population: -8, sentiment: -16, integrity: -5 } },
   ]},
   { id: "drought", title: "赤地无雨", category: "灾异", text: "入夏无雨，禾苗枯卷。太史令称需祈雨，司农则请求立刻调粮。", options: [
     { label: "跨郡转运", detail: "损耗巨大，却最可靠。", effects: { grain: -14, population: -1, sentiment: 12 } },
     { label: "减膳祈雨并平粜", detail: "仪式与实政并行。", chance: 60, tag: "财政", successEffects: { grain: -7, sentiment: 9 }, failEffects: { grain: -10, population: -4, sentiment: -7 } },
-    { label: "听其自救", detail: "朝廷没有损失，天下却有。", effects: { population: -9, sentiment: -16 } },
+    { label: "听其自救", detail: "停止跨郡转运，保全中央仓储，代价由灾民承担。", effects: { grain: 6, population: -9, sentiment: -16 } },
   ]},
   { id: "auspicious", title: "甘露降庭", category: "祥瑞", text: "宫苑老柏降下甘露，百官请上尊号、大赦天下。民间也在等待朝廷的态度。", options: [
     { label: "大赦并减今年租", detail: "把祥瑞变成百姓摸得到的恩典。", effects: { grain: -6, sentiment: 13 } },
@@ -1979,7 +1979,7 @@ const randomEvents: EventTemplate[] = [
   { id: "refugees", title: "流民入境", category: "民生", text: "邻境战乱，数万流民叩关求生。他们既是等待安置的嘴，也是可垦荒、可从军的人。", options: [
     { label: "授田安置", detail: "短期费粮，长期添户。", effects: { grain: -10, population: 10, sentiment: 8 } },
     { label: "择壮者编入军屯", detail: "成败在于军政协调。", chance: 55, tag: "军事", successEffects: { population: 5, army: 9, grain: -5 }, failEffects: { population: 2, sentiment: -8, army: -3 } },
-    { label: "闭关遣返", detail: "不添负担，也伤仁德。", effects: { sentiment: -9 } },
+    { label: "闭关遣返", detail: "守住关仓与边防，不添供养负担，也伤仁德。", effects: { grain: 5, army: 3, sentiment: -9 } },
   ]},
   { id: "palace", title: "营建宫室", category: "朝堂", text: "将作监称旧宫狭陋，不足彰显国威；群臣都知道，这笔账最终要落在百姓头上。", options: [
     { label: "罢役，修官舍学校", detail: "国威不只在宫阙。", effects: { grain: -4, sentiment: 9, integrity: 4 } },
@@ -1988,7 +1988,7 @@ const randomEvents: EventTemplate[] = [
   ]},
   { id: "rebellion", title: "揭竿四起", category: "民变", text: "长期积压的民怨终于点燃。饥民攻破县城，裹挟者日众，地方官已无法收拾。", options: [
     { label: "赈抚并诛贪官", detail: "需要足够钱粮与清明官风。", requirements: { grain: 35, integrity: -20 }, failOnUnmet: true, effects: { grain: -18, sentiment: 25, integrity: 10, army: -3 } },
-    { label: "遣精兵平乱", detail: "武备不足，出兵就是押上国运。", requirements: { army: 75 }, failOnUnmet: true, effects: { army: -12, population: -8, sentiment: -12 } },
+    { label: "遣精兵平乱", detail: "以伤亡换取确定的平乱结果，并追究失职官吏。", requirements: { army: 75 }, failOnUnmet: true, effects: { army: -12, population: -7, sentiment: -10, integrity: 7 } },
     { label: "招安首领", detail: "暂息兵火，后患难测。", chance: 48, tag: "谋略", successEffects: { sentiment: 12, army: 3 }, failEffects: { army: -14, grain: -9, sentiment: -8 } },
   ]},
   { id: "invasion", title: "烽火入塞", category: "边患", text: "敌骑越塞，三郡告急。多年的武备松弛在这一刻都写进了战报。", options: [

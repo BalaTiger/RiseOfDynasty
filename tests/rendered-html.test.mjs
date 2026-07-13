@@ -55,8 +55,8 @@ test("includes the expanded five-round roster, history events, and reign-only sa
     assert.ok(eventCount >= 4, `${scriptId} should have at least four historical events`);
   }
   assert.match(page, /id: "qin"[^\n]+startYear: -246[^\n]+秦王政元年 · 少年即位/);
-  assert.equal(page.match(/scriptId: "qin"/g)?.length, 15);
-  assert.equal(page.match(/scriptId: "hanwu"/g)?.length, 10);
+  assert.equal(page.match(/scriptId: "qin"/g)?.length, 16);
+  assert.equal(page.match(/scriptId: "hanwu"/g)?.length, 11);
   assert.match(page, /title: "少主临朝"[^\n]+text: "相邦吕不韦总揽朝政，宗室、军功贵族与太后宫中各有盘算。"/);
   assert.doesNotMatch(page, /庄襄王新丧，十三岁的嬴政即秦王位/);
   for (const title of ["少主临朝", "蕲年宫变", "逐客风波", "韩国先亡", "邯郸陷落", "图穷匕见", "水灌大梁", "王翦灭楚", "燕代俱平", "凿渠征越", "龙城初捷", "河南之战", "漠南奔袭", "河西两战"]) assert.match(page, new RegExp(title));
@@ -95,10 +95,51 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /\[0, 1, 2\]/);
   assert.match(page, /randomSeed: number/);
   assert.match(page, /randomCount: number/);
+  assert.match(page, /historyFlags: string\[\]/);
+  assert.match(page, /historyEventAvailable\(event, historyFlags\)/);
   assert.match(page, /seededRandom\(current\.randomSeed, randomCount\)/);
   assert.match(page, /randomCount: yearEvents\.randomCount/);
   assert.match(page, /读档不会重掷事件或判定结果/);
   assert.match(page, /current\.elapsed >= 500/);
+
+  const additionalSource = page.match(/const additionalHistoricalEvents: EventTemplate\[\] = (\[[\s\S]*?\n\]);\n\nconst coreHistoricalEvents/);
+  const coreSource = page.match(/const coreHistoricalEvents: EventTemplate\[\] = (\[[\s\S]*?\n\]);\n\nconst historicalEvents/);
+  assert.ok(additionalSource && coreSource, "historical event definitions should be readable");
+  const historicalEvents = [...Function(`return ${additionalSource[1]}`)(), ...Function(`return ${coreSource[1]}`)()];
+  assert.equal(new Set(historicalEvents.map((event) => event.id)).size, historicalEvents.length, "historical event ids should be unique");
+  const activeIds = (scriptId, year, flags = []) => {
+    const known = new Set(flags);
+    return historicalEvents.filter((event) => event.scriptId === scriptId && event.year === year
+      && (event.requiresHistoryFlags || []).every((flag) => known.has(flag))
+      && (event.excludesHistoryFlags || []).every((flag) => !known.has(flag))).map((event) => event.id);
+  };
+  const branches = [
+    ["liubang", -206, "liubang-qin-support", "liubang-qin-resistance", "liubang_looted_guanzhong"],
+    ["hanwu", -129, "hanwu-longcheng", "hanwu-border-council", "hanwu_defensive_border"],
+    ["caocao", 199, "caocao-belt-edict", "caocao-luoyang-rescript", "caocao_emperor_in_luoyang"],
+    ["liubei", 208, "liubei-redcliffs", "liubei-xiakou-council", "liubei_without_longzhong"],
+    ["sunce", 199, "sunce-lujiang", "sunce-yuanshu-remnants", "sunce_stayed_with_yuanshu"],
+    ["liuyu", 417, "liuyu-north", "liuyu-reopen-north", "liuyu_abandoned_guanggu"],
+    ["taizong", 621, "taizong-hulao", "taizong-delayed-guanzhong", "taizong_delayed_jinyang"],
+    ["song", 961, "song-cup", "song-zhou-generals", "song_returned_to_zhou"],
+    ["genghis", 1211, "genghis-jin", "genghis-noble-vanguard", "genghis_old_nobles"],
+    ["ming", 1393, "ming-lan-yu", "ming-merit-retirement", "ming_limited_purge"],
+  ];
+  for (const [scriptId, year, canonicalId, branchId, flag] of branches) {
+    assert.ok(activeIds(scriptId, year).includes(canonicalId), `${canonicalId} should remain the legacy path`);
+    assert.ok(!activeIds(scriptId, year).includes(branchId), `${branchId} should stay hidden without its cause`);
+    assert.ok(!activeIds(scriptId, year, [flag]).includes(canonicalId), `${canonicalId} should yield to its branch`);
+    assert.ok(activeIds(scriptId, year, [flag]).includes(branchId), `${branchId} should appear after its hidden cause`);
+  }
+  assert.ok(!activeIds("qin", -241).includes("qin-lao-ai-entry"));
+  assert.ok(activeIds("qin", -241, ["qin_court_independent"]).includes("qin-lao-ai-entry"));
+  assert.ok(activeIds("qin", -238).includes("qin-lao-ai"));
+  assert.ok(!activeIds("qin", -238, ["qin_lao_ai_prevented"]).includes("qin-lao-ai"));
+  const qinAccession = historicalEvents.find((event) => event.id === "qin-accession");
+  const qinEntry = historicalEvents.find((event) => event.id === "qin-lao-ai-entry");
+  assert.deepEqual(qinAccession.options[1].setHistoryFlags, ["qin_court_independent"]);
+  assert.doesNotMatch(JSON.stringify(qinAccession.options), /嫪毐|宫中索人|蕲年/);
+  assert.deepEqual(qinEntry.options.map((option) => option.setHistoryFlags), [["qin_lao_ai_admitted"], ["qin_lao_ai_prevented"]]);
 
   const randomEventSource = page.match(/const randomEvents: EventTemplate\[\] = (\[[\s\S]*?\n\]);\n\nconst additionalHistoricalEvents/);
   assert.ok(randomEventSource, "random event definitions should be readable");

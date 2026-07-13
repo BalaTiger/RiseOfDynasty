@@ -50,6 +50,11 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /已存入档案 \$\{slot \+ 1\}/);
   assert.match(page, /className="save-toast" role="status" aria-live="polite"/);
   assert.match(page, /historicalEvents\.filter/);
+  for (const scriptId of ["qin", "liubang", "hanwu", "caocao", "liubei", "sunce", "liuyu", "taizong", "song", "genghis", "ming"]) {
+    const eventCount = page.match(new RegExp(`scriptId: "${scriptId}"`, "g"))?.length || 0;
+    assert.ok(eventCount >= 4, `${scriptId} should have at least four historical events`);
+  }
+  for (const title of ["六合初定", "垓下决楚", "巫蛊祸起", "赤壁风火", "荆州风急", "袁术僭号", "晋宋禅代", "虎牢一战", "陈桥黄袍", "野狐岭破金", "蓝玉案起"]) assert.match(page, new RegExp(title));
   assert.match(page, /className="chance-results"/);
   assert.match(page, /effectText\(option\.successEffects \|\| \{\}\)/);
   assert.match(page, /effectText\(option\.failEffects \|\| \{\}\)/);

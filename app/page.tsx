@@ -2120,6 +2120,66 @@ const randomEvents: EventTemplate[] = [
     { label: "赦轻罪，重案再审", detail: "先释放牵连者，把有限人力留给重案。", effects: { grain: -5, sentiment: 11, integrity: -3 } },
     { label: "依原判发往边地服役", detail: "迅速清空牢狱并补充劳力，冤屈也被一并送走。", effects: { army: 5, grain: 7, sentiment: -10, integrity: -6 } },
   ]},
+  { id: "epidemic", title: "时疫入城", category: "灾异", text: "城中接连有人高热倒下，医者尚未辨清病因，坊门外已出现逃难人群与趁乱涨价的药商。", options: [
+    { label: "分坊隔离，设病舍救治", detail: "执行有序能截断疫病，恐慌失控则病人与粮道一同被困。", chance: 59, tag: "民生", successEffects: { grain: -6, population: 4, sentiment: 8 }, failEffects: { grain: -6, population: -8, sentiment: -7 } },
+    { label: "官购药材，沿街施药", detail: "直接救治病患，也要承担药价与真假药材的风险。", effects: { grain: -10, population: 6, sentiment: 6 } },
+    { label: "封闭城门，禁止人员往来", detail: "以严禁控制外传，城内生计与人心随之承压。", effects: { grain: 5, army: 3, population: -5, sentiment: -10 } },
+  ]},
+  { id: "early-frost", title: "早霜杀禾", category: "灾异", text: "秋收前突降重霜，北地晚禾大半枯死。受灾州县求调种粮，南方粮商则开始囤积居奇。", options: [
+    { label: "跨郡调种，补种耐寒作物", detail: "赶上最后农时，至少为来年保住种子。", effects: { grain: -8, population: 2, sentiment: 9 } },
+    { label: "缓征田租，平抑粮价", detail: "不直接替农户耕种，但让他们撑过歉收。", effects: { grain: -5, sentiment: 8, integrity: 4 } },
+    { label: "优先保全京仓军储", detail: "中央仓储无虞，受灾地方只能自行消化损失。", effects: { grain: 7, army: 2, sentiment: -9 } },
+  ]},
+  { id: "ancient-cauldron", title: "古鼎出土", category: "祥瑞", text: "河工掘出一尊古鼎，铭文残缺难辨。地方官已上表称是受命之瑞，学官却怀疑只是前代祭器。", options: [
+    { label: "召学者辨铭定年", detail: "考证清楚可增益文教，误判则让朝廷自失颜面。", chance: 64, tag: "谋略", successEffects: { integrity: 8, sentiment: 5 }, failEffects: { grain: -5, integrity: -4 } },
+    { label: "归还当地，建亭保护", detail: "不争天命之说，让出土地的百姓得到体面。", effects: { grain: 2, sentiment: 9, integrity: 4 } },
+    { label: "迎入太庙，宣示受命", detail: "盛典足以振奋人心，疑古者也会质问其真伪。", effects: { grain: -8, sentiment: 12, army: 3, integrity: -3 } },
+  ]},
+  { id: "maritime-trade", title: "海舶来市", category: "财政", text: "远海商舶携香料、珠玉与良种靠岸，请求常设市舶之所。地方豪强已抢先包揽翻译与仓栈。", options: [
+    { label: "设市舶官统一抽分", detail: "管理得当可开辟财源，官商勾结则只多一处肥缺。", chance: 58, tag: "财政", successEffects: { grain: 16, population: 3, integrity: 4 }, failEffects: { grain: -6, integrity: -7, sentiment: -4 } },
+    { label: "发给牌照，准民间互市", detail: "用较轻的约束换取港市繁荣。", effects: { grain: 10, sentiment: 6, integrity: -2 } },
+    { label: "限制靠岸，严查海防", detail: "减少走私与探查风险，也放弃大半贸易收益。", effects: { army: 4, grain: 3, sentiment: -5 } },
+  ]},
+  { id: "postal-relay", title: "驿传告急", category: "吏治", text: "边报与官文日益繁多，驿马倒毙、驿卒逃亡，私人使者却常持权贵符节抢先换马。", options: [
+    { label: "增设驿站，补足马匹", detail: "以持续投入恢复政令与军报速度。", effects: { grain: -9, army: 5, integrity: 6 } },
+    { label: "核验符节，雇民马递送", detail: "整顿得当可省下官养驿马，执行失序则文书积压。", chance: 61, tag: "吏治", successEffects: { grain: 7, integrity: 8, army: 3 }, failEffects: { grain: -6, integrity: -5, army: -3 } },
+    { label: "限制非紧急公文用驿", detail: "让驿传先喘口气，也会拖慢一般政务。", effects: { grain: 6, integrity: 4, sentiment: -4 } },
+  ]},
+  { id: "city-fire", title: "城坊大火", category: "灾异", text: "闹市油坊失火，风助火势连烧数坊。救火水道被摊贩占住，官差正考虑拆屋开出隔火带。", options: [
+    { label: "调军民救火，赈济灾户", detail: "保人救火并重，需要大量物资与组织。", effects: { grain: -10, population: 3, sentiment: 8 } },
+    { label: "拆屋开隔火带", detail: "判断准确可迅速断火，迟疑或误拆都会放大损失。", chance: 57, tag: "民生", successEffects: { grain: -5, population: 2, sentiment: 6 }, failEffects: { grain: -9, population: -6, sentiment: -7 } },
+    { label: "封锁街巷，严禁夜市", detail: "治安易于控制，城市生计与怨气同时受损。", effects: { army: 4, grain: 2, sentiment: -8, integrity: -3 } },
+  ]},
+  { id: "forest-commons", title: "山林开禁", category: "民生", text: "官山木材繁盛，附近百姓请求入山采薪、狩猎；工部与驻军都称这些木料已有用途。", options: [
+    { label: "划出民用山场", detail: "让百姓取得薪材与生计，同时承受盗伐风险。", effects: { grain: 8, population: 3, sentiment: 5, integrity: -3 } },
+    { label: "封山育林，留作军需", detail: "保护长远木源，也断绝附近村落的日常取用。", effects: { army: 5, integrity: 7, grain: -4 } },
+    { label: "发引限额采伐", detail: "以许可换取收入，监管不严便会超采。", effects: { grain: 11, integrity: 2, sentiment: -4 } },
+  ]},
+  { id: "irrigation-dispute", title: "争渠夺水", category: "民生", text: "上游豪庄截水灌田，下游数村渠底见泥。春耕将近，军屯又持公文要求优先供水。", options: [
+    { label: "丈量田亩，按时分水", detail: "裁定公允可让各方服从，执行偏私便会引发争斗。", chance: 60, tag: "吏治", successEffects: { grain: 10, sentiment: 7, integrity: 6 }, failEffects: { grain: -7, sentiment: -7, integrity: -5 } },
+    { label: "赎买上游水权补给下村", detail: "用国库换取下游生计，不直接触动豪庄田产。", effects: { grain: -8, population: 4, sentiment: 8 } },
+    { label: "军屯优先，余水归民", detail: "确保军粮，普通农户只能分担缺水。", effects: { grain: 7, army: 6, sentiment: -9, integrity: -4 } },
+  ]},
+  { id: "tax-arrears", title: "积欠逋赋", category: "财政", text: "数县连续欠税，账上既有灾年贫户，也混着借机拖欠的大户。催征吏请求一律限期缴清。", options: [
+    { label: "灾户蠲免，大户追征", detail: "区分对象最合情理，也最考验基层账册。", chance: 59, tag: "财政", successEffects: { grain: 8, sentiment: 7, integrity: 6 }, failEffects: { grain: -6, integrity: -5, sentiment: -4 } },
+    { label: "普遍缓征，分年偿还", detail: "减少眼前收入，给县乡恢复生计的时间。", effects: { grain: -8, population: 4, sentiment: 11 } },
+    { label: "查封欠户田宅抵税", detail: "国库很快见粮，许多田产也会流向有力者。", effects: { grain: 12, army: 3, sentiment: -12, integrity: -6 } },
+  ]},
+  { id: "border-hostage", title: "质子入朝", category: "边患", text: "邻国愿送王子入朝为质，换取停战与边市。有人称这是诚意，也有人担心质子只是来结交朝臣。", options: [
+    { label: "厚待质子，缔结盟约", detail: "识其真意可稳住边境，误判则让对方摸清朝局。", chance: 62, tag: "谋略", successEffects: { army: 8, grain: 4, integrity: 3 }, failEffects: { army: -7, sentiment: -6, integrity: -3 } },
+    { label: "礼送归国，只开边市", detail: "不以人质维系和平，先让双方从贸易获利。", effects: { grain: 6, sentiment: 5, army: -2 } },
+    { label: "留质子，暂停一切互市", detail: "握住谈判筹码，也令邻国与边商同时不满。", effects: { army: 7, grain: 3, integrity: -7, sentiment: -4 } },
+  ]},
+  { id: "shipbuilding", title: "水师造舰", category: "军务", text: "沿江将领请建大型战船，以控制水道。度支司提醒造舰木料、铁钉与熟练船匠都十分昂贵。", options: [
+    { label: "设船厂建造楼船", detail: "建立真正水师需要长期投入，也会征用沿岸人力。", effects: { grain: -13, army: 12, population: -2 } },
+    { label: "征租商船，改装战具", detail: "调度得当可迅速成军，强征失控则商路与舰队一起受损。", chance: 56, tag: "军事", successEffects: { army: 9, grain: 3 }, failEffects: { army: -8, grain: -7, sentiment: -5 } },
+    { label: "先建烽台与沿江堡寨", detail: "放弃争夺水面，以较低成本巩固岸防。", effects: { army: 6, grain: 5, sentiment: -3 } },
+  ]},
+  { id: "military-register", title: "军户冒籍", category: "军务", text: "核饷时发现军户名册中既有亡者领饷，也有壮丁假作老弱逃役，背后似有将吏相互遮掩。", options: [
+    { label: "逐营点验，重造军籍", detail: "查清可追回空饷并补实兵额，操切则军中先乱。", chance: 58, tag: "吏治", successEffects: { grain: 9, army: 8, integrity: 8 }, failEffects: { grain: -5, army: -5, integrity: -4 } },
+    { label: "赦旧冒籍，限期自首归册", detail: "不追旧罪换取人口回流，兵额恢复较慢。", effects: { population: 5, sentiment: 8, army: -3 } },
+    { label: "维持旧册，削减来年军饷", detail: "账面兵额不动，国库先收回一部分支出。", effects: { grain: 7, army: 4, integrity: -7 } },
+  ]},
 ];
 
 const additionalHistoricalEvents: EventTemplate[] = [
@@ -2134,10 +2194,6 @@ const additionalHistoricalEvents: EventTemplate[] = [
   { id: "qin-mengao-han", scriptId: "qin", year: -244, historical: true, title: "蒙骜攻韩", category: "历史大事", text: "蒙骜东攻韩国，韩军连失城邑。秦廷可继续压取十三城，也可用兵锋换取割地与岁贡。", options: [
     { label: "乘胜连取韩城", detail: "扩张疆土会消耗兵粮，若受阻则前功尽弃。", chance: 58, tag: "军事", successEffects: { army: -4, grain: -5, population: 7, sentiment: 4 }, failEffects: { army: -12, grain: -10, sentiment: -5 } },
     { label: "受地罢兵，索取岁贡", detail: "不求尽取十三城，先把胜势换成现成国用。", effects: { grain: 7, army: 2, integrity: -5 } },
-  ]},
-  { id: "qin-locust-plague", scriptId: "qin", year: -243, historical: true, title: "蝗疫蔽天", category: "历史大事", text: "蝗虫自东方飞来蔽天，疫病又在郡县流行。仓吏请开放纳粟拜爵，以最快速度补足赈粮。", options: [
-    { label: "纳粟千石，赐爵一级", detail: "迅速以爵位换取粮食，救急也动摇军功授爵的旧制。", effects: { grain: 14, army: -3, integrity: -8, sentiment: -4 } },
-    { label: "开仓赈疫，禁借灾买爵", detail: "由国库承担灾年，不把爵位变成富户的价码。", effects: { grain: -12, population: 3, sentiment: 10, integrity: 5 } },
   ]},
   { id: "qin-east-commandery", scriptId: "qin", year: -242, historical: true, title: "东郡初置", category: "历史大事", text: "蒙骜攻魏，连下酸枣、雍丘、山阳等二十城。新地横亘秦魏之间，如何治理会决定它是屏障还是泥潭。", options: [
     { label: "置东郡，派秦吏直辖", detail: "把新地纳入秦制，短期需要大量官吏与驻军。", effects: { grain: -6, army: 5, integrity: 8, sentiment: -3 } },

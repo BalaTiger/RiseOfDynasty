@@ -55,11 +55,12 @@ test("includes the expanded five-round roster, history events, and reign-only sa
     assert.ok(eventCount >= 4, `${scriptId} should have at least four historical events`);
   }
   assert.match(page, /id: "qin"[^\n]+startYear: -246[^\n]+秦王政元年 · 少年即位/);
-  assert.equal(page.match(/scriptId: "qin"/g)?.length, 23);
+  assert.equal(page.match(/scriptId: "qin"/g)?.length, 22);
   assert.equal(page.match(/scriptId: "hanwu"/g)?.length, 11);
   assert.match(page, /title: "少主临朝"[^\n]+text: "相邦吕不韦总揽朝政，宗室、军功贵族与太后宫中各有盘算。"/);
   assert.doesNotMatch(page, /庄襄王新丧，十三岁的嬴政即秦王位/);
-  for (const title of ["少主临朝", "卷城鏖兵", "蒙骜攻韩", "蝗疫蔽天", "东郡初置", "五国攻秦", "彗星再见", "屯留兵变", "蕲年宫变", "逐客风波", "韩国先亡", "邯郸陷落", "图穷匕见", "水灌大梁", "王翦灭楚", "燕代俱平", "凿渠征越", "龙城初捷", "河南之战", "漠南奔袭", "河西两战"]) assert.match(page, new RegExp(title));
+  for (const title of ["少主临朝", "卷城鏖兵", "蒙骜攻韩", "东郡初置", "五国攻秦", "彗星再见", "屯留兵变", "蕲年宫变", "逐客风波", "韩国先亡", "邯郸陷落", "图穷匕见", "水灌大梁", "王翦灭楚", "燕代俱平", "凿渠征越", "龙城初捷", "河南之战", "漠南奔袭", "河西两战"]) assert.match(page, new RegExp(title));
+  assert.doesNotMatch(page, /蝗疫蔽天|qin-locust-plague/);
   for (const title of ["六合初定", "垓下决楚", "巫蛊祸起", "赤壁风火", "荆州风急", "袁术僭号", "晋宋禅代", "虎牢一战", "陈桥黄袍", "野狐岭破金", "蓝玉案起"]) assert.match(page, new RegExp(title));
   assert.match(page, /className="chance-results"/);
   assert.match(page, /effectText\(option\.successEffects \|\| \{\}\)/);
@@ -156,7 +157,6 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   const qinEarlyTimeline = [
     [-245, "qin-juan-battle"],
     [-244, "qin-mengao-han"],
-    [-243, "qin-locust-plague"],
     [-242, "qin-east-commandery"],
     [-241, "qin-five-state-coalition"],
     [-240, "qin-comet-mengao"],
@@ -165,6 +165,7 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   for (const [year, eventId] of qinEarlyTimeline) {
     assert.ok(activeIds("qin", year).includes(eventId), `Qin's early timeline should include ${eventId} in ${year}`);
   }
+  assert.equal(activeIds("qin", -243).length, 0, "the duplicate Qin locust event should be removed");
 
   const conquestIds = ["qin-conquer-han", "qin-conquer-zhao", "qin-conquer-wei", "qin-conquer-chu", "qin-conquer-yan", "qin-unification"];
   const conquestYears = [-230, -228, -225, -223, -222, -221];
@@ -239,8 +240,12 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   const randomEventSource = page.match(/const randomEvents: EventTemplate\[\] = (\[[\s\S]*?\n\]);\n\nconst additionalHistoricalEvents/);
   assert.ok(randomEventSource, "random event definitions should be readable");
   const randomEvents = Function(`return ${randomEventSource[1]}`)();
-  assert.equal(randomEvents.length, 36, "the generic random event pool should contain exactly 36 events");
-  assert.equal(new Set(randomEvents.map((event) => event.id)).size, 36, "generic random event ids should be unique");
+  assert.equal(randomEvents.length, 48, "the generic random event pool should contain exactly 48 events");
+  assert.equal(new Set(randomEvents.map((event) => event.id)).size, 48, "generic random event ids should be unique");
+  assert.ok(randomEvents.some((event) => event.id === "locust" && event.title === "飞蝗蔽日"), "the generic locust event should remain");
+  for (const id of ["epidemic", "early-frost", "ancient-cauldron", "maritime-trade", "postal-relay", "city-fire", "forest-commons", "irrigation-dispute", "tax-arrears", "border-hostage", "shipbuilding", "military-register"]) {
+    assert.ok(randomEvents.some((event) => event.id === id), `${id} should be included in the expanded generic pool`);
+  }
   const statKeys = ["population", "grain", "army", "sentiment", "integrity"];
   for (const event of randomEvents) {
     const deterministic = event.options.filter((option) => option.effects);

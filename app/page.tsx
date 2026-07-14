@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Phase = "landing" | "script" | "policy" | "roster" | "reign" | "ending";
 type DifficultyId = "easy" | "hard" | "hell";
-type StatKey = "population" | "grain" | "army" | "sentiment" | "integrity";
+type StatKey = "population" | "grain" | "army" | "sentiment" | "integrity" | "authority";
 type Season = "春" | "夏" | "秋" | "冬";
 type SkillTag = "民生" | "财政" | "军事" | "吏治" | "谋略";
 type Role = "皇帝" | "宰相" | "名将" | "财政" | "监察";
@@ -20,6 +20,9 @@ type Person = {
   quote: string;
   tags: SkillTag[];
   bonuses: Partial<Stats>;
+  /** 仅用于治国阶段的权臣叛变判定，不向玩家直接展示。皇帝没有此项。 */
+  loyalty?: number;
+  specialRecruit?: boolean;
 };
 
 type Script = {
@@ -53,6 +56,7 @@ type EventOption = {
   successHistoryFlags?: string[];
   failHistoryFlags?: string[];
   qinConquest?: "advance" | "delay";
+  specialAction?: "fight-minister" | "pardon-minister" | "execute-minister" | "fight-peasants" | "pardon-peasant" | "execute-peasant";
 };
 
 type EventTemplate = {
@@ -67,6 +71,10 @@ type EventTemplate = {
   excludesHistoryFlags?: string[];
   punitive?: boolean;
   qinConquestStage?: number;
+  special?: "minister-rebellion" | "captured-minister" | "peasant-rebellion" | "captured-peasant";
+  actorId?: string;
+  actorRole?: Role;
+  entered?: boolean;
   options: EventOption[];
 };
 
@@ -81,7 +89,7 @@ type Outcome = {
 type Chronicle = { year: number; season: Season; title: string; note: string };
 
 type GameState = {
-  version: 9;
+  version: 10;
   phase: Phase;
   difficulty: DifficultyId;
   scriptId: string;
@@ -108,6 +116,9 @@ type GameState = {
   qinConquestDelay: number;
   qinConquestRetries: number;
   qinConquestRequirementRelief: number;
+  pendingEvents: EventTemplate[];
+  unavailablePersonIds: string[];
+  debugHistory?: boolean;
 };
 
 type HistoricalProgress = Pick<GameState, "qinConquestIndex" | "qinConquestDelay" | "qinConquestRetries" | "qinConquestRequirementRelief">;
@@ -123,34 +134,67 @@ const statNames: Record<StatKey, string> = {
   army: "武备",
   sentiment: "民情",
   integrity: "吏治",
+  authority: "皇权",
 };
 
 const difficulties = [
-  { id: "easy", name: "简单", seal: "易", desc: "沿用当前治国规则，适合从容熟悉五百年国运。", integrityDecayPenalty: 0, chancePenalty: 0 },
-  { id: "hard", name: "困难", seal: "难", desc: "积弊滋生更快，朝廷的每次冒险也更难如愿。", integrityDecayPenalty: 3, chancePenalty: 10 },
-  { id: "hell", name: "地狱", seal: "狱", desc: "吏治迅速败坏，任何带有成败判定的决策都更加凶险。", integrityDecayPenalty: 6, chancePenalty: 20 },
+  { id: "easy", name: "简单", seal: "易", desc: "初始国势不变，适合从容熟悉五百年国运。", integrityDecayPenalty: 0, chancePenalty: 0, initialStatPenalty: 0 },
+  { id: "hard", name: "困难", seal: "难", desc: "初始国势降低10%，积弊滋生更快，朝廷的每次冒险也更难如愿。", integrityDecayPenalty: 3, chancePenalty: 10, initialStatPenalty: .1 },
+  { id: "hell", name: "地狱", seal: "狱", desc: "初始国势降低20%，吏治迅速败坏，任何成败判定都更加凶险。", integrityDecayPenalty: 6, chancePenalty: 20, initialStatPenalty: .2 },
 ] as const;
 
 const difficultyRule = (id: DifficultyId) => difficulties.find((item) => item.id === id) || difficulties[0];
 
+type MusicTrack = { src: string; title: string; artist: string; denoised?: boolean; scripts?: string[] };
+
+const mainTheme: MusicTrack = { src: "/music/main-theme.mp3", title: "Main Theme", artist: "" };
+const reignMusic: MusicTrack[] = [
+  { src: "/music/erquan-yingyue-a-bing.mp3", title: "二泉映月", artist: "阿炳", denoised: true },
+  { src: "/music/dalang-taosha-a-bing.mp3", title: "大浪淘沙", artist: "阿炳", denoised: true },
+  { src: "/music/hanchun-fengqu-a-bing.mp3", title: "寒春风曲", artist: "阿炳", denoised: true },
+  { src: "/music/tingquan-yin-zhan-chengqiu.mp3", title: "听泉引", artist: "詹澄秋" },
+  { src: "/music/yi-guren-wu-jinglue.mp3", title: "忆故人", artist: "吴景略" },
+  { src: "/music/yuqiao-wenda-guan-zhonghang.mp3", title: "渔樵问答", artist: "関仲航" },
+  { src: "/music/zuiyu-changwan-wei-zhongle.mp3", title: "醉渔唱晚", artist: "卫仲乐" },
+  { src: "/music/liezi-yufeng-yue-ying.mp3", title: "列子御风", artist: "乐瑛", scripts: ["qin"] },
+  { src: "/music/liushui-guan-pinghu.mp3", title: "流水", artist: "管平湖", scripts: ["qin"] },
+  { src: "/music/hujia-shibapai-guan-pinghu.mp3", title: "胡笳十八拍", artist: "管平湖", scripts: ["hanwu"] },
+  { src: "/music/longxiang-cao-zhang-ziqian.mp3", title: "龙翔操（昭君怨）", artist: "张子谦", scripts: ["hanwu"] },
+  { src: "/music/qiujiang-yebo-cheng-wujia.mp3", title: "秋江夜泊", artist: "程午加", scripts: ["taizong"] },
+  { src: "/music/yueyang-sanzui-yue-ying.mp3", title: "岳阳三醉", artist: "乐瑛", scripts: ["taizong"] },
+];
+
+function shuffleMusicOrder(length: number, previousIndex?: number) {
+  const order = Array.from({ length }, (_, index) => index);
+  for (let index = order.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [order[index], order[swapIndex]] = [order[swapIndex], order[index]];
+  }
+  if (order.length > 1 && order[0] === previousIndex) {
+    const swapIndex = 1 + Math.floor(Math.random() * (order.length - 1));
+    [order[0], order[swapIndex]] = [order[swapIndex], order[0]];
+  }
+  return order;
+}
+
 const scripts: Script[] = [
-  { id: "qin", title: "秦始皇纪", ruler: "嬴政", dynasty: "秦", startYear: -246, startLabel: "秦王政元年 · 少年即位", color: "#b78b3e", motto: "奋六世余烈，并天下为一", description: "从即秦王位之年开始。秦国兵强法密，朝权却仍在相邦与太后手中，统一天下尚是二十五年后的远景。", base: { population: 70, grain: 82, army: 84, sentiment: -6, integrity: 14 } },
-  { id: "liubang", title: "汉高祖纪", ruler: "刘邦", dynasty: "汉", startYear: -209, startLabel: "秦二世元年 · 沛县起兵", color: "#a23e32", motto: "约法三章，群雄逐鹿", description: "从沛县起兵开始。根基浅薄，却最懂得把天下英才放在合适的位置。", base: { population: 74, grain: 70, army: 66, sentiment: 12, integrity: 4 } },
-  { id: "hanwu", title: "汉武帝纪", ruler: "刘彻", dynasty: "汉", startYear: -141, startLabel: "建元元年 · 少年天子", color: "#9b2f28", motto: "内强国本，外攘夷狄", description: "从登基之年开始。文景遗产丰厚，雄心也足以把储备燃烧殆尽。", base: { population: 112, grain: 142, army: 78, sentiment: 28, integrity: 24 } },
-  { id: "caocao", title: "曹操传", ruler: "曹操", dynasty: "魏", startYear: 189, startLabel: "中平六年 · 陈留起兵", color: "#556b72", motto: "挟天子令诸侯", description: "从陈留散家财起兵开始。乱世中，秩序本身就是最稀缺的资源。", base: { population: 58, grain: 62, army: 72, sentiment: -8, integrity: 12 } },
-  { id: "liubei", title: "刘备传", ruler: "刘备", dynasty: "蜀汉", startYear: 184, startLabel: "中平元年 · 涿郡起兵", color: "#54704e", motto: "以仁为旗，匡扶汉室", description: "从涿郡聚众开始。名望可聚民心，但每一块立足之地都得艰难争取。", base: { population: 48, grain: 52, army: 58, sentiment: 32, integrity: 20 } },
-  { id: "sunce", title: "孙策传", ruler: "孙策", dynasty: "吴", startYear: 194, startLabel: "兴平元年 · 江东创业", color: "#326c67", motto: "江东猛虎，席卷六郡", description: "从借兵渡江开始。扩张速度惊人，年轻的霸业却暗藏致命裂隙。", base: { population: 54, grain: 58, army: 76, sentiment: 18, integrity: 8 } },
-  { id: "liuyu", title: "刘裕传", ruler: "刘裕", dynasty: "宋", startYear: 404, startLabel: "元兴三年 · 京口举义", color: "#6e5d49", motto: "金戈北指，再造河山", description: "从京口举义开始。寒门军功登上舞台，北方故土仍在视线尽头。", base: { population: 66, grain: 64, army: 82, sentiment: 16, integrity: -2 } },
-  { id: "taizong", title: "唐太宗纪", ruler: "李世民", dynasty: "唐", startYear: 617, startLabel: "大业十三年 · 晋阳起兵", color: "#8b4f35", motto: "济世安民，贞观将启", description: "从晋阳起兵开始。军略与纳谏兼备，但通往帝位的门前横着血亲。", base: { population: 62, grain: 72, army: 84, sentiment: 20, integrity: 24 } },
-  { id: "song", title: "宋太祖纪", ruler: "赵匡胤", dynasty: "宋", startYear: 951, startLabel: "广顺元年 · 从军定乱", color: "#806b3c", motto: "收兵权，兴文治", description: "从投身军旅、平定乱局开始。五代兵骄将悍，必须重塑权力的规则。", base: { population: 72, grain: 78, army: 80, sentiment: 10, integrity: 6 } },
-  { id: "genghis", title: "成吉思汗纪", ruler: "铁木真", dynasty: "大蒙古国", startYear: 1189, startLabel: "淳熙十六年 · 草原称汗", color: "#65704a", motto: "聚诸部，开万里", description: "从被推举为汗开始。骑兵锐不可当，治理辽阔疆域才是真正考验。", base: { population: 42, grain: 48, army: 96, sentiment: 8, integrity: -8 } },
-  { id: "ming", title: "明太祖纪", ruler: "朱元璋", dynasty: "明", startYear: 1352, startLabel: "至正十二年 · 濠州投军", color: "#8c302d", motto: "驱逐胡虏，重整山河", description: "从濠州投军开始。最懂百姓饥寒，也最警惕功臣与贪官。", base: { population: 52, grain: 56, army: 68, sentiment: 24, integrity: 18 } },
+  { id: "qin", title: "秦始皇纪", ruler: "嬴政", dynasty: "秦", startYear: -246, startLabel: "秦王政元年 · 少年即位", color: "#b78b3e", motto: "奋六世余烈，并天下为一", description: "从即秦王位之年开始。秦国兵强法密，朝权却仍在相邦与太后手中，统一天下尚是二十五年后的远景。", base: { population: 70, grain: 82, army: 84, sentiment: -6, integrity: 14, authority: 36 } },
+  { id: "liubang", title: "汉高祖纪", ruler: "刘邦", dynasty: "汉", startYear: -209, startLabel: "秦二世元年 · 沛县起兵", color: "#a23e32", motto: "约法三章，群雄逐鹿", description: "从沛县起兵开始。根基浅薄，却最懂得把天下英才放在合适的位置。", base: { population: 74, grain: 70, army: 66, sentiment: 12, integrity: 4, authority: 68 } },
+  { id: "hanwu", title: "汉武帝纪", ruler: "刘彻", dynasty: "汉", startYear: -141, startLabel: "建元元年 · 少年天子", color: "#9b2f28", motto: "内强国本，外攘夷狄", description: "从登基之年开始。文景遗产丰厚，雄心也足以把储备燃烧殆尽。", base: { population: 112, grain: 142, army: 78, sentiment: 28, integrity: 24, authority: 58 } },
+  { id: "caocao", title: "曹操传", ruler: "曹操", dynasty: "魏", startYear: 189, startLabel: "中平六年 · 陈留起兵", color: "#556b72", motto: "挟天子令诸侯", description: "从陈留散家财起兵开始。乱世中，秩序本身就是最稀缺的资源。", base: { population: 58, grain: 62, army: 72, sentiment: -8, integrity: 12, authority: 72 } },
+  { id: "liubei", title: "刘备传", ruler: "刘备", dynasty: "蜀汉", startYear: 184, startLabel: "中平元年 · 涿郡起兵", color: "#54704e", motto: "以仁为旗，匡扶汉室", description: "从涿郡聚众开始。名望可聚民心，但每一块立足之地都得艰难争取。", base: { population: 48, grain: 52, army: 58, sentiment: 32, integrity: 20, authority: 64 } },
+  { id: "sunce", title: "孙策传", ruler: "孙策", dynasty: "吴", startYear: 194, startLabel: "兴平元年 · 江东创业", color: "#326c67", motto: "江东猛虎，席卷六郡", description: "从借兵渡江开始。扩张速度惊人，年轻的霸业却暗藏致命裂隙。", base: { population: 54, grain: 58, army: 76, sentiment: 18, integrity: 8, authority: 70 } },
+  { id: "liuyu", title: "刘裕传", ruler: "刘裕", dynasty: "宋", startYear: 404, startLabel: "元兴三年 · 京口举义", color: "#6e5d49", motto: "金戈北指，再造河山", description: "从京口举义开始。寒门军功登上舞台，北方故土仍在视线尽头。", base: { population: 66, grain: 64, army: 82, sentiment: 16, integrity: -2, authority: 76 } },
+  { id: "taizong", title: "唐太宗纪", ruler: "李世民", dynasty: "唐", startYear: 617, startLabel: "大业十三年 · 晋阳起兵", color: "#8b4f35", motto: "济世安民，贞观将启", description: "从晋阳起兵开始。军略与纳谏兼备，但通往帝位的门前横着血亲。", base: { population: 62, grain: 72, army: 84, sentiment: 20, integrity: 24, authority: 64 } },
+  { id: "song", title: "宋太祖纪", ruler: "赵匡胤", dynasty: "宋", startYear: 951, startLabel: "广顺元年 · 从军定乱", color: "#806b3c", motto: "收兵权，兴文治", description: "从投身军旅、平定乱局开始。五代兵骄将悍，必须重塑权力的规则。", base: { population: 72, grain: 78, army: 80, sentiment: 10, integrity: 6, authority: 65 } },
+  { id: "genghis", title: "成吉思汗纪", ruler: "铁木真", dynasty: "大蒙古国", startYear: 1189, startLabel: "淳熙十六年 · 草原称汗", color: "#65704a", motto: "聚诸部，开万里", description: "从被推举为汗开始。骑兵锐不可当，治理辽阔疆域才是真正考验。", base: { population: 42, grain: 48, army: 96, sentiment: 8, integrity: -8, authority: 78 } },
+  { id: "ming", title: "明太祖纪", ruler: "朱元璋", dynasty: "明", startYear: 1352, startLabel: "至正十二年 · 濠州投军", color: "#8c302d", motto: "驱逐胡虏，重整山河", description: "从濠州投军开始。最懂百姓饥寒，也最警惕功臣与贪官。", base: { population: 52, grain: 56, army: 68, sentiment: 24, integrity: 18, authority: 70 } },
 ];
 
 const policies = [
-  { id: "martial", name: "尚武开边", seal: "武", desc: "整军备边，主动争夺战略空间。军事事件成功率提高，钱粮消耗也更大。", effects: { army: 12, grain: -8, sentiment: -4 } as Partial<Stats>, tag: "军事" as SkillTag },
+  { id: "martial", name: "尚武开边", seal: "武", desc: "整军备边，主动争夺战略空间。军事事件成功率提高，钱粮消耗也更大。", effects: { army: 12, grain: -8, sentiment: -4, authority: 4 } as Partial<Stats>, tag: "军事" as SkillTag },
   { id: "rest", name: "休养生息", seal: "养", desc: "轻徭薄赋，蓄积人口钱粮。自然增长更快，但边患来临时更依赖名将。", effects: { population: 10, grain: 10, army: -6, sentiment: 10 } as Partial<Stats>, tag: "民生" as SkillTag },
-  { id: "reform", name: "整顿朝纲", seal: "治", desc: "考课百官，澄清吏治。吏治越发清明，剧烈改革也会触动既得利益。", effects: { grain: 4, integrity: 18, sentiment: -2 } as Partial<Stats>, tag: "吏治" as SkillTag },
+  { id: "reform", name: "整顿朝纲", seal: "治", desc: "考课百官，澄清吏治。吏治越发清明，剧烈改革也会触动既得利益。", effects: { grain: 4, integrity: 18, sentiment: -2, authority: 7 } as Partial<Stats>, tag: "吏治" as SkillTag },
 ];
 
 const corePeople: Person[] = [
@@ -1933,6 +1977,26 @@ const historicalRosterQuotes: Record<string, string> = {
 
 const rosterQuote = (seed: OriginalPersonSeed) => historicalRosterQuotes[seed.name] || `${seed.name}见于史册，自有一段可供后人评说的功过。`;
 
+// 忠诚度按史实中的守节、易主、拥兵与篡夺表现分档；未列名者按长期正常任职取 82。
+// 此值刻意不进入任何界面文案，只在皇权衰微时参与权臣叛变判定。
+const historicalLoyalty: Partial<Record<string, number>> = {
+  萧何: 96, 诸葛亮: 100, 房玄龄: 95, 王安石: 91, 韩信: 58, 李靖: 94, 岳飞: 100, 徐达: 97,
+  桑弘羊: 88, 刘晏: 96, 张居正: 94, 王景: 94, 魏征: 96, 包拯: 98, 张汤: 91, 海瑞: 99,
+  张良: 96, 陈平: 84, 卫青: 98, 霍去病: 98, 李斯: 61, 商鞅: 91, 王翦: 93, 蒙恬: 99, 霍光: 91,
+  张骞: 98, 司马懿: 24, 荀彧: 88, 郭嘉: 91, 周瑜: 96, 陆逊: 89, 邓艾: 78, 羊祜: 95, 王猛: 99,
+  谢安: 96, 祖逖: 96, 桓温: 31, 陶侃: 87, 杜如晦: 96, 李绩: 90, 郭子仪: 99, 李光弼: 91,
+  裴度: 96, 狄仁杰: 92, 姚崇: 88, 宋璟: 96, 范仲淹: 97, 司马光: 94, 欧阳修: 94, 韩世忠: 96,
+  文天祥: 100, 陆秀夫: 100, 耶律楚材: 91, 伯颜: 89, 脱脱: 87, 刘伯温: 88, 常遇春: 98, 于谦: 100,
+  戚继光: 97, 李善长: 79, 郑和: 99, 曾国藩: 94, 左宗棠: 96, 李鸿章: 87, 曹参: 94, 周勃: 93,
+  灌婴: 92, 樊哙: 97, 李广: 94, 赵充国: 96, 汲黯: 98, 丙吉: 96, 魏相: 95, 主父偃: 72,
+  窦婴: 89, 郅都: 95, 陈汤: 93, 班超: 96, 马援: 99, 邓禹: 98, 吴汉: 94, 关羽: 99, 张飞: 98,
+  赵云: 100, 马超: 75, 黄忠: 98, 法正: 91, 庞统: 96, 姜维: 99, 鲁肃: 97, 吕蒙: 96, 张辽: 92,
+  典韦: 100, 许褚: 99, 夏侯惇: 99, 夏侯渊: 98, 陆抗: 98, 杜预: 94, 周处: 97, 鳌拜: 27, 多尔衮: 36,
+  董卓: 12, 安禄山: 5, 侯景: 6, 朱温: 8, 高欢: 32, 宇文泰: 39, 李克用: 52, 吴三桂: 10,
+};
+
+const loyaltyFor = (person: Pick<Person, "name" | "role">) => person.role === "皇帝" ? undefined : historicalLoyalty[person.name] ?? 82;
+
 const importedPeople: Person[] = originalPeopleSeeds.map((seed) => {
   const role = primaryRoleOverrides[seed.name] || seed.role;
   const secondaryRoles = role === seed.role
@@ -1948,7 +2012,16 @@ const importedPeople: Person[] = originalPeopleSeeds.map((seed) => {
   };
 });
 
-const people: Person[] = [...corePeople, ...importedPeople];
+const people: Person[] = [...corePeople, ...importedPeople].map((person) => person.role === "皇帝" ? person : { ...person, loyalty: loyaltyFor(person) });
+
+// 这些人物不会进入开局抽签池，只能在平定农民起义后的招安事件中加入班底。
+const specialRecruits: Person[] = [
+  { id: "recruit-songjiang", name: "宋江", role: "名将", secondaryRoles: ["监察"], dynasty: "北宋", quote: "受招安后征辽平方腊，旧日义军由此成为朝廷之兵。", tags: ["军事", "谋略"], bonuses: { army: 11, sentiment: 6 }, loyalty: 72, specialRecruit: true },
+  { id: "recruit-dufuwei", name: "杜伏威", role: "宰相", secondaryRoles: ["名将"], dynasty: "唐", quote: "江淮起兵后归唐受封，以旧部与声望安定一方。", tags: ["谋略", "民生"], bonuses: { population: 6, sentiment: 8, authority: 3 }, loyalty: 68, specialRecruit: true },
+  { id: "recruit-chengyaojin", name: "程咬金", role: "名将", secondaryRoles: ["监察"], dynasty: "唐", quote: "出身瓦岗，归唐后屡立战功，终成凌烟阁功臣。", tags: ["军事", "吏治"], bonuses: { army: 14, integrity: 4 }, loyalty: 91, specialRecruit: true },
+];
+
+const allPeople: Person[] = [...people, ...specialRecruits];
 
 const randomEvents: EventTemplate[] = [
   { id: "spring-plough", title: "劝课农桑", category: "民生", text: "春耕将启，地方上奏：水渠年久失修，若不整治恐误农时；但国库也等着发军饷。", options: [
@@ -2011,10 +2084,9 @@ const randomEvents: EventTemplate[] = [
     { label: "量入为出，小修旧宫", detail: "只修危旧之处，以最低开支顾全体面。", effects: { grain: -2, sentiment: 2 } },
     { label: "大兴土木", detail: "若调度得当可兴百业、聚人心，失控则劳民伤财。", chance: 55, tag: "财政", successEffects: { grain: -18, population: 5, sentiment: 12, integrity: -2 }, failEffects: { grain: -20, population: -3, sentiment: -14, integrity: -4 } },
   ]},
-  { id: "rebellion", title: "揭竿四起", category: "民变", text: "长期积压的民怨终于点燃。饥民攻破县城，裹挟者日众，地方官已无法收拾。", options: [
-    { label: "赈抚并诛贪官", detail: "需要足够钱粮与清明吏治。", requirements: { grain: 35, integrity: -20 }, failOnUnmet: true, effects: { grain: -18, sentiment: 25, integrity: 10, army: -3 } },
-    { label: "遣精兵平乱", detail: "以伤亡换取确定的平乱结果，并追究失职官吏。", requirements: { army: 75 }, failOnUnmet: true, effects: { army: -12, population: -7, sentiment: -10, integrity: 7 } },
-    { label: "招安首领", detail: "暂息兵火，后患难测。", chance: 48, tag: "谋略", successEffects: { sentiment: 12, army: 3 }, failEffects: { army: -14, grain: -9, sentiment: -8 } },
+  { id: "rebellion", title: "农民起义", category: "民变", special: "peasant-rebellion", text: "饥民攻破县城，推举首领，义军转眼席卷数郡。无论朝廷能否平定，战火都将损伤户口、府库与军伍；只有取胜才可能俘获贼首。", options: [
+    { label: "调集官军平乱", detail: "正面击溃义军。胜则皇权重振并追捕首领，败则国土分裂。", chance: 58, tag: "军事", specialAction: "fight-peasants", successEffects: { population: -6, grain: -10, army: -9, sentiment: -5, authority: 14 }, failEffects: { population: -16, grain: -22, army: -20, sentiment: -14, integrity: -8, authority: -28 } },
+    { label: "赈济饥民，分化义军", detail: "先断其裹挟之势再进兵。成功仍有兵火损失，失败则割据蔓延。", chance: 54, tag: "民生", specialAction: "fight-peasants", successEffects: { population: -4, grain: -14, army: -6, sentiment: 8, integrity: 5, authority: 10 }, failEffects: { population: -13, grain: -20, army: -15, sentiment: -10, authority: -24 } },
   ]},
   { id: "invasion", title: "烽火入塞", category: "边患", text: "敌骑越塞，三郡告急。多年的武备松弛在这一刻都写进了战报。", options: [
     { label: "亲征迎敌", detail: "武力不足则国门洞开。", requirements: { army: 70 }, failOnUnmet: true, effects: { army: -10, grain: -10, sentiment: 8 } },
@@ -2910,7 +2982,6 @@ const lifeGapHistoricalEvents: EventTemplate[] = [
 ];
 
 const historicalEvents: EventTemplate[] = [...additionalHistoricalEvents, ...coreHistoricalEvents, ...lifeGapHistoricalEvents];
-const allEventTemplates = [...historicalEvents, ...randomEvents];
 const qinConquestEventIds = ["qin-conquer-han", "qin-conquer-zhao", "qin-conquer-wei", "qin-conquer-chu", "qin-conquer-yan", "qin-unification"];
 const qinConquestBaseYears = [-230, -228, -225, -223, -222, -221];
 const qinConquestRequirementReduction = 15;
@@ -2928,13 +2999,63 @@ function populationTaxCap(scriptId: string, qinConquestIndex = 0) {
 }
 
 const clamp = (n: number, min = -100, max = 999) => Math.max(min, Math.min(max, Math.round(n)));
+
+const authoritySensitiveCategories = new Set(["朝堂", "吏治", "民变", "军政", "政争", "宫廷", "边患"]);
+const authorityAssertiveWords = /亲征|彻查|整饬|平乱|诛|罢|废|立|收权|削藩|拒绝|严惩|法办|问罪|勤王/;
+const authorityYieldingWords = /议和|妥协|压下|暂缓|称臣|割地|退让|包税|纵容|姑息|献款/;
+
+function reviewedAuthorityEffects(event: EventTemplate, option: EventOption, effects?: Partial<Stats>) {
+  if (!effects || effects.authority !== undefined) return effects;
+  const relevant = !!event.historical || authoritySensitiveCategories.has(event.category)
+    || authorityAssertiveWords.test(option.label) || authorityYieldingWords.test(option.label);
+  if (!relevant) return effects;
+  const institutional = (effects.integrity || 0) * .22;
+  const publicStanding = (effects.sentiment || 0) * .1;
+  const militaryStanding = (effects.army || 0) * .05;
+  const posture = authorityAssertiveWords.test(option.label) ? 3 : authorityYieldingWords.test(option.label) ? -3 : 0;
+  const authority = clamp(institutional + publicStanding + militaryStanding + posture, -8, 8);
+  return authority === 0 ? effects : { ...effects, authority };
+}
+
+function reviewEventAuthority(event: EventTemplate): EventTemplate {
+  return {
+    ...event,
+    options: event.options.map((option) => ({
+      ...option,
+      effects: reviewedAuthorityEffects(event, option, option.effects),
+      successEffects: reviewedAuthorityEffects(event, option, option.successEffects),
+      failEffects: reviewedAuthorityEffects(event, option, option.failEffects),
+    })),
+  };
+}
+
+// 所有事件在进入事件池前统一复核皇权影响；灾异、农事等无关决策不会被生硬改写。
+const reviewedHistoricalEvents = historicalEvents.filter(() => true).map(reviewEventAuthority);
+const reviewedRandomEvents = randomEvents.map(reviewEventAuthority);
+const allEventTemplates = [...reviewedHistoricalEvents, ...reviewedRandomEvents];
+
 const addEffects = (stats: Stats, effects: Partial<Stats>): Stats => ({
   population: clamp(stats.population + (effects.population || 0), 0),
   grain: clamp(stats.grain + (effects.grain || 0), 0),
   army: clamp(stats.army + (effects.army || 0), 0, 240),
   sentiment: clamp(stats.sentiment + (effects.sentiment || 0), -100, 100),
   integrity: clamp(stats.integrity + (effects.integrity || 0), -100, 100),
+  authority: clamp(stats.authority + (effects.authority || 0), 0, 100),
 });
+
+function applyInitialDifficulty(stats: Stats, difficulty: DifficultyId): Stats {
+  const penalty = difficultyRule(difficulty).initialStatPenalty;
+  if (!penalty) return stats;
+  const lower = (value: number) => Math.floor(value * (value < 0 ? 1 + penalty : 1 - penalty));
+  return {
+    population: clamp(lower(stats.population), 0),
+    grain: clamp(lower(stats.grain), 0),
+    army: clamp(lower(stats.army), 0, 240),
+    sentiment: clamp(lower(stats.sentiment), -100, 100),
+    integrity: clamp(lower(stats.integrity), -100, 100),
+    authority: clamp(lower(stats.authority), 0, 100),
+  };
+}
 
 function liveState(stats: Stats) {
   const army = Math.round(stats.population * .18);
@@ -2969,6 +3090,7 @@ const axisLabel = (key: "sentiment" | "integrity", value: number) => {
   if (key === "sentiment") return value < -60 ? "民怨沸腾" : value < -20 ? "怨声渐起" : value < 25 ? "人心未定" : value < 65 ? "政通人和" : "安居乐业";
   return value < -60 ? "贪墨成风" : value < -20 ? "积弊丛生" : value < 25 ? "清浊相杂" : value < 65 ? "吏治有序" : "海内澄清";
 };
+const authorityLabel = (value: number) => value < 20 ? "号令不出宫门" : value < 40 ? "权臣掣肘" : value < 60 ? "君臣相持" : value < 80 ? "朝纲在握" : "乾纲独断";
 
 const effectText = (effects: Partial<Stats>) => (Object.entries(effects) as [StatKey, number][])
   .filter(([, value]) => value !== 0)
@@ -3086,10 +3208,75 @@ function historyEventScheduled(event: EventTemplate, scriptId: string, year: num
   return event.year === year;
 }
 
+function ministerRebellionChance(authority: number, loyalty: number) {
+  if (authority >= 55 || loyalty >= 85) return 0;
+  return clamp((55 - authority) * 1.1 + Math.max(0, 75 - loyalty) * .8, 0, 70);
+}
+
+function makeMinisterRebellionEvent(person: Person, role: Role, year: number): EventTemplate {
+  return {
+    id: `minister-rebellion-${person.id}-${year}`,
+    title: "权臣叛变",
+    category: "朝堂",
+    special: "minister-rebellion",
+    actorId: person.id,
+    actorRole: role,
+    text: `${person.name}趁皇权衰微，纠集党羽与私兵割据一方。进入此案时其将离开治国班底，对应加成随之失去；无论胜负，内战都会损伤人口、钱粮与武备。`,
+    options: [
+      { label: "倾国讨逆", detail: "集中兵力速战。胜则皇权回升并可能俘获贼首，败则山河分裂。", chance: 60, tag: "军事", specialAction: "fight-minister", successEffects: { population: -6, grain: -11, army: -9, sentiment: -4, authority: 18 }, failEffects: { population: -17, grain: -23, army: -21, sentiment: -12, integrity: -8, authority: -30 } },
+      { label: "分化党羽，策反中军", detail: "以谋略削弱叛军。成功代价较低，失败同样会造成国土分裂。", chance: 55, tag: "谋略", specialAction: "fight-minister", successEffects: { population: -4, grain: -9, army: -7, integrity: 3, authority: 14 }, failEffects: { population: -14, grain: -19, army: -17, sentiment: -10, authority: -26 } },
+    ],
+  };
+}
+
+function makeCapturedMinisterEvent(person: Person, role: Role): EventTemplate {
+  return {
+    id: `captured-minister-${person.id}`,
+    title: "俘获贼首",
+    category: "朝堂",
+    special: "captured-minister",
+    actorId: person.id,
+    actorRole: role,
+    text: `${person.name}兵败被俘，旧部仍遍布军政。朝廷可以劝其归朝，也可以明正典刑；劝降失败将永久失去该角色。`,
+    options: [
+      { label: "劝其归朝", detail: "以君臣旧义与身后名相劝。成功后恢复原席及角色加成。", chance: clamp(28 + (person.loyalty || 50) * .42, 35, 78), tag: "谋略", specialAction: "pardon-minister", successEffects: { authority: 5, sentiment: 3 }, failEffects: { authority: -3, sentiment: -4 } },
+      { label: "明正典刑", detail: "永绝后患，但该角色将永久离开本局。", effects: { authority: 9, sentiment: -5 }, specialAction: "execute-minister" },
+    ],
+  };
+}
+
+function makeCapturedPeasantEvent(person: Person): EventTemplate {
+  return {
+    id: `captured-peasant-${person.id}`,
+    title: "俘获贼首",
+    category: "民变",
+    special: "captured-peasant",
+    actorId: person.id,
+    actorRole: person.role,
+    text: `官军俘获义军首领${person.name}。若招安成功且班底有其可任空位，他将作为特殊角色入席；若班底已满，则其旧部会转化为一笔国势加成。`,
+    options: [
+      { label: "赦罪招安", detail: "收其人、抚其众。成败取决于朝廷威信与谋臣斡旋。", chance: 55, tag: "谋略", specialAction: "pardon-peasant", successEffects: { sentiment: 6, authority: 4 }, failEffects: { sentiment: -5, authority: -4 } },
+      { label: "明正典刑", detail: "以国法震慑余众，不再获得该特殊角色。", effects: { authority: 8, sentiment: -7 }, specialAction: "execute-peasant" },
+    ],
+  };
+}
+
+function rollMinisterRebellion(stats: Stats, seats: SeatAssignments, randomSeed: number, randomCount: number, year: number) {
+  const candidates = roles.slice(1).map((role) => {
+    const person = allPeople.find((item) => item.id === seats[role]);
+    const chance = person?.loyalty === undefined ? 0 : ministerRebellionChance(stats.authority, person.loyalty);
+    return person ? { person, role, chance } : null;
+  }).filter(Boolean).sort((a, b) => b!.chance - a!.chance) as { person: Person; role: Role; chance: number }[];
+  const candidate = candidates[0];
+  if (!candidate || candidate.chance <= 0) return { event: null as EventTemplate | null, randomCount };
+  const triggered = seededRandom(randomSeed, randomCount) * 100 < candidate.chance;
+  return { event: triggered ? makeMinisterRebellionEvent(candidate.person, candidate.role, year) : null, randomCount: randomCount + 1 };
+}
+
 function suppressLaterHistoricalEvents(events: EventTemplate[], seasonIndex: number, randomSeed: number, randomCount: number) {
   if (!events.some((event, index) => index > seasonIndex && event.historical)) return { events, randomCount };
   const used = new Set(events.filter((event, index) => index <= seasonIndex || !event.historical).map((event) => event.id));
-  const pool = randomEvents.filter((event) => !["invasion", "rebellion"].includes(event.id) && !used.has(event.id));
+  const pool = reviewedRandomEvents.filter((event) => !["invasion", "rebellion"].includes(event.id) && !used.has(event.id));
   const picked = seededShuffle(pool, randomSeed, randomCount);
   let cursor = 0;
   const replacements = events.map((event, index) => {
@@ -3101,26 +3288,90 @@ function suppressLaterHistoricalEvents(events: EventTemplate[], seasonIndex: num
   return { events: replacements, randomCount: picked.randomCount };
 }
 
-function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYears: number, unrestYears: number, randomSeed: number, randomCount: number, historyFlags: string[], progress: HistoricalProgress) {
+function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYears: number, unrestYears: number, randomSeed: number, randomCount: number, historyFlags: string[], progress: HistoricalProgress, seats: SeatAssignments, pendingEvents: EventTemplate[] = []) {
   const effective = liveState(stats).effective;
-  const required = historicalEvents
+  const required = reviewedHistoricalEvents
     .filter((event) => historyEventScheduled(event, scriptId, year, historyFlags, progress))
     .map((event) => applyQinConquestContext(event, historyFlags))
     .map((event) => applyQinConquestPressure(event, progress.qinConquestRetries, progress.qinConquestRequirementRelief))
     .slice(0, 4);
   const conditional: EventTemplate[] = [];
-  if (effective.army < 55 && lowArmyYears >= 1) conditional.push(randomEvents.find((event) => event.id === "invasion")!);
-  if (effective.sentiment <= -60 && unrestYears >= 1) conditional.push(randomEvents.find((event) => event.id === "rebellion")!);
+  let count = randomCount;
+  const rebellionRoll = rollMinisterRebellion(stats, seats, randomSeed, count, year);
+  count = rebellionRoll.randomCount;
+  if (rebellionRoll.event) conditional.push(rebellionRoll.event);
+  if (effective.army < 55 && lowArmyYears >= 1) conditional.push(reviewedRandomEvents.find((event) => event.id === "invasion")!);
+  if (effective.sentiment <= -60 && unrestYears >= 1) conditional.push(reviewedRandomEvents.find((event) => event.id === "rebellion")!);
   const excluded = new Set(conditional.map((event) => event.id));
-  const base = randomEvents.filter((event) => !["invasion", "rebellion"].includes(event.id) && !excluded.has(event.id));
-  const picked = seededShuffle(base, randomSeed, randomCount);
-  const events = [...required, ...conditional].slice(0, 4);
+  const base = reviewedRandomEvents.filter((event) => !["invasion", "rebellion"].includes(event.id) && !excluded.has(event.id));
+  const picked = seededShuffle(base, randomSeed, count);
+  const queued = pendingEvents.slice(0, 4);
+  const events = [...queued, ...required, ...conditional].slice(0, 4);
   for (const event of picked.items) {
     if (events.length === 4) break;
     events.push(event);
   }
   const ordered = seededShuffle(events, randomSeed, picked.randomCount);
-  return { events: ordered.items, randomCount: ordered.randomCount };
+  return { events: ordered.items, randomCount: ordered.randomCount, pendingEvents: pendingEvents.slice(queued.length) };
+}
+
+function buildHistoricalOnlyEvents(scriptId: string, year: number, historyFlags: string[], progress: HistoricalProgress) {
+  return reviewedHistoricalEvents
+    .filter((event) => historyEventScheduled(event, scriptId, year, historyFlags, progress))
+    .map((event) => applyQinConquestContext(event, historyFlags))
+    .map((event) => applyQinConquestPressure(event, progress.qinConquestRetries, progress.qinConquestRequirementRelief))
+    .slice(0, 4);
+}
+
+const negateEffects = (effects: Partial<Stats>): Partial<Stats> => Object.fromEntries(
+  (Object.entries(effects) as [StatKey, number][]).map(([key, value]) => [key, -value]),
+) as Partial<Stats>;
+
+const mergeEffects = (...groups: (Partial<Stats> | undefined)[]): Partial<Stats> => {
+  const merged: Partial<Stats> = {};
+  groups.forEach((group) => (Object.entries(group || {}) as [StatKey, number][]).forEach(([key, value]) => {
+    merged[key] = (merged[key] || 0) + value;
+  }));
+  return merged;
+};
+
+function activateCurrentEvent(current: GameState): GameState {
+  const event = current.events[current.seasonIndex];
+  if (!event || event.entered) return current;
+  const events = current.events.map((item, index) => index === current.seasonIndex ? { ...item, entered: true } : item);
+  if (event.special !== "minister-rebellion" || !event.actorId || !event.actorRole) return { ...current, events };
+  const person = allPeople.find((item) => item.id === event.actorId);
+  if (!person || current.seatAssignments[event.actorRole] !== person.id) return { ...current, events };
+  const seatAssignments = { ...current.seatAssignments, [event.actorRole]: null };
+  const rosterIds = roles.map((role) => seatAssignments[role]).filter(Boolean) as string[];
+  const stats = addEffects(current.stats, negateEffects(person.bonuses));
+  return {
+    ...current,
+    events,
+    stats,
+    seatAssignments,
+    rosterIds,
+    chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "权臣离席", note: `${person.name}叛出朝廷，${event.actorRole}之席空悬，国家失去其全部班底加成。` }].slice(-30),
+  };
+}
+
+function scheduleFollowup(events: EventTemplate[], pendingEvents: EventTemplate[], seasonIndex: number, followup: EventTemplate) {
+  if (seasonIndex < 3) {
+    const next = [...events];
+    next.splice(seasonIndex + 1, 0, followup);
+    return { events: next.slice(0, 4), pendingEvents };
+  }
+  return { events, pendingEvents: [...pendingEvents, followup] };
+}
+
+function findHistoricalYear(scriptId: string, fromYear: number, historyFlags: string[], progress: HistoricalProgress, includeCurrent = false) {
+  let year = includeCurrent ? fromYear : nextCalendarYear(fromYear);
+  for (let searched = 0; searched < 600; searched += 1) {
+    const events = buildHistoricalOnlyEvents(scriptId, year, historyFlags, progress);
+    if (events.length) return { year, events };
+    year = nextCalendarYear(year);
+  }
+  return null;
 }
 
 function createGameSeed() {
@@ -3145,7 +3396,7 @@ const canServe = (person: Person, role: Role) => person.role === role || person.
 function assignLegacyRoster(ids: string[]) {
   const seats = emptySeats();
   ids.forEach((id) => {
-    const person = people.find((item) => item.id === id);
+    const person = allPeople.find((item) => item.id === id);
     if (!person) return;
     if (!seats[person.role]) seats[person.role] = id;
     else {
@@ -3177,6 +3428,7 @@ function normalizeSave(raw: unknown): GameState | null {
     return result;
   }, emptySeats());
   const rosterIds = roles.map((role) => seatAssignments[role]).filter(Boolean) as string[];
+  const stats: Stats = { ...saved.stats, authority: clamp(saved.stats.authority ?? 50, 0, 100) };
   const randomSeed = Number.isInteger(saved.randomSeed) ? saved.randomSeed! >>> 0 : legacySaveSeed(saved);
   const randomCount = Number.isInteger(saved.randomCount) && saved.randomCount! >= 0 ? Math.floor(saved.randomCount!) : 0;
   const historyFlagSet = new Set(Array.isArray(saved.historyFlags) ? saved.historyFlags.filter((flag): flag is string => typeof flag === "string") : []);
@@ -3195,7 +3447,9 @@ function normalizeSave(raw: unknown): GameState | null {
     const template = allEventTemplates.find((item) => item.id === event.id);
     return template ? applyQinConquestPressure(applyQinConquestContext(template, historyFlags), qinConquestRetries, qinConquestRequirementRelief) : event;
   });
-  return { ...saved, version: 9, difficulty, seatAssignments, rosterIds, randomSeed, randomCount, historyFlags, events, qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief } as GameState;
+  const pendingEvents = Array.isArray(saved.pendingEvents) ? saved.pendingEvents : [];
+  const unavailablePersonIds = Array.isArray(saved.unavailablePersonIds) ? saved.unavailablePersonIds : [];
+  return { ...saved, version: 10, stats, difficulty, seatAssignments, rosterIds, randomSeed, randomCount, historyFlags, events, qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief, pendingEvents, unavailablePersonIds } as GameState;
 }
 
 function drawRosterCandidates(seats: SeatAssignments, selectedIds: string[]) {
@@ -3224,6 +3478,7 @@ function App() {
   const [game, setGame] = useState<GameState | null>(null);
   const [savesOpen, setSavesOpen] = useState(false);
   const [saveNotice, setSaveNotice] = useState("");
+  const [debugEnabled, setDebugEnabled] = useState(false);
   const saveNoticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveMeta, setSaveMeta] = useState<(GameState | null)[]>(() => {
     if (typeof window === "undefined") return [null, null, null];
@@ -3237,8 +3492,9 @@ function App() {
 
   const script = scripts.find((item) => item.id === scriptId) || scripts[0];
   const policy = policies.find((item) => item.id === policyId) || policies[0];
-  const rosterIds = roles.map((role) => rosterSeats[role]).filter(Boolean) as string[];
-  const roster = rosterIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[];
+  const activeSeats = game ? game.seatAssignments : rosterSeats;
+  const rosterIds = roles.map((role) => activeSeats[role]).filter(Boolean) as string[];
+  const roster = rosterIds.map((id) => allPeople.find((person) => person.id === id)).filter(Boolean) as Person[];
 
   const displayPhase: Phase = game?.phase === "ending" ? "ending" : phase;
 
@@ -3294,19 +3550,36 @@ function App() {
     stats = addEffects(stats, policy.effects);
     roster.forEach((person) => { stats = addEffects(stats, person.bonuses); });
     stats = addEffects(stats, { population: variance(), grain: variance(), army: variance(), sentiment: variance(), integrity: variance() });
+    stats = applyInitialDifficulty(stats, difficulty);
     const growth = annualGrowth(stats, policyId, difficulty, scriptId, 0);
     stats = addEffects(stats, growth.effects);
     const effective = liveState(stats).effective;
     const progress = emptyHistoricalProgress();
-    const yearEvents = buildYearEvents(scriptId, script.startYear, stats, 0, 0, randomSeed, randomCount, [], progress);
+    const yearEvents = buildYearEvents(scriptId, script.startYear, stats, 0, 0, randomSeed, randomCount, [], progress, rosterSeats, []);
     randomCount = yearEvents.randomCount;
     const initial: GameState = {
-      version: 9, phase: "reign", difficulty, scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
+      version: 10, phase: "reign", difficulty, scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
       stats, events: yearEvents.events, outcome: null,
       chronicle: [{ year: script.startYear, season: "春", title: "开国建元", note: `${people.find((person) => person.id === rosterSeats.皇帝)?.name || "新君"}与开国班底共治天下。${growth.note}` }],
       lowArmyYears: effective.army < 55 ? 1 : 0, unrestYears: effective.sentiment <= -60 ? 1 : 0, alteredHistory: false,
-      annualNote: growth.note, endingReason: "", endingVictory: false, randomSeed, randomCount, historyFlags: [], ...progress,
+      annualNote: growth.note, endingReason: "", endingVictory: false, randomSeed, randomCount: yearEvents.randomCount, historyFlags: [], pendingEvents: yearEvents.pendingEvents, unavailablePersonIds: [], ...progress,
     };
+    setGame(activateCurrentEvent(initial)); setPhase("reign"); window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const startHistoryDebug = () => {
+    const progress = emptyHistoricalProgress();
+    const first = findHistoricalYear(scriptId, script.startYear, [], progress, true);
+    if (!first) return;
+    const debugPolicyId = policies[0].id;
+    const initial: GameState = {
+      version: 10, phase: "reign", difficulty: "easy", scriptId, policyId: debugPolicyId, rosterIds: [], seatAssignments: emptySeats(),
+      year: first.year, elapsed: 1, seasonIndex: 0, stats: { ...script.base }, events: first.events, outcome: null,
+      chronicle: [{ year: first.year, season: "春", title: "历史分支模拟", note: "已跳过国策、班底与无历史事件年份，只保留本剧本的历史节点。" }],
+      lowArmyYears: 0, unrestYears: 0, alteredHistory: false, annualNote: "Debug 模式不因国势变化覆亡。", endingReason: "", endingVictory: false,
+      randomSeed: createGameSeed(), randomCount: 0, historyFlags: [], pendingEvents: [], unavailablePersonIds: [], ...progress, debugHistory: true,
+    };
+    setDifficulty("easy"); setPolicyId(debugPolicyId); setRosterSeats(emptySeats()); setRosterRound(0);
     setGame(initial); setPhase("reign"); window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -3315,7 +3588,7 @@ function App() {
       if (!current || current.outcome) return current;
       const event = current.events[current.seasonIndex];
       const effectiveCurrent = liveState(current.stats).effective;
-      if (option.failOnUnmet && !meets(effectiveCurrent, option.requirements)) {
+      if (!current.debugHistory && option.failOnUnmet && !meets(effectiveCurrent, option.requirements)) {
         return { ...current, phase: "ending", endingVictory: false, endingReason: `${event.title}中，国力未达到「${option.label}」的最低要求。仓促的决断成为王朝覆亡的最后一根稻草。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "国祚中绝", note: `${event.title}处置失当，王朝陨落。` }] };
       }
       let effects = option.effects || {};
@@ -3341,6 +3614,11 @@ function App() {
       let qinConquestRetries = current.qinConquestRetries;
       let qinConquestRequirementRelief = current.qinConquestRequirementRelief;
       let events = current.events;
+      let pendingEvents = [...current.pendingEvents];
+      let unavailablePersonIds = [...current.unavailablePersonIds];
+      const seatAssignments = { ...current.seatAssignments };
+      let nextRosterIds = [...current.rosterIds];
+      let outcomeTitle = alternate ? "历史改写" : success === false ? "事与愿违" : "诏令已行";
       if (event.qinConquestStage !== undefined && option.qinConquest === "advance") {
         qinConquestIndex = Math.max(qinConquestIndex, event.qinConquestStage + 1);
         qinConquestRetries = 0;
@@ -3352,32 +3630,120 @@ function App() {
           qinConquestRequirementRelief += qinConquestRequirementReduction;
           resultText = `${resultText} 缓进奏效，下次灭国的每项国势要求降低${qinConquestRequirementReduction}点；连续成功可以叠加。`;
         }
-        const suppressed = suppressLaterHistoricalEvents(events, current.seasonIndex, current.randomSeed, randomCount);
-        events = suppressed.events;
-        randomCount = suppressed.randomCount;
+        if (current.debugHistory) events = events.slice(0, current.seasonIndex + 1);
+        else {
+          const suppressed = suppressLaterHistoricalEvents(events, current.seasonIndex, current.randomSeed, randomCount);
+          events = suppressed.events;
+          randomCount = suppressed.randomCount;
+        }
         resultText = `${resultText} 此国未亡，来年仍须再决；本次之后的秦线大事也将顺延。`;
+      }
+
+      const actor = event.actorId ? allPeople.find((person) => person.id === event.actorId) : undefined;
+      if (option.specialAction === "fight-minister" && actor && event.actorRole) {
+        if (success) {
+          const scheduled = scheduleFollowup(events, pendingEvents, current.seasonIndex, makeCapturedMinisterEvent(actor, event.actorRole));
+          events = scheduled.events;
+          pendingEvents = scheduled.pendingEvents;
+          outcomeTitle = "讨逆告捷";
+          resultText = `朝廷战胜${actor.name}的叛军，皇权因讨逆成功而回升。人口、钱粮与武备仍因内战下挫，追兵已俘获贼首。`;
+        } else {
+          unavailablePersonIds = [...new Set([...unavailablePersonIds, actor.id])];
+          outcomeTitle = "山河分裂";
+          resultText = `${actor.name}击退官军，自立一方，国家被分裂。皇权、人口、钱粮与武备在首轮损失上进一步下挫，该角色永久离开本局。`;
+        }
+      }
+      if (option.specialAction === "pardon-minister" && actor && event.actorRole) {
+        if (success && !seatAssignments[event.actorRole]) {
+          seatAssignments[event.actorRole] = actor.id;
+          nextRosterIds = roles.map((role) => seatAssignments[role]).filter(Boolean) as string[];
+          effects = mergeEffects(effects, actor.bonuses);
+          outcomeTitle = "归朝复职";
+          resultText = `${actor.name}受诏悔罪，回到${event.actorRole}之席；其班底加成已经恢复。`;
+        } else if (success) {
+          effects = mergeEffects(effects, { authority: 5, integrity: 4 });
+          outcomeTitle = "归附朝廷";
+          resultText = `${actor.name}愿意归降，但原席已有任用，其旧部被编入朝廷并转化为国势。`;
+        } else {
+          unavailablePersonIds = [...new Set([...unavailablePersonIds, actor.id])];
+          outcomeTitle = "劝降不成";
+          resultText = `${actor.name}拒不归朝，该角色已永久离开本局。`;
+        }
+      }
+      if (option.specialAction === "execute-minister" && actor) {
+        unavailablePersonIds = [...new Set([...unavailablePersonIds, actor.id])];
+        outcomeTitle = "伏法正典";
+        resultText = `${actor.name}伏法，其角色与班底加成永久失去。`;
+      }
+      if (option.specialAction === "fight-peasants") {
+        if (success) {
+          const available = specialRecruits.filter((person) => !nextRosterIds.includes(person.id) && !unavailablePersonIds.includes(person.id));
+          const recruit = available.length ? available[Math.floor(seededRandom(current.randomSeed, randomCount) * available.length)] : null;
+          if (available.length) randomCount += 1;
+          if (recruit) {
+            const scheduled = scheduleFollowup(events, pendingEvents, current.seasonIndex, makeCapturedPeasantEvent(recruit));
+            events = scheduled.events;
+            pendingEvents = scheduled.pendingEvents;
+          }
+          outcomeTitle = "义军已平";
+          resultText = `官军平定农民起义，皇权回升，但人口、钱粮与武备均因战事下挫。${recruit ? `义军首领${recruit.name}已被俘，等候处置。` : "残余首领已经逃散。"}`;
+        } else {
+          outcomeTitle = "割据蔓延";
+          resultText = "官军战败，义军建立割据政权，国家被分裂。皇权、人口、钱粮与武备进一步下挫。";
+        }
+      }
+      if (option.specialAction === "pardon-peasant" && actor) {
+        if (success) {
+          const openRole = roles.slice(1).find((role) => !seatAssignments[role]);
+          if (openRole) {
+            seatAssignments[openRole] = actor.id;
+            nextRosterIds = roles.map((role) => seatAssignments[role]).filter(Boolean) as string[];
+            effects = mergeEffects(effects, actor.bonuses);
+            outcomeTitle = "招安入席";
+            resultText = `${actor.name}受招安，填补${openRole}空位，作为特殊角色加入治国班底。`;
+          } else {
+            effects = mergeEffects(effects, { population: 5, grain: 9, army: 7, sentiment: 5, integrity: 4, authority: 8 });
+            outcomeTitle = "收编旧部";
+            resultText = `班底没有可用空位，${actor.name}及其旧部被分置州军，转化为人口、钱粮、武备、民情、吏治与皇权加成。`;
+          }
+        } else {
+          unavailablePersonIds = [...new Set([...unavailablePersonIds, actor.id])];
+          outcomeTitle = "招安不成";
+          resultText = `${actor.name}拒绝受招安，此名特殊角色已永久错失。`;
+        }
+      }
+      if (option.specialAction === "execute-peasant" && actor) {
+        unavailablePersonIds = [...new Set([...unavailablePersonIds, actor.id])];
+        outcomeTitle = "枭首示众";
+        resultText = `${actor.name}被依法处置，朝廷不再有机会招安此人。`;
       }
       const progress = { qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief };
       const stats = addEffects(current.stats, effects);
-      if (stats.population < 18 || stats.grain <= 0) {
+      if (!current.debugHistory && (stats.population < 18 || stats.grain <= 0)) {
         const cause = stats.population < 18 ? "人口跌破王朝存续底线" : "国库钱粮耗尽";
-        return { ...current, stats, events, randomCount, historyFlags: nextHistoryFlags, ...progress, phase: "ending", endingVictory: false, endingReason: `${cause}。地方失去供养与秩序，国祚就此断绝。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "山河易色", note: `${event.title}之后，${cause}。` }] };
+        return { ...current, stats, events, pendingEvents, unavailablePersonIds, seatAssignments, rosterIds: nextRosterIds, randomCount, historyFlags: nextHistoryFlags, ...progress, phase: "ending", endingVictory: false, endingReason: `${cause}。地方失去供养与秩序，国祚就此断绝。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "山河易色", note: `${event.title}之后，${cause}。` }] };
       }
-      return { ...current, stats, events, randomCount, historyFlags: nextHistoryFlags, ...progress, alteredHistory: current.alteredHistory || alternate, outcome: { title: alternate ? "历史改写" : success === false ? "事与愿违" : "诏令已行", text: resultText, effects, success, alternate }, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: event.title, note: `${option.label}。${resultText}` }].slice(-30) };
+      return { ...current, stats, events, pendingEvents, unavailablePersonIds, seatAssignments, rosterIds: nextRosterIds, randomCount, historyFlags: nextHistoryFlags, ...progress, alteredHistory: current.alteredHistory || alternate, outcome: { title: outcomeTitle, text: resultText, effects, success, alternate }, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: event.title, note: `${option.label}。${resultText}` }].slice(-30) };
     });
   };
 
   const continueSeason = () => {
     setGame((current) => {
       if (!current || !current.outcome) return current;
-      if (current.seasonIndex < 3) return { ...current, seasonIndex: current.seasonIndex + 1, outcome: null };
-      return { ...current, outcome: null, seasonIndex: 4 };
+      const lastEventIndex = current.debugHistory ? current.events.length - 1 : 3;
+      if (current.seasonIndex < lastEventIndex) return activateCurrentEvent({ ...current, seasonIndex: current.seasonIndex + 1, outcome: null });
+      return { ...current, outcome: null, seasonIndex: current.debugHistory ? current.events.length : 4 };
     });
   };
 
   const beginNextYear = () => {
     setGame((current) => {
       if (!current) return current;
+      if (current.debugHistory) {
+        const next = findHistoricalYear(current.scriptId, current.year, current.historyFlags, current);
+        if (!next) return { ...current, phase: "ending", endingVictory: true, endingReason: "当前分支下，剧本主角生涯内的历史节点已全部模拟完毕。" };
+        return { ...current, year: next.year, elapsed: current.elapsed + 1, seasonIndex: 0, outcome: null, events: next.events, annualNote: "已自动跳过没有历史事件的年份。", chronicle: [...current.chronicle, { year: next.year, season: "春", title: "推演续行", note: "已自动跳至下一个历史节点。" }].slice(-30) };
+      }
       if (current.elapsed >= 500) return { ...current, phase: "ending", endingVictory: true, endingReason: "五百年间国祚不断，制度与民生经受住一代代风雨。你的王朝已成真正的千古一朝。" };
       const year = nextCalendarYear(current.year);
       const growth = annualGrowth(current.stats, current.policyId, current.difficulty, current.scriptId, current.qinConquestIndex);
@@ -3386,13 +3752,13 @@ function App() {
       const effective = liveState(stats).effective;
       const lowArmyYears = effective.army < 55 ? current.lowArmyYears + 1 : 0;
       const unrestYears = effective.sentiment <= -60 ? current.unrestYears + 1 : 0;
-      const yearEvents = buildYearEvents(current.scriptId, year, stats, lowArmyYears, unrestYears, current.randomSeed, current.randomCount, current.historyFlags, current);
-      return { ...current, year, elapsed: current.elapsed + 1, stats, seasonIndex: 0, outcome: null, annualNote: growth.note, lowArmyYears, unrestYears, events: yearEvents.events, randomCount: yearEvents.randomCount, chronicle: [...current.chronicle, { year, season: "春", title: "岁首国计", note: growth.note }].slice(-30) };
+      const yearEvents = buildYearEvents(current.scriptId, year, stats, lowArmyYears, unrestYears, current.randomSeed, current.randomCount, current.historyFlags, current, current.seatAssignments, current.pendingEvents);
+      return activateCurrentEvent({ ...current, year, elapsed: current.elapsed + 1, stats, seasonIndex: 0, outcome: null, annualNote: growth.note, lowArmyYears, unrestYears, events: yearEvents.events, pendingEvents: yearEvents.pendingEvents, randomCount: yearEvents.randomCount, chronicle: [...current.chronicle, { year, season: "春", title: "岁首国计", note: growth.note }].slice(-30) });
     });
   };
 
   const saveGame = (slot: number) => {
-    if (!game || displayPhase !== "reign") return;
+    if (!game || displayPhase !== "reign" || game.debugHistory) return;
     localStorage.setItem(`dynasty-save-${slot}`, JSON.stringify({ ...game, phase: game.phase === "ending" ? "ending" : "reign" }));
     setSaveMeta((items) => items.map((item, index) => index === slot ? game : item));
     setSavesOpen(false);
@@ -3404,7 +3770,7 @@ function App() {
   const loadGame = (slot: number) => {
     const saved = saveMeta[slot];
     if (!saved) return;
-    setGame(saved); setDifficulty(saved.difficulty); setScriptId(saved.scriptId); setPolicyId(saved.policyId); setRosterSeats(saved.seatAssignments); setRosterRound(5); setCandidateIds([]); setPhase(saved.phase); setSavesOpen(false);
+    setGame(activateCurrentEvent(saved)); setDifficulty(saved.difficulty); setScriptId(saved.scriptId); setPolicyId(saved.policyId); setRosterSeats(saved.seatAssignments); setRosterRound(5); setCandidateIds([]); setPhase(saved.phase); setSavesOpen(false);
   };
 
   const deleteSave = (slot: number) => {
@@ -3417,16 +3783,17 @@ function App() {
   return (
     <main className={`app phase-${displayPhase}`}>
       <div className="grain-overlay" />
-      {displayPhase !== "landing" && <TopBar setPhase={setPhase} openSaves={() => setSavesOpen(true)} game={game} canSave={displayPhase === "reign"} />}
+      <BackgroundMusic key={scriptId} phase={displayPhase} scriptId={scriptId} />
+      {displayPhase !== "landing" && <TopBar setPhase={setPhase} openSaves={() => setSavesOpen(true)} game={game} canSave={displayPhase === "reign" && !game?.debugHistory} />}
 
-      {displayPhase === "landing" && <Landing onStart={(selectedDifficulty) => { setDifficulty(selectedDifficulty); setPhase("script"); }} onLoad={() => setSavesOpen(true)} />}
-      {displayPhase === "script" && <ScriptSelect selected={scriptId} onSelect={setScriptId} onBack={() => setPhase("landing")} onNext={() => setPhase("policy")} />}
+      {displayPhase === "landing" && <Landing debugAvailable={import.meta.env.DEV} debugEnabled={debugEnabled} onDebugChange={setDebugEnabled} onStart={(selectedDifficulty) => { setDifficulty(selectedDifficulty); setPhase("script"); }} onLoad={() => setSavesOpen(true)} />}
+      {displayPhase === "script" && <ScriptSelect selected={scriptId} debugEnabled={debugEnabled} onDebugStart={startHistoryDebug} onSelect={setScriptId} onBack={() => setPhase("landing")} onNext={() => setPhase("policy")} />}
       {displayPhase === "policy" && <PolicySelect selected={policyId} onSelect={setPolicyId} onBack={() => setPhase("script")} onNext={beginRoster} />}
       {displayPhase === "roster" && <RosterSelect seats={rosterSeats} round={rosterRound} redrawsLeft={redrawsLeft} candidates={candidateIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[]} activePersonId={activePersonId} onActivate={setActivePersonId} onCanMove={canMovePerson} onMove={movePerson} onRedraw={redrawCandidates} onSelect={selectPerson} onBack={() => setPhase("policy")} onStart={startReign} />}
       {displayPhase === "reign" && game && <Reign game={game} script={script} policy={policy} roster={roster} onChoose={chooseOption} onContinue={continueSeason} onNextYear={beginNextYear} />}
       {displayPhase === "ending" && game && <Ending game={game} script={script} onRestart={restart} onSaves={() => setSavesOpen(true)} />}
 
-      {savesOpen && <SaveDrawer saves={saveMeta} current={displayPhase === "reign" ? game : null} onClose={() => setSavesOpen(false)} onSave={saveGame} onLoad={loadGame} onDelete={deleteSave} />}
+      {savesOpen && <SaveDrawer saves={saveMeta} current={displayPhase === "reign" && !game?.debugHistory ? game : null} onClose={() => setSavesOpen(false)} onSave={saveGame} onLoad={loadGame} onDelete={deleteSave} />}
       {saveNotice && <div className="save-toast" role="status" aria-live="polite">{saveNotice}</div>}
     </main>
   );
@@ -3476,7 +3843,7 @@ function formatDelta(value: number) {
   return `${rounded >= 0 ? "+" : ""}${rounded}`;
 }
 
-function Landing({ onStart, onLoad }: { onStart: (difficulty: DifficultyId) => void; onLoad: () => void }) {
+function Landing({ debugAvailable, debugEnabled, onDebugChange, onStart, onLoad }: { debugAvailable: boolean; debugEnabled: boolean; onDebugChange: (enabled: boolean) => void; onStart: (difficulty: DifficultyId) => void; onLoad: () => void }) {
   const [difficultyOpen, setDifficultyOpen] = useState(false);
   return <section className="landing">
     <div className="mountain mountain-a" /><div className="mountain mountain-b" />
@@ -3486,7 +3853,8 @@ function Landing({ onStart, onLoad }: { onStart: (difficulty: DifficultyId) => v
       <h1>五百年<br /><em>王朝</em></h1>
       <p className="hero-copy">择一段历史为局，定一条治国之道，携四位股肱之臣走过每个春夏秋冬。<br />这一次，结局不由一次随机判词决定。</p>
       <div className="hero-actions"><div className="start-menu"><button className="primary xl" aria-haspopup="menu" aria-expanded={difficultyOpen} onClick={() => setDifficultyOpen((open) => !open)}>开国治世 <span>▾</span></button>{difficultyOpen && <div className="difficulty-menu" role="menu" aria-label="选择治世难度">{difficulties.map((item) => <button role="menuitem" key={item.id} onClick={() => onStart(item.id)}><i>{item.seal}</i><span><b>{item.name}</b><small>吏治每年 {formatDelta(-6 - item.integrityDecayPenalty)} · {item.chancePenalty ? `成功率 -${item.chancePenalty}%` : "成功率不变"}</small></span></button>)}</div>}</div><button className="ghost" onClick={onLoad}>读取存档</button></div>
-      <div className="hero-rules"><span>五项国势彼此牵引</span><i>◆</i><span>历史大事必然发生</span><i>◆</i><span>五百年方成千古一朝</span></div>
+      {debugAvailable && <label className="debug-toggle"><input type="checkbox" checked={debugEnabled} onChange={(event) => onDebugChange(event.target.checked)} /><span>DEBUG</span><b>历史事件分支模拟</b><small>跳过班底、通用事件与空白年份，国势不会导致覆亡</small></label>}
+      <div className="hero-rules"><span>六项国势彼此牵引</span><i>◆</i><span>皇权衰微则权臣思变</span><i>◆</i><span>五百年方成千古一朝</span></div>
     </div>
   </section>;
 }
@@ -3495,11 +3863,11 @@ function Progress({ active }: { active: number }) {
   return <div className="progress" aria-label="开国进度">{["历史剧本", "国策方向", "开国班底"].map((label, index) => <div className={index <= active ? "active" : ""} key={label}><b>0{index + 1}</b><span>{label}</span></div>)}</div>;
 }
 
-function ScriptSelect({ selected, onSelect, onBack, onNext }: { selected: string; onSelect: (id: string) => void; onBack: () => void; onNext: () => void }) {
+function ScriptSelect({ selected, debugEnabled, onDebugStart, onSelect, onBack, onNext }: { selected: string; debugEnabled: boolean; onDebugStart: () => void; onSelect: (id: string) => void; onBack: () => void; onNext: () => void }) {
   const chosen = scripts.find((item) => item.id === selected)!;
   return <section className="setup-page"><Progress active={0} /><header className="setup-heading"><span>第一诏</span><h2>选择历史剧本</h2><p>历史给你一道开局，但不会替你写下结局。</p></header>
     <div className="script-layout"><div className="script-grid">{scripts.map((item) => <button key={item.id} className={`script-card ${selected === item.id ? "selected" : ""}`} onClick={() => onSelect(item.id)} style={{ "--accent": item.color } as React.CSSProperties}><span className="dynasty">{item.dynasty}</span><h3>{item.title}</h3><p>{item.motto}</p><small>{item.startLabel}</small></button>)}</div>
-      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">历史原型</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回首页</button><button className="primary" onClick={onNext}>以此纪开局</button></div></aside>
+      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">历史原型</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span><span>皇权 {chosen.base.authority}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回首页</button><div className="script-start-actions"><button className="primary" onClick={onNext}>以此纪开局</button>{debugEnabled && <button className="debug-start" onClick={onDebugStart}>DEBUG · 仅推演历史事件</button>}</div></div></aside>
     </div></section>;
 }
 
@@ -3514,6 +3882,76 @@ function RosterSelect({ seats, round, redrawsLeft, candidates, activePersonId, o
     {round < 5 ? <section className="roster-draw"><header><div><span>第 {round + 1} 轮 / 共 5 轮</span><h3>本轮随机候选</h3></div><button className="ghost" onClick={onRedraw} disabled={redrawsLeft <= 0}>换一批人才 · 剩 {redrawsLeft} 次</button></header><div className="random-candidates">{candidates.map((person) => <button className="person-card draw-card" onClick={() => onSelect(person)} key={person.id}><div><h3>{person.name}</h3><span>{person.dynasty}</span></div><p>{person.quote}</p><div className="role-directions"><i>主 · {person.role}</i><i>次 · {person.secondaryRoles.join("/") || "无"}</i></div><small>{person.tags.map((tag) => <i key={tag}>{tag}</i>)}</small></button>)}</div></section> : <div className="roster-complete"><span>五轮抽签已毕</span><h3>开国五席俱全</h3><p>仍可拖拽或点击上方人物调整任职方向；确认无误后开始治国。</p></div>}
     <div className="setup-actions sticky-actions"><button className="ghost" onClick={onBack}>返回改策</button><div><span>已完成 {round} / 5 轮</span><button className="primary" disabled={round !== 5 || roles.some((role) => !seats[role])} onClick={onStart}>班底已定 · 开始治国</button></div></div>
   </section>;
+}
+
+function BackgroundMusic({ phase, scriptId }: { phase: Phase; scriptId: string }) {
+  const isReign = phase === "reign";
+  const pool = reignMusic.filter((track) => !track.scripts || track.scripts.includes(scriptId));
+  const [queue, setQueue] = useState(() => ({ order: shuffleMusicOrder(pool.length), position: 0 }));
+  const [muted, setMuted] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const activatedRef = useRef(false);
+  const trackIndex = queue.order[queue.position] ?? 0;
+  const current = isReign ? pool[trackIndex] : mainTheme;
+
+  const play = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    activatedRef.current = true;
+    void audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+  };
+
+  useEffect(() => {
+    const audio = new Audio();
+    audio.preload = "auto";
+    audioRef.current = audio;
+    const activate = () => play();
+    window.addEventListener("pointerdown", activate, { once: true });
+    window.addEventListener("keydown", activate, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", activate);
+      window.removeEventListener("keydown", activate);
+      audio.pause();
+      audio.src = "";
+      audioRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.src = current.src;
+    audio.loop = !isReign;
+    audio.volume = isReign ? .42 : .34;
+    audio.onended = isReign ? () => setQueue((currentQueue) => {
+      if (currentQueue.position + 1 < currentQueue.order.length) return { ...currentQueue, position: currentQueue.position + 1 };
+      const previousIndex = currentQueue.order[currentQueue.position];
+      return { order: shuffleMusicOrder(pool.length, previousIndex), position: 0 };
+    }) : null;
+    audio.load();
+    if (activatedRef.current && !audio.muted) play();
+    else setPlaying(false);
+    return () => { audio.onended = null; };
+  }, [current.src, isReign, pool.length, scriptId]);
+
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.muted = muted;
+  }, [muted]);
+
+  const toggleMute = () => {
+    const nextMuted = !muted;
+    setMuted(nextMuted);
+    if (audioRef.current) audioRef.current.muted = nextMuted;
+    if (!nextMuted) play();
+    else setPlaying(false);
+  };
+
+  return <aside className={`music-player ${isReign ? "music-reign" : "music-minimal"}`} aria-live="polite">
+    <button type="button" onClick={toggleMute} aria-label={muted ? "开启背景音乐" : "关闭背景音乐"}>{muted ? "♪" : playing ? "♫" : "♩"}</button>
+    {isReign && <div><small>当前背景音乐</small><b>《{current.title}》</b><span>演奏：{current.artist}{current.denoised && <em>经AI降噪处理</em>}</span></div>}
+  </aside>;
 }
 
 function TopBar({ setPhase, openSaves, game, canSave }: { setPhase: (phase: Phase) => void; openSaves: () => void; game: GameState | null; canSave: boolean }) {
@@ -3536,6 +3974,7 @@ function StatPanel({ stats, policyId, difficulty, scriptId, qinConquestIndex }: 
     <div className="number-stat"><span>户</span><div><small>人口</small><strong>{stats.population}<b className={growth.effects.population >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.population)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.population.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
     <div className="number-stat"><span>仓</span><div><small>钱粮</small><strong>{stats.grain}<b className={growth.effects.grain >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.grain)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.grain.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
     <div className="number-stat army-stat"><span>兵</span><div><small>武备</small><strong>{live.effective.army}</strong><div className="stat-buffs">{armyBuffs.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
+    <AxisStat label="皇权" value={stats.authority} modifiers={[]} text={authorityLabel(stats.authority)} left="权臣掣肘" right="乾纲独断" min={0} max={100} />
     <AxisStat label="民情" value={live.effective.sentiment} modifiers={sentimentBuffs} text={axisLabel("sentiment", live.effective.sentiment)} left="民怨沸腾" right="安居乐业" />
     <AxisStat label="吏治" value={live.effective.integrity} modifiers={integrityBuffs} annualChange={growth.effects.integrity} annualDetail={growth.breakdown.integrity[0].detail} text={axisLabel("integrity", live.effective.integrity)} left="贪墨成风" right="海内澄清" />
   </div>;
@@ -3547,25 +3986,27 @@ function ModifierChip({ item }: { item: ModifierView }) {
   return <i className={item.value < 0 ? "debuff" : "buff"} tabIndex={0}>{item.label}<span role="tooltip">{item.detail}</span></i>;
 }
 
-function AxisStat({ label, value, modifiers, annualChange, annualDetail, text, left, right }: { label: string; value: number; modifiers: ModifierView[]; annualChange?: number; annualDetail?: string; text: string; left: string; right: string }) {
-  return <div className="axis-stat"><div><small>{label}</small><strong>{text}</strong><span className="axis-values"><b>{value}</b>{annualChange !== undefined && <em className={annualChange < 0 ? "annual-delta negative" : "annual-delta positive"} tabIndex={0}>{formatDelta(annualChange)}<span role="tooltip">{annualDetail}</span></em>}</span></div>{modifiers.length > 0 && <div className="stat-buffs">{modifiers.map((item) => <ModifierChip item={item} key={item.label} />)}</div>}<div className="axis"><i style={{ left: `${(value + 100) / 2}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
+function AxisStat({ label, value, modifiers, annualChange, annualDetail, text, left, right, min = -100, max = 100 }: { label: string; value: number; modifiers: ModifierView[]; annualChange?: number; annualDetail?: string; text: string; left: string; right: string; min?: number; max?: number }) {
+  return <div className="axis-stat"><div><small>{label}</small><strong>{text}</strong><span className="axis-values"><b>{value}</b>{annualChange !== undefined && <em className={annualChange < 0 ? "annual-delta negative" : "annual-delta positive"} tabIndex={0}>{formatDelta(annualChange)}<span role="tooltip">{annualDetail}</span></em>}</span></div>{modifiers.length > 0 && <div className="stat-buffs">{modifiers.map((item) => <ModifierChip item={item} key={item.label} />)}</div>}<div className="axis"><i style={{ left: `${clamp((value - min) / (max - min) * 100, 0, 100)}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
 }
 
 function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear }: { game: GameState; script: Script; policy: typeof policies[number]; roster: Person[]; onChoose: (option: EventOption) => void; onContinue: () => void; onNextYear: () => void }) {
-  const event = game.events[Math.min(game.seasonIndex, 3)];
-  const isYearEnd = game.seasonIndex === 4;
+  const event = game.events[Math.min(game.seasonIndex, Math.max(0, game.events.length - 1))];
+  const eventCount = game.debugHistory ? game.events.length : 4;
+  const isYearEnd = game.seasonIndex >= eventCount;
   const assigned = (role: Role) => roster.find((person) => person.id === game.seatAssignments[role]);
   const emperor = assigned("皇帝");
-  return <section className="reign-page"><div className="reign-header"><div><span>{script.title} · 君主 {emperor?.name}</span><h1>{yearLabel(game.year)}</h1><p>国祚第 {game.elapsed} 年 · {difficultyRule(game.difficulty).name}难度 · 国策「{policy.name}」{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} policyId={game.policyId} difficulty={game.difficulty} scriptId={game.scriptId} qinConquestIndex={game.qinConquestIndex} /><div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +7%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className="cabinet-person" key={role}><div><small>{role}</small><b>{person?.name}</b></div><span>{person?.tags.join(" · ")}</span></div> })}</div></aside>
-      <article className="court"><div className="yearline">{seasons.map((season, index) => <div className={index < game.seasonIndex ? "done" : index === game.seasonIndex ? "active" : ""} key={season}><i>{index < game.seasonIndex ? "✓" : season}</i><span>{season}{index === 0 ? "耕" : index === 1 ? "长" : index === 2 ? "收" : "藏"}</span></div>)}</div>
-        {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {seasons[game.seasonIndex]}季</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}　`}{option.chance && `成功率 ${finalOptionChance(option, game.stats, roster, policy, game.difficulty)}%　`}{option.effects && effectText(option.effects)}</small>{option.chance && <div className="chance-results"><em className="success-result"><b>成功</b>{effectText(option.successEffects || {}) || "国势无直接变化"}</em><em className="fail-result"><b>失败</b>{effectText(option.failEffects || {}) || "国势无直接变化"}</em></div>}</div><span>决断</span></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === 3 ? "封存本年奏牍" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
+  return <section className="reign-page"><div className="reign-header"><div><span>{script.title}{game.debugHistory ? " · 历史分支模拟" : ` · 君主 ${emperor?.name}`}</span><h1>{yearLabel(game.year)}</h1><p>{game.debugHistory ? `DEBUG · 第 ${game.elapsed} 个历史年份 · 自动跳过空白年份` : <>国祚第 {game.elapsed} 年 · {difficultyRule(game.difficulty).name}难度 · 国策「{policy.name}」</>}{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} policyId={game.policyId} difficulty={game.difficulty} scriptId={game.scriptId} qinConquestIndex={game.qinConquestIndex} />{!game.debugHistory && <div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +7%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className={`cabinet-person ${person ? "" : "vacant"}`} key={role}><div><small>{role}</small><b>{person?.name || "空缺"}</b></div><span>{person?.tags.join(" · ") || "加成已失"}</span></div> })}</div>}</aside>
+      <article className="court"><div className="yearline">{seasons.slice(0, eventCount).map((season, index) => <div className={index < game.seasonIndex ? "done" : index === game.seasonIndex ? "active" : ""} key={season}><i>{index < game.seasonIndex ? "✓" : season}</i><span>{game.debugHistory ? `史事 ${index + 1}` : `${season}${index === 0 ? "耕" : index === 1 ? "长" : index === 2 ? "收" : "藏"}`}</span></div>)}</div>
+        {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {game.debugHistory ? `史事 ${game.seasonIndex + 1}` : `${seasons[game.seasonIndex]}季`}</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}　`}{option.chance && `成功率 ${finalOptionChance(option, game.stats, roster, policy, game.difficulty)}%　`}{option.effects && effectText(option.effects)}</small>{option.chance && <div className="chance-results"><em className="success-result"><b>成功</b>{effectText(option.successEffects || {}) || "国势无直接变化"}</em><em className="fail-result"><b>失败</b>{effectText(option.failEffects || {}) || "国势无直接变化"}</em></div>}</div><span>决断</span></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === eventCount - 1 ? "封存本年奏牍" : game.debugHistory ? "推演下一史事" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
         <Chronicle entries={game.chronicle} /></article></div></section>;
 }
 
 function YearEnd({ game, onNext }: { game: GameState; onNext: () => void }) {
   const effective = liveState(game.stats).effective;
   const growth = annualGrowth(game.stats, game.policyId, game.difficulty, game.scriptId, game.qinConquestIndex).effects;
-  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁结算人口、钱粮增长与吏治自然损耗。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {formatDelta(growth.population)}　钱粮 {formatDelta(growth.grain)}　吏治 {formatDelta(growth.integrity)}</strong></div><div className="warning-row">{effective.army < 55 && <span>⚑ 武备低迷，来年边患概率上升</span>}{effective.sentiment <= -60 && <span>⚠ 民怨沸腾，起义正在酝酿</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情与武备正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
+  if (game.debugHistory) return <div className="year-end debug-year-end"><span>本年史事已毕</span><h2>{yearLabel(game.year)} · 分支已记录</h2><p>继续后将自动跳过空白年份，前往当前选择所导向的下一个历史节点。</p><button className="primary xl" onClick={onNext}>推演下一历史年份</button></div>;
+  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁结算人口、钱粮增长与吏治自然损耗。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {formatDelta(growth.population)}　钱粮 {formatDelta(growth.grain)}　吏治 {formatDelta(growth.integrity)}</strong></div><div className="warning-row">{effective.army < 55 && <span>⚑ 武备低迷，来年边患概率上升</span>}{effective.sentiment <= -60 && <span>⚠ 民怨沸腾，农民起义正在酝酿</span>}{game.stats.authority < 55 && <span>♜ 皇权衰微，班底中忠诚不足者可能叛变</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情与武备正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
 }
 
 function Chronicle({ entries }: { entries: Chronicle[] }) {
@@ -3575,12 +4016,12 @@ function Chronicle({ entries }: { entries: Chronicle[] }) {
 
 function Ending({ game, script, onRestart, onSaves }: { game: GameState; script: Script; onRestart: () => void; onSaves: () => void }) {
   const effective = liveState(game.stats).effective;
-  const score = clamp(game.elapsed * 2 + effective.population + effective.grain + effective.army + effective.sentiment + effective.integrity, 0, 9999);
+  const score = clamp(game.elapsed * 2 + effective.population + effective.grain + effective.army + effective.sentiment + effective.integrity + effective.authority, 0, 9999);
   return <section className={`ending ${game.endingVictory ? "victory" : "defeat"}`}><div className="ending-card"><span className="ending-kicker">{game.endingVictory ? "千古一朝" : "国祚已终"}</span><div className="ending-seal">{game.endingVictory ? "盛" : "殁"}</div><h1>{script.dynasty}祚 · {game.elapsed}年</h1><p>{game.endingReason}</p><div className="ending-stats"><div><small>最后年份</small><strong>{yearLabel(game.year)}</strong></div><div><small>治世评定</small><strong>{score}</strong></div><div><small>历史线</small><strong>{game.alteredHistory ? "另开新史" : "大势未改"}</strong></div></div><blockquote>“{game.chronicle[game.chronicle.length - 1]?.note}”</blockquote><div><button className="primary" onClick={onRestart}>再开一纪</button><button className="ghost" onClick={onSaves}>读取存档</button></div></div></section>;
 }
 
 function SaveDrawer({ saves, current, onClose, onSave, onLoad, onDelete }: { saves: (GameState | null)[]; current: GameState | null; onClose: () => void; onSave: (slot: number) => void; onLoad: (slot: number) => void; onDelete: (slot: number) => void }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="save-drawer" role="dialog" aria-modal="true" aria-label={current ? "存读档" : "读取存档"}><header><div><span>本地纪年库</span><h2>{current ? "存读档" : "读取存档"}</h2></div><button onClick={onClose} aria-label="关闭">×</button></header><p className="save-explain">存档只保存在这台设备的浏览器中。只有进入治国阶段才能写入或覆盖；读取与删除旧档不受限制。每局随机进程固定，读档不会重掷事件或判定结果。</p><div className="save-slots">{saves.map((save, index) => { const savedScript = save && scripts.find((item) => item.id === save.scriptId); return <article className={save ? "occupied" : ""} key={index}><span>档案 {index + 1}</span>{save ? <><h3>{savedScript?.title}</h3><p>{difficultyRule(save.difficulty).name}难度 · {yearLabel(save.year)} · 国祚第{save.elapsed}年</p><small>人口 {save.stats.population}　钱粮 {save.stats.grain}　武备 {save.stats.army}</small><div><button onClick={() => onLoad(index)}>读取</button>{current && <button onClick={() => onSave(index)}>覆盖</button>}<button className="danger" onClick={() => onDelete(index)}>删除</button></div></> : <><h3>空白卷宗</h3><p>尚未写入任何王朝。</p>{current ? <button className="primary" onClick={() => onSave(index)}>存入此槽</button> : <small>进入治国阶段后方可存档</small>}</>}</article> })}</div></section></div>;
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="save-drawer" role="dialog" aria-modal="true" aria-label={current ? "存读档" : "读取存档"}><header><div><span>本地纪年库</span><h2>{current ? "存读档" : "读取存档"}</h2></div><button onClick={onClose} aria-label="关闭">×</button></header><p className="save-explain">存档只保存在这台设备的浏览器中。只有进入治国阶段才能写入或覆盖；读取与删除旧档不受限制。每局随机进程固定，读档不会重掷事件或判定结果。</p><div className="save-slots">{saves.map((save, index) => { const savedScript = save && scripts.find((item) => item.id === save.scriptId); return <article className={save ? "occupied" : ""} key={index}><span>档案 {index + 1}</span>{save ? <><h3>{savedScript?.title}</h3><p>{difficultyRule(save.difficulty).name}难度 · {yearLabel(save.year)} · 国祚第{save.elapsed}年</p><small>人口 {save.stats.population}　钱粮 {save.stats.grain}　武备 {save.stats.army}　皇权 {save.stats.authority}</small><div><button onClick={() => onLoad(index)}>读取</button>{current && <button onClick={() => onSave(index)}>覆盖</button>}<button className="danger" onClick={() => onDelete(index)}>删除</button></div></> : <><h3>空白卷宗</h3><p>尚未写入任何王朝。</p>{current ? <button className="primary" onClick={() => onSave(index)}>存入此槽</button> : <small>进入治国阶段后方可存档</small>}</>}</article> })}</div></section></div>;
 }
 
 export default App;

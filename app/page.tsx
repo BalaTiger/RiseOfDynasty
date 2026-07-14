@@ -2199,11 +2199,11 @@ const additionalHistoricalEvents: EventTemplate[] = [
     { label: "亲近军功旧臣，徐收王权", detail: "谋划得当可提前建立自己的班底，失败则朝堂离心。", chance: 55, tag: "谋略", successEffects: { integrity: 9, army: 6 }, failEffects: { integrity: -8, sentiment: -4 }, setHistoryFlags: ["qin_court_independent"] },
   ]},
   { id: "qin-juan-battle", scriptId: "qin", year: -245, historical: true, title: "卷城鏖兵", category: "历史大事", text: "麃公率秦军攻魏地卷城，前军已逼近城下。军中主张趁锐强攻，客卿则称可围城断援。", options: [
-    { label: "乘锐攻城", detail: "秦军若一鼓破城可震慑魏国，日后灭魏所需国势将恢复到原有要求。", chance: 56, tag: "军事", successEffects: { army: 8, grain: -5, sentiment: 4 }, failEffects: { army: -12, grain: -8, population: -2 }, successHistoryFlags: ["qin_juan_success"] },
-    { label: "围城断援，迫其请降", detail: "若能迫其请降，同样会动摇魏国抵抗，令日后灭魏恢复原有要求。", chance: 62, tag: "谋略", successEffects: { grain: 5, population: 4, integrity: 2 }, failEffects: { grain: -10, army: -5, sentiment: -3 }, successHistoryFlags: ["qin_juan_success"] },
+    { label: "乘锐攻城", detail: "秦军若一鼓破城可震慑魏国，使日后灭魏所需国势降低15点。", chance: 56, tag: "军事", successEffects: { army: 8, grain: -5, sentiment: 4 }, failEffects: { army: -12, grain: -8, population: -2 }, successHistoryFlags: ["qin_juan_success"] },
+    { label: "围城断援，迫其请降", detail: "若能迫其请降，同样会动摇魏国抵抗，使日后灭魏所需国势降低15点。", chance: 62, tag: "谋略", successEffects: { grain: 5, population: 4, integrity: 2 }, failEffects: { grain: -10, army: -5, sentiment: -3 }, successHistoryFlags: ["qin_juan_success"] },
   ]},
   { id: "qin-mengao-han", scriptId: "qin", year: -244, historical: true, title: "蒙骜攻韩", category: "历史大事", text: "蒙骜东攻韩国，韩军连失城邑。秦廷可继续压取十三城，也可用兵锋换取割地与岁贡。", options: [
-    { label: "乘胜连取韩城", detail: "扩张疆土会消耗兵粮，若受阻则前功尽弃。", chance: 58, tag: "军事", successEffects: { army: -4, grain: -5, population: 7, sentiment: 4 }, failEffects: { army: -12, grain: -10, sentiment: -5 }, successHistoryFlags: ["qin_mengao_han_success"] },
+    { label: "乘胜连取韩城", detail: "若能连取韩城，将削弱韩国根基，使日后灭韩所需国势降低15点。", chance: 58, tag: "军事", successEffects: { army: -4, grain: -5, population: 7, sentiment: 4 }, failEffects: { army: -12, grain: -10, sentiment: -5 }, successHistoryFlags: ["qin_mengao_han_success"] },
     { label: "受地罢兵，索取岁贡", detail: "不求尽取十三城，先把胜势换成现成国用。", effects: { grain: 7, army: 2, integrity: -5 } },
   ]},
   { id: "qin-east-commandery", scriptId: "qin", year: -242, historical: true, title: "东郡初置", category: "历史大事", text: "蒙骜攻魏，连下酸枣、雍丘、山阳等二十城。新地横亘秦魏之间，如何治理会决定它是屏障还是泥潭。", options: [
@@ -2574,7 +2574,7 @@ const lifeGapHistoricalEvents: EventTemplate[] = [
     { label: "留其著书，征用门客才学", detail: "将相府留下的人才和《吕氏春秋》转为朝廷所用。", chance: 62, tag: "谋略", successEffects: { integrity: 8, grain: 8, sentiment: 5 }, failEffects: { integrity: -5, grain: 2 } },
   ]},
   { id: "qin-fanwu-campaign", scriptId: "qin", year: -232, historical: true, title: "番吾受挫", category: "历史大事", text: "秦军分道深入赵境，李牧依险拒战。前线催请增兵，朝臣则担忧在强敌坚城下继续消耗。", options: [
-    { label: "增兵再战，牵制李牧", detail: "若能迫使赵军暴露部署，日后灭赵所需国势将恢复到原有要求。", chance: 54, tag: "军事", successEffects: { army: 7, sentiment: 3, grain: -7 }, failEffects: { army: -13, grain: -12 }, successHistoryFlags: ["qin_fanwu_success"] },
+    { label: "增兵再战，牵制李牧", detail: "若能迫使赵军暴露部署，将使日后灭赵所需国势降低15点。", chance: 54, tag: "军事", successEffects: { army: 7, sentiment: 3, grain: -7 }, failEffects: { army: -13, grain: -12 }, successHistoryFlags: ["qin_fanwu_success"] },
     { label: "转兵压韩，避赵锋芒", detail: "暂不与李牧决战，把兵力用于孤立韩国。", effects: { grain: 5, army: 3, integrity: -3 } },
   ]},
   { id: "qin-bolangsha", scriptId: "qin", year: -217, historical: true, title: "博浪沙惊驾", category: "历史大事", text: "东巡车驾经过博浪沙，巨椎误中副车。刺客已经遁入山野，郡县请求大索天下。", options: [

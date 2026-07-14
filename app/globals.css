@@ -163,6 +163,7 @@ button { border:0; cursor:pointer; }
 .number-stat em { grid-column:1; font-style:normal; font-size:11px; color:#514839; margin-top:4px; }
 .stat-buffs { display:flex; flex-wrap:wrap; gap:4px; margin-top:7px; }
 .number-stat .stat-buffs { grid-column:1/-1; }
+.number-stat.army-stat .stat-buffs { position:relative; top:-8px; margin-top:0; margin-bottom:-8px; }
 .stat-buffs i { position:relative; padding:2px 5px; border:1px solid rgba(74,58,34,.12); background:rgba(255,255,255,.42); font-size:9px; font-style:normal; color:#5d694c; outline:none; cursor:help; }
 .stat-buffs i.debuff { color:#963f36; background:rgba(142,41,36,.06); }
 .stat-buffs i>span[role="tooltip"] { position:absolute; left:0; bottom:calc(100% + 8px); z-index:20; width:240px; padding:9px 10px; border:1px solid rgba(70,52,31,.22); background:#fffaf0; box-shadow:0 8px 20px rgba(49,37,21,.18); color:#493f31; font-size:11px; line-height:1.55; letter-spacing:0; pointer-events:none; opacity:0; visibility:hidden; transform:translateY(4px); transition:opacity .15s,transform .15s,visibility .15s; }

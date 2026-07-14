@@ -81,7 +81,7 @@ type Outcome = {
 type Chronicle = { year: number; season: Season; title: string; note: string };
 
 type GameState = {
-  version: 7;
+  version: 9;
   phase: Phase;
   difficulty: DifficultyId;
   scriptId: string;
@@ -2199,11 +2199,11 @@ const additionalHistoricalEvents: EventTemplate[] = [
     { label: "亲近军功旧臣，徐收王权", detail: "谋划得当可提前建立自己的班底，失败则朝堂离心。", chance: 55, tag: "谋略", successEffects: { integrity: 9, army: 6 }, failEffects: { integrity: -8, sentiment: -4 }, setHistoryFlags: ["qin_court_independent"] },
   ]},
   { id: "qin-juan-battle", scriptId: "qin", year: -245, historical: true, title: "卷城鏖兵", category: "历史大事", text: "麃公率秦军攻魏地卷城，前军已逼近城下。军中主张趁锐强攻，客卿则称可围城断援。", options: [
-    { label: "乘锐攻城", detail: "秦军若一鼓破城可震慑河内，受挫则伤亡难掩。", chance: 56, tag: "军事", successEffects: { army: 8, grain: -5, sentiment: 4 }, failEffects: { army: -12, grain: -8, population: -2 } },
-    { label: "围城断援，迫其请降", detail: "以谋略减少强攻伤亡，也可能拖长粮道。", chance: 62, tag: "谋略", successEffects: { grain: 5, population: 4, integrity: 2 }, failEffects: { grain: -10, army: -5, sentiment: -3 } },
+    { label: "乘锐攻城", detail: "秦军若一鼓破城可震慑魏国，日后灭魏所需国势将恢复到原有要求。", chance: 56, tag: "军事", successEffects: { army: 8, grain: -5, sentiment: 4 }, failEffects: { army: -12, grain: -8, population: -2 }, successHistoryFlags: ["qin_juan_success"] },
+    { label: "围城断援，迫其请降", detail: "若能迫其请降，同样会动摇魏国抵抗，令日后灭魏恢复原有要求。", chance: 62, tag: "谋略", successEffects: { grain: 5, population: 4, integrity: 2 }, failEffects: { grain: -10, army: -5, sentiment: -3 }, successHistoryFlags: ["qin_juan_success"] },
   ]},
   { id: "qin-mengao-han", scriptId: "qin", year: -244, historical: true, title: "蒙骜攻韩", category: "历史大事", text: "蒙骜东攻韩国，韩军连失城邑。秦廷可继续压取十三城，也可用兵锋换取割地与岁贡。", options: [
-    { label: "乘胜连取韩城", detail: "扩张疆土会消耗兵粮，若受阻则前功尽弃。", chance: 58, tag: "军事", successEffects: { army: -4, grain: -5, population: 7, sentiment: 4 }, failEffects: { army: -12, grain: -10, sentiment: -5 } },
+    { label: "乘胜连取韩城", detail: "扩张疆土会消耗兵粮，若受阻则前功尽弃。", chance: 58, tag: "军事", successEffects: { army: -4, grain: -5, population: 7, sentiment: 4 }, failEffects: { army: -12, grain: -10, sentiment: -5 }, successHistoryFlags: ["qin_mengao_han_success"] },
     { label: "受地罢兵，索取岁贡", detail: "不求尽取十三城，先把胜势换成现成国用。", effects: { grain: 7, army: 2, integrity: -5 } },
   ]},
   { id: "qin-east-commandery", scriptId: "qin", year: -242, historical: true, title: "东郡初置", category: "历史大事", text: "蒙骜攻魏，连下酸枣、雍丘、山阳等二十城。新地横亘秦魏之间，如何治理会决定它是屏障还是泥潭。", options: [
@@ -2211,8 +2211,8 @@ const additionalHistoricalEvents: EventTemplate[] = [
     { label: "留降吏自治，按岁输贡", detail: "迅速得到赋粮，也让魏地旧势力继续扎根。", effects: { grain: 8, sentiment: 4, integrity: -7 } },
   ]},
   { id: "qin-five-state-coalition", scriptId: "qin", year: -241, historical: true, title: "五国攻秦", category: "历史大事", text: "韩、魏、赵、卫、楚再度合纵，联军取寿陵后向秦境逼近。咸阳需要决定以兵锋击破联军，还是先拆散诸侯。", options: [
-    { label: "集结主力迎击联军", detail: "军力足可一战摧毁合纵，失利则边郡震动。", chance: 54, tag: "军事", successEffects: { army: 9, grain: -8, sentiment: 6 }, failEffects: { army: -15, grain: -12, population: -3, sentiment: -7 } },
-    { label: "重金离间韩魏与楚赵", detail: "合纵本就各怀盘算，但游说诸侯也可能徒费国帑。", chance: 63, tag: "谋略", successEffects: { grain: -5, army: 6, integrity: 3 }, failEffects: { grain: -13, integrity: -5 } },
+    { label: "集结主力迎击联军", detail: "军力足可一战摧毁合纵；胜后六国元气受损，日后灭国要求也会降低。", chance: 54, tag: "军事", successEffects: { army: 9, grain: -8, sentiment: 6 }, failEffects: { army: -15, grain: -12, population: -3, sentiment: -7 }, successHistoryFlags: ["qin_coalition_success"] },
+    { label: "重金离间韩魏与楚赵", detail: "若成功拆散合纵，诸侯互信破裂，日后灭国要求也会降低。", chance: 63, tag: "谋略", successEffects: { grain: -5, army: 6, integrity: 3 }, failEffects: { grain: -13, integrity: -5 }, successHistoryFlags: ["qin_coalition_success"] },
   ]},
   { id: "qin-comet-mengao", scriptId: "qin", year: -240, historical: true, title: "彗星再见", category: "历史大事", text: "彗星先后见于东西，蒙骜仍拔龙、孤、庆都，旋师攻汲。老将年迈，朝中有人请继续进取，也有人借天象劝止兵。", options: [
     { label: "命蒙骜尽取汲地", detail: "抓住魏军未稳的时机，也是在透支老将与士卒。", chance: 57, tag: "军事", successEffects: { army: 8, grain: -6, population: 4 }, failEffects: { army: -10, grain: -8, sentiment: -4 } },
@@ -2235,31 +2235,32 @@ const additionalHistoricalEvents: EventTemplate[] = [
     { label: "尽逐六国客卿", detail: "朝堂一时纯粹，人才与谋略也随之流向敌国。", effects: { grain: 5, integrity: -12, army: -5 } },
   ]},
   { id: "qin-conquer-han", scriptId: "qin", year: -230, historical: true, qinConquestStage: 0, title: "韩国先亡", category: "历史大事", text: "韩地扼守秦军东出之路，却已国小兵弱。内史腾请率军渡黄河，一举打开灭国战争。", options: [
-    { label: "命内史腾灭韩", detail: "兵粮达到要求，韩国将成为六国中第一个灭亡者。", requirements: { army: 130, grain: 100 }, failOnUnmet: true, effects: { army: -8, grain: -9, population: 6, sentiment: 4 }, qinConquest: "advance" },
+    { label: "命内史腾灭韩", detail: "吞并韩地可接收户口与府库，攻灭一国仍会折损军力并激起民怨。", requirements: { army: 130, grain: 100 }, failOnUnmet: true, effects: { population: 8, grain: 7, army: -9, sentiment: -4 }, qinConquest: "advance" },
     { label: "迫韩献地称臣", detail: "若能迫韩持续输地纳贡，下次灭韩所需的各项国势会降低15点。", chance: 58, tag: "谋略", successEffects: { grain: 6, army: -4, integrity: -4 }, failEffects: { grain: -8, army: -8, integrity: -6 }, qinConquest: "delay" },
   ]},
   { id: "qin-conquer-zhao", scriptId: "qin", year: -228, historical: true, qinConquestStage: 1, title: "邯郸陷落", category: "历史大事", text: "赵国饥荒地震并至，李牧却仍守住正面。秦廷可以继续强攻，也可以从赵王身边寻找裂缝。", options: [
-    { label: "王翦围邯郸灭赵", detail: "强军能够硬撼赵军，代价也不会轻。", requirements: { army: 145, grain: 112 }, failOnUnmet: true, effects: { army: -13, grain: -12, population: 8, sentiment: -3 }, qinConquest: "advance" },
+    { label: "王翦围邯郸灭赵", detail: "赵地户口府库可充实秦国，长期围攻仍会折损军力并积累怨恨。", requirements: { army: 145, grain: 112 }, failOnUnmet: true, effects: { population: 10, grain: 8, army: -14, sentiment: -6 }, qinConquest: "advance" },
     { label: "贿郭开，暂缓攻城", detail: "若反间计得手，赵军根基松动，下次灭赵所需的各项国势会降低15点。", chance: 55, tag: "谋略", successEffects: { grain: -8, army: 3, integrity: -6 }, failEffects: { grain: -14, army: -8, integrity: -8 }, qinConquest: "delay" },
   ]},
-  { id: "qin-jing-ke", scriptId: "qin", year: -227, historical: true, title: "图穷匕见", category: "历史大事", text: "燕使荆轲献上督亢地图与樊於期首级。地图展开至尽头，一柄淬毒匕首突然露出。", options: [
-    { label: "绕柱自卫，召侍医还击", detail: "宫廷宿卫与临机反应决定秦王能否活着走出大殿。", chance: 60, tag: "军事", successEffects: { army: 6, sentiment: 6, integrity: 3 }, failEffects: { army: -14, sentiment: -10, integrity: -5 } },
-    { label: "先验图匣，再召燕使", detail: "吏治严密时，刺杀会在匕首出匣前败露。", chance: 62, tag: "吏治", successEffects: { integrity: 10, army: 4 }, failEffects: { sentiment: -8, integrity: -6 } },
+  { id: "qin-jing-ke", scriptId: "qin", year: -227, historical: true, title: "图穷匕见", category: "历史大事", text: "荆轲刺秦未遂，已被殿上侍卫斩杀。秦王震怒，燕使随从与咸阳城中的燕国宾客尽被拘押；如何追查余党并回应燕国，成为朝廷下一步决断。", options: [
+    { label: "穷治刺客余党", detail: "查明真正同谋可以整肃宫禁，刑讯失控则会牵连大量无辜。", chance: 62, tag: "吏治", successEffects: { integrity: 9, army: 4, sentiment: -3 }, failEffects: { integrity: -9, sentiment: -10, population: -2 } },
+    { label: "以刺秦为名，发兵攻燕", detail: "趁燕国理亏、边境未备先夺要地，可使日后灭燕所需国势降低10点。", requirements: { army: 130, grain: 100 }, failOnUnmet: true, effects: { population: 5, grain: -9, army: -10, sentiment: -5 }, setHistoryFlags: ["qin_jingke_yan_weakened"] },
+    { label: "暂缓伐燕，迫其交出主谋", detail: "若燕廷献出责任者并割地谢罪，日后灭燕所需国势降低10点。", chance: 60, tag: "谋略", successEffects: { grain: 8, army: 3, sentiment: 4 }, failEffects: { grain: -7, army: -5, integrity: -4 }, successHistoryFlags: ["qin_jingke_yan_weakened"] },
   ]},
   { id: "qin-conquer-wei", scriptId: "qin", year: -225, historical: true, qinConquestStage: 2, title: "水灌大梁", category: "历史大事", text: "魏都大梁城坚池深，王贲请求引黄河、鸿沟水灌城。速胜与城中生民只能艰难权衡。", options: [
-    { label: "决河灌城灭魏", detail: "迅速灭魏，却会毁坏人口与田土。", requirements: { army: 140, grain: 108 }, failOnUnmet: true, effects: { grain: -12, population: -7, army: -7, sentiment: -8 }, qinConquest: "advance" },
+    { label: "决河灌城灭魏", detail: "魏地整体仍扩充户口与国用，但水攻破城会造成严重军民伤亡。", requirements: { army: 140, grain: 108 }, failOnUnmet: true, effects: { population: 9, grain: 9, army: -8, sentiment: -10 }, qinConquest: "advance" },
     { label: "围城纳贡，暂许魏祀", detail: "若围困迫使魏国割地输粮，下次灭魏所需的各项国势会降低15点。", chance: 57, tag: "谋略", successEffects: { grain: -9, army: -4, sentiment: 4 }, failEffects: { grain: -15, army: -8, sentiment: -5 }, qinConquest: "delay" },
   ]},
   { id: "qin-conquer-chu", scriptId: "qin", year: -223, historical: true, qinConquestStage: 3, title: "王翦灭楚", category: "历史大事", text: "楚地广阔，项燕仍有强军。老将王翦坚持非六十万不可，年轻将领李信则称二十万足矣。", options: [
-    { label: "举六十万付王翦灭楚", detail: "倾国之兵需要极强武备和钱粮支撑。", requirements: { army: 165, grain: 135 }, failOnUnmet: true, rewardRequirements: { army: 190, grain: 160 }, alternateText: "王翦稳扎稳打，楚军主力完整瓦解，江淮比旧史更快归于安定。", effects: { army: -18, grain: -22, population: 12, sentiment: 7 }, qinConquest: "advance" },
+    { label: "举六十万付王翦灭楚", detail: "楚地广大、户口府库丰厚，倾国远征仍会重创军力并激起新附之民不安。", requirements: { army: 165, grain: 135 }, failOnUnmet: true, rewardRequirements: { army: 190, grain: 160 }, alternateText: "王翦稳扎稳打，楚军主力完整瓦解，江淮比旧史更快归于安定。", effects: { population: 16, grain: 14, army: -18, sentiment: -8 }, qinConquest: "advance" },
     { label: "令李信试探楚境", detail: "若试探成功并消耗楚军，下次灭楚所需的各项国势会降低15点。", chance: 52, tag: "军事", successEffects: { army: -7, grain: -6, sentiment: 3 }, failEffects: { army: -24, grain: -14, sentiment: -7 }, qinConquest: "delay" },
   ]},
   { id: "qin-conquer-yan", scriptId: "qin", year: -222, historical: true, qinConquestStage: 4, title: "燕代俱平", category: "历史大事", text: "燕王逃往辽东，赵国残余又据代地称王。北方最后两处抵抗已失去彼此呼应。", options: [
-    { label: "两路穷追，灭燕平代", detail: "持续作战仍需足够兵粮，胜后北方再无成建制敌军。", requirements: { army: 150, grain: 115 }, failOnUnmet: true, effects: { army: -11, grain: -12, population: 8, sentiment: 5 }, qinConquest: "advance" },
+    { label: "两路穷追，灭燕平代", detail: "接收北方户口府库，但长途追击会折损军力并加重新附地区怨气。", requirements: { army: 150, grain: 115 }, failOnUnmet: true, effects: { population: 10, grain: 8, army: -12, sentiment: -5 }, qinConquest: "advance" },
     { label: "许其纳土，保留旧君", detail: "若旧君交出城塞与军队，下次灭燕所需的各项国势会降低15点。", chance: 60, tag: "谋略", successEffects: { population: 5, sentiment: 8, integrity: -7, army: -3 }, failEffects: { population: -4, army: -8, integrity: -10, sentiment: -5 }, qinConquest: "delay" },
   ]},
   { id: "qin-unification", scriptId: "qin", year: -221, historical: true, qinConquestStage: 5, title: "六合初定", category: "历史大事", text: "五国皆亡，齐国孤悬东方。王贲请自燕南下直取临淄，齐王建则愿奉秦正朔、保留国祀。", options: [
-    { label: "灭齐，天下尽行郡县", detail: "结束最后一个王国，以一套法度贯通天下。", requirements: { army: 148, grain: 112 }, failOnUnmet: true, effects: { grain: -8, army: -8, population: 7, integrity: 10, sentiment: -5 }, qinConquest: "advance" },
+    { label: "灭齐，天下尽行郡县", detail: "齐地完整归入帝国，户口府库大增；统一战争仍会消耗军力并制造不安。", requirements: { army: 148, grain: 112 }, failOnUnmet: true, effects: { population: 9, grain: 10, army: -9, sentiment: -7, integrity: 10 }, qinConquest: "advance" },
     { label: "许齐称臣，郡国并行", detail: "若齐廷交出关塞与军政，下次灭齐所需的各项国势会降低15点。", chance: 62, tag: "谋略", successEffects: { grain: -5, army: -3, integrity: -9, sentiment: 6 }, failEffects: { grain: -12, army: -8, integrity: -11, sentiment: -4 }, qinConquest: "delay" },
   ]},
   { id: "qin-fengshan", scriptId: "qin", year: -219, historical: true, title: "封禅泰山", category: "历史大事", text: "巡行至齐鲁，博士议封禅礼久而不决。皇帝可以借天地昭示一统，也可将民力留给新朝根本。", options: [
@@ -2562,12 +2563,369 @@ const coreHistoricalEvents: EventTemplate[] = [
   ]},
 ];
 
-const historicalEvents: EventTemplate[] = [...additionalHistoricalEvents, ...coreHistoricalEvents];
+const lifeGapHistoricalEvents: EventTemplate[] = [
+  // 秦始皇：填补亲政至灭六国、统一后巡行之间的空档。
+  { id: "qin-lv-buwei-death", scriptId: "qin", year: -235, historical: true, excludesHistoryFlags: ["qin_court_independent"], title: "文信侯之死", category: "历史大事", text: "吕不韦徙居蜀地的诏书已经发出，故旧宾客仍络绎不绝。昔日相邦担心再遭诛灭，送来最后一封谢罪书。", options: [
+    { label: "准其自尽，收束旧党", detail: "以严厉手段彻底结束相邦时代。", effects: { integrity: 8, sentiment: -7, grain: 4 } },
+    { label: "赦其死罪，终身幽居", detail: "宽宥可以安抚宾客，也可能留下政治中心。", chance: 58, tag: "谋略", successEffects: { sentiment: 8, integrity: 4 }, failEffects: { integrity: -9, grain: -5 } },
+  ]},
+  { id: "qin-lv-buwei-retirement", scriptId: "qin", year: -235, historical: true, requiresHistoryFlags: ["qin_court_independent"], title: "文信侯归封", category: "历史大事", text: "嬴政早已绕开吕不韦另建朝廷班底。吕不韦上书请求归封洛阳，从此退出咸阳政局。", options: [
+    { label: "礼送归封，保全文信侯", detail: "让旧相平安退出，以宽厚收拢宾客与旧臣。", effects: { integrity: 9, sentiment: 9, grain: 5 } },
+    { label: "留其著书，征用门客才学", detail: "将相府留下的人才和《吕氏春秋》转为朝廷所用。", chance: 62, tag: "谋略", successEffects: { integrity: 8, grain: 8, sentiment: 5 }, failEffects: { integrity: -5, grain: 2 } },
+  ]},
+  { id: "qin-fanwu-campaign", scriptId: "qin", year: -232, historical: true, title: "番吾受挫", category: "历史大事", text: "秦军分道深入赵境，李牧依险拒战。前线催请增兵，朝臣则担忧在强敌坚城下继续消耗。", options: [
+    { label: "增兵再战，牵制李牧", detail: "若能迫使赵军暴露部署，日后灭赵所需国势将恢复到原有要求。", chance: 54, tag: "军事", successEffects: { army: 7, sentiment: 3, grain: -7 }, failEffects: { army: -13, grain: -12 }, successHistoryFlags: ["qin_fanwu_success"] },
+    { label: "转兵压韩，避赵锋芒", detail: "暂不与李牧决战，把兵力用于孤立韩国。", effects: { grain: 5, army: 3, integrity: -3 } },
+  ]},
+  { id: "qin-bolangsha", scriptId: "qin", year: -217, historical: true, title: "博浪沙惊驾", category: "历史大事", text: "东巡车驾经过博浪沙，巨椎误中副车。刺客已经遁入山野，郡县请求大索天下。", options: [
+    { label: "大索十日，严查关津", detail: "或能震慑六国遗民，但株连会加深怨气。", chance: 60, tag: "吏治", successEffects: { integrity: 7, sentiment: -4 }, failEffects: { sentiment: -12, population: -3, integrity: -5 } },
+    { label: "只追首谋，不扰乡里", detail: "缩小搜捕范围，以民心换取刺客脱逃的风险。", effects: { sentiment: 8, integrity: -4, army: -2 } },
+  ]},
+
+  // 汉高祖：补楚汉相持与晚年异姓王危机。
+  { id: "liubang-xingyang", scriptId: "liubang", year: -204, historical: true, title: "荥阳危城", category: "历史大事", text: "楚军围困荥阳，汉军粮道将断。纪信愿乘王车诈降，韩信则请求继续开辟北方战场。", options: [
+    { label: "遣纪信诈降，主力突围", detail: "以少数人的牺牲保存汉王与主力。", chance: 58, tag: "谋略", successEffects: { army: 9, grain: 4, sentiment: -3 }, failEffects: { army: -15, grain: -10 } },
+    { label: "固守待韩信援军", detail: "守城需要军粮，却能避免仓促突围。", requirements: { grain: 62, army: 70 }, failOnUnmet: true, effects: { grain: -15, army: 6, sentiment: 5 } },
+  ]},
+  { id: "liubang-bairen-plot", scriptId: "liubang", year: -198, historical: true, title: "柏人疑云", category: "历史大事", text: "赵相贯高谋刺之事败露，赵王张敖是否知情尚无定论。廷尉请穷治同党，诸侯则人人自危。", options: [
+    { label: "审明首从，只诛谋者", detail: "查清证据后再定罪，可以稳住诸侯。", chance: 62, tag: "吏治", successEffects: { integrity: 9, sentiment: 7 }, failEffects: { integrity: -8, sentiment: -5 } },
+    { label: "废赵王，分其封国", detail: "先削除潜在威胁，也会加深异姓王恐惧。", effects: { army: 5, integrity: -7, sentiment: -5, grain: 4 } },
+  ]},
+
+  // 汉武帝：补建元新政、漠北以后扩张和晚年政治危机。
+  { id: "hanwu-zhangqian-first", scriptId: "hanwu", year: -138, historical: true, title: "凿空西域", category: "历史大事", text: "郎官张骞愿持节出陇西，寻找被匈奴逐走的大月氏。前路横穿敌境，归期无人能够预料。", options: [
+    { label: "遣张骞西行", detail: "一次高风险远行，可能打开此前未知的道路。", chance: 57, tag: "谋略", successEffects: { grain: 7, army: 5, sentiment: 4 }, failEffects: { grain: -6, population: -2 } },
+    { label: "先经营河西耳目", detail: "不急于穿越匈奴，先建立边地情报网。", effects: { grain: -4, army: 5, integrity: 4 } },
+  ]},
+  { id: "hanwu-dowager-dou", scriptId: "hanwu", year: -135, historical: true, title: "窦太后崩", category: "历史大事", text: "长期压制建元新政的窦太后去世，朝廷权力格局骤变。儒臣与外戚都在争取新空出的政治位置。", options: [
+    { label: "起用儒臣，重定朝仪", detail: "借机推进新政，但会触动旧臣。", chance: 62, tag: "吏治", successEffects: { integrity: 10, sentiment: 5 }, failEffects: { integrity: -8, grain: -4 } },
+    { label: "维持旧班底，徐徐更张", detail: "避免朝局震荡，改革速度也会放缓。", effects: { integrity: 3, sentiment: 4, grain: 3 } },
+  ]},
+  { id: "hanwu-huzi-breach", scriptId: "hanwu", year: -132, historical: true, title: "瓠子河决", category: "历史大事", text: "黄河在瓠子决口，洪水漫入十六郡。堵口耗费巨大，放任改道则下游田土与百姓都将流离。", options: [
+    { label: "征发民夫，立即塞决", detail: "钱粮充足才能在汛期前合龙。", requirements: { grain: 90, population: 85 }, failOnUnmet: true, effects: { grain: -18, population: -4, sentiment: 9 } },
+    { label: "迁民避水，分年修治", detail: "减轻当年征役，把灾损摊到更长时间。", effects: { population: -6, grain: -8, sentiment: 3, integrity: 3 } },
+  ]},
+  { id: "hanwu-huo-death", scriptId: "hanwu", year: -117, historical: true, title: "骠骑早逝", category: "历史大事", text: "霍去病英年病逝，漠北新胜尚未转化为稳定边防。军中旧部、河西降众与朝廷将领都等待安排。", options: [
+    { label: "厚葬如祁连山，抚恤旧部", detail: "以国礼凝聚军心，需要承担不小开支。", effects: { grain: -9, army: 8, sentiment: 7 } },
+    { label: "拆分旧部，交由诸将统领", detail: "避免一军独大，也可能破坏精锐协同。", chance: 60, tag: "军事", successEffects: { army: 7, integrity: 5 }, failEffects: { army: -9, sentiment: -4 } },
+  ]},
+  { id: "hanwu-zhangqian-second", scriptId: "hanwu", year: -115, historical: true, title: "乌孙之使", category: "历史大事", text: "张骞自西域归来，主张厚赂乌孙、联络诸国，从侧翼压迫匈奴。使团与财货将远行数年。", options: [
+    { label: "厚币结乌孙", detail: "以财货换取联盟和商路。", chance: 63, tag: "谋略", successEffects: { grain: 10, army: 6, sentiment: 4 }, failEffects: { grain: -14, integrity: -3 } },
+    { label: "只遣使绘图，不许重赂", detail: "节省国帑，但难以迅速改变西域局势。", effects: { grain: 4, army: 3, integrity: 2 } },
+  ]},
+  { id: "hanwu-nanyue-war", scriptId: "hanwu", year: -112, historical: true, title: "南越相乱", category: "历史大事", text: "南越太后请求内属，丞相吕嘉却杀汉使并举兵。岭南道路湿热遥远，朝廷必须决定如何回应。", options: [
+    { label: "水陆并进讨吕嘉", detail: "远征需要军力与钱粮同时支撑。", requirements: { army: 92, grain: 88 }, failOnUnmet: true, effects: { army: -12, grain: -18, population: 7 } },
+    { label: "封锁关市，招降诸郡", detail: "以贸易和分化瓦解叛军。", chance: 58, tag: "谋略", successEffects: { grain: 8, population: 5 }, failEffects: { grain: -8, army: -5 } },
+  ]},
+  { id: "hanwu-dian-submission", scriptId: "hanwu", year: -109, historical: true, title: "滇王受印", category: "历史大事", text: "西南夷道路渐通，滇王愿入朝受印，却希望保留旧俗与本部权力。郡县之制第一次抵达洱海以东。", options: [
+    { label: "置益州郡，派吏直辖", detail: "扩大版图，也会显著增加治理成本。", effects: { population: 8, grain: -8, integrity: 7, sentiment: -3 } },
+    { label: "授王印，因俗而治", detail: "以较低成本换取名义臣属。", effects: { grain: 5, sentiment: 5, integrity: -4 } },
+  ]},
+  { id: "hanwu-inspectorates", scriptId: "hanwu", year: -106, historical: true, title: "十三部刺史", category: "历史大事", text: "疆域扩张后，郡国奏报真假难辨。朝廷准备分天下为十三部，派刺史巡察豪强与二千石。", options: [
+    { label: "以六条问事，岁终奏报", detail: "监察制度可以澄清吏治，也会激起地方抵触。", chance: 64, tag: "吏治", successEffects: { integrity: 12, grain: 5 }, failEffects: { integrity: -7, sentiment: -4 } },
+    { label: "先试行于边郡", detail: "改革更稳妥，收效也比较有限。", effects: { integrity: 6, grain: 3 } },
+  ]},
+  { id: "hanwu-dayuan-return", scriptId: "hanwu", year: -102, historical: true, title: "贰师凯旋", category: "历史大事", text: "第二次大宛远征攻破贰师城，汗血马与降书一同送至长安，远征军也带回惊人的伤亡账册。", options: [
+    { label: "献俘告庙，赏赐远征军", detail: "用重赏巩固西域声威。", effects: { grain: -12, army: 9, sentiment: 6 } },
+    { label: "清点损耗，追究虚报", detail: "查清军费可以挽回国帑，也可能寒了军心。", chance: 58, tag: "吏治", successEffects: { grain: 13, integrity: 7 }, failEffects: { army: -7, integrity: -5 } },
+  ]},
+  { id: "hanwu-su-wu", scriptId: "hanwu", year: -100, historical: true, title: "苏武持节", category: "历史大事", text: "出使匈奴的苏武拒绝屈降，被徙往北海。朝廷既要回应使节受辱，也要避免重新耗尽边军。", options: [
+    { label: "扣留匈奴使者，要求归还", detail: "强硬交涉能维护国威，也可能再启战端。", chance: 55, tag: "谋略", successEffects: { army: 6, sentiment: 8 }, failEffects: { army: -6, grain: -7 } },
+    { label: "遣使通问，长期营救", detail: "保持外交渠道，等待局势变化。", effects: { grain: -4, sentiment: 5, integrity: 3 } },
+  ]},
+  { id: "hanwu-liquor-monopoly", scriptId: "hanwu", year: -98, historical: true, title: "榷酒入官", category: "历史大事", text: "连年用兵令国库紧张，桑弘羊请求将酒类专卖收归官府。商贾反对，郡县却称可立得巨额收入。", options: [
+    { label: "实行酒榷，官府专卖", detail: "迅速增加收入，却会挤压民间生计。", effects: { grain: 14, sentiment: -9, integrity: -4 } },
+    { label: "征酒税而不禁私酿", detail: "税源较少，但执行更温和。", chance: 64, tag: "财政", successEffects: { grain: 9, sentiment: 3 }, failEffects: { grain: -4, integrity: -4 } },
+  ]},
+  { id: "hanwu-late-expeditions", scriptId: "hanwu", year: -95, historical: true, title: "塞外疲师", category: "历史大事", text: "匈奴战事反复，边将仍不断请求深入漠北。老兵、战马和转运都已不及元狩年间充足。", options: [
+    { label: "整军再出，寻找主力", detail: "若能得胜可重振边威，失败则加速国力枯竭。", chance: 48, tag: "军事", successEffects: { army: 9, sentiment: 4, grain: -10 }, failEffects: { army: -14, grain: -16, sentiment: -6 } },
+    { label: "收缩边防，轮换疲卒", detail: "承认远征收益下降，把资源留给国内。", effects: { army: -3, grain: 10, sentiment: 7 } },
+  ]},
+  { id: "hanwu-gongsunhe", scriptId: "hanwu", year: -92, historical: true, punitive: true, title: "公孙贺案", category: "历史大事", text: "丞相公孙贺之子被告以巫蛊诅咒，案情牵连卫氏外戚。酷吏请求扩大搜捕，宫中已经人人自危。", options: [
+    { label: "交酷吏穷治", detail: "重刑会迅速得到口供，却可能让诬告失控。", effects: { integrity: -13, sentiment: -10, population: -2 } },
+    { label: "封存供词，另派廷尉复核", detail: "拖住案件蔓延，但皇帝必须承受近臣反对。", chance: 52, tag: "吏治", successEffects: { integrity: 9, sentiment: 5 }, failEffects: { integrity: -10, sentiment: -7 } },
+  ]},
+
+  // 曹操：补起兵、官渡后统一北方和赤壁后的权力扩张。
+  { id: "caocao-qingzhou", scriptId: "caocao", year: 192, historical: true, title: "青州兵降", category: "历史大事", text: "大批黄巾余众携家属入兖州请降。精壮可编成军，数十万老弱妇孺也必须得到安置。", options: [
+    { label: "选精锐为青州兵，家属屯田", detail: "军队与生产一并安置，需要严密组织。", chance: 60, tag: "军事", successEffects: { army: 13, population: 8, grain: 5 }, failEffects: { army: -5, grain: -9, sentiment: -5 } },
+    { label: "分散编户，交郡县安置", detail: "避免形成私属强军，地方负担会增加。", effects: { population: 10, sentiment: 5, integrity: -3 } },
+  ]},
+  { id: "caocao-yanzhou-return", scriptId: "caocao", year: 195, historical: true, title: "兖州复定", category: "历史大事", text: "吕布势力退往徐州，兖州诸城重新归附。背叛者、观望者与死守旧臣都等待处置。", options: [
+    { label: "赦观望者，只诛首谋", detail: "尽快恢复秩序，为迎奉天子保留实力。", effects: { sentiment: 8, population: 5, integrity: 4 } },
+    { label: "逐城清算，重置守令", detail: "彻底控制兖州，但会延长动荡。", chance: 58, tag: "吏治", successEffects: { integrity: 10, grain: 5 }, failEffects: { sentiment: -8, population: -3 } },
+  ]},
+  { id: "caocao-hebei-rift", scriptId: "caocao", year: 203, historical: true, title: "袁氏兄弟相争", category: "历史大事", text: "袁绍死后，袁谭与袁尚争夺继承权，双方都向许都求援。河北门户已开，却也可能是诱敌之计。", options: [
+    { label: "联谭攻尚，各个击破", detail: "利用兄弟相争快速深入河北。", chance: 61, tag: "谋略", successEffects: { army: 8, grain: 7 }, failEffects: { army: -9, grain: -8 } },
+    { label: "按兵屯田，坐待两败", detail: "减少立即投入，但会给袁氏重新和解的时间。", effects: { grain: 10, army: 2, integrity: -3 } },
+  ]},
+  { id: "caocao-nanpi", scriptId: "caocao", year: 205, historical: true, title: "南皮破袁谭", category: "历史大事", text: "袁谭背盟后败亡南皮，河北豪族纷纷献城。如何接收袁氏故地，将决定北方能否真正安定。", options: [
+    { label: "禁军掠夺，沿用州郡旧吏", detail: "先稳定生产和秩序，再逐步更换官员。", effects: { grain: 8, sentiment: 7, integrity: -2 } },
+    { label: "迁豪强，重编户籍", detail: "削弱地方根基，短期阻力很大。", chance: 57, tag: "吏治", successEffects: { integrity: 10, population: 5 }, failEffects: { sentiment: -9, grain: -6 } },
+  ]},
+  { id: "caocao-tong-pass", scriptId: "caocao", year: 211, historical: true, title: "潼关对阵", category: "历史大事", text: "马超、韩遂联军据守潼关，关中诸将貌合神离。正面强渡与离间诸部都各有风险。", options: [
+    { label: "渡渭结营，逼其决战", detail: "临阵筑垒考验军队执行力。", chance: 56, tag: "军事", successEffects: { army: 10, grain: -7 }, failEffects: { army: -14, grain: -10 } },
+    { label: "涂改书信，离间马韩", detail: "利用猜忌瓦解联军。", chance: 62, tag: "谋略", successEffects: { army: 7, grain: 5 }, failEffects: { integrity: -5, army: -5 } },
+  ]},
+  { id: "caocao-empress-fu", scriptId: "caocao", year: 214, historical: true, punitive: true, title: "伏后密书", category: "历史大事", text: "伏皇后早年请父亲诛除曹氏的密书被发觉。宫禁、汉室名分与丞相权力再次正面冲突。", options: [
+    { label: "废后下狱，清查宫党", detail: "消除宫中威胁，也会留下残酷名声。", effects: { integrity: -10, sentiment: -9, army: 4 } },
+    { label: "隐去旧书，迁其外戚", detail: "压下案件需要控制知情者和朝臣议论。", chance: 55, tag: "谋略", successEffects: { integrity: 5, sentiment: 5 }, failEffects: { integrity: -12, sentiment: -6 } },
+  ]},
+  { id: "caocao-crown-prince", scriptId: "caocao", year: 217, historical: true, title: "魏国立嗣", category: "历史大事", text: "曹丕与曹植的储位之争已经牵动文臣武将。立嗣可以结束观望，也可能令另一派心怀怨望。", options: [
+    { label: "立曹丕为世子", detail: "依长幼和政治班底确定继承。", effects: { integrity: 7, sentiment: 3, army: 3 } },
+    { label: "再试二子才略", detail: "延后决定，以公开考核服众。", chance: 58, tag: "吏治", successEffects: { integrity: 8, sentiment: 5 }, failEffects: { integrity: -9, grain: -4 } },
+  ]},
+
+  // 刘备：补涿郡起兵至隆中，以及入蜀、汉中之间的长期空档。
+  { id: "liubei-zhuo-recruits", scriptId: "liubei", year: 184, historical: true, title: "涿郡募兵", category: "历史大事", text: "黄巾烽火传到幽州，郡县张榜募兵。商贾愿助马匹钱财，乡里少年也聚到楼桑村外。", options: [
+    { label: "散尽家资，招募乡勇", detail: "根基虽浅，先以共同进退凝聚队伍。", effects: { grain: -8, army: 10, sentiment: 7 } },
+    { label: "投郡兵，依官军出征", detail: "借官府军械起步，也要服从层层号令。", effects: { army: 7, integrity: 4, sentiment: 3 } },
+  ]},
+  { id: "liubei-zhangchun", scriptId: "liubei", year: 188, historical: true, title: "渔阳讨叛", category: "历史大事", text: "张纯、张举勾连乌桓起兵，幽州州郡震动。旧日乡勇再次受征，但军饷和补给都极为有限。", options: [
+    { label: "率旧部追击叛军", detail: "以战功换取立足之地。", chance: 56, tag: "军事", successEffects: { army: 8, sentiment: 5, grain: 3 }, failEffects: { army: -10, grain: -6 } },
+    { label: "护送流民南下安置", detail: "放弃争取军功，先保存人口。", effects: { population: 7, sentiment: 8, grain: -5 } },
+  ]},
+  { id: "liubei-coalition", scriptId: "liubei", year: 190, historical: true, title: "关东会盟", category: "历史大事", text: "关东诸侯起兵讨董，盟军号令不一。刘备兵少名微，只能选择依附的方向与作战方式。", options: [
+    { label: "随公孙瓒进军", detail: "依托同门旧交，在前线争取声望。", chance: 58, tag: "军事", successEffects: { army: 7, sentiment: 7 }, failEffects: { army: -7, grain: -5 } },
+    { label: "联络诸侯，护送粮道", detail: "不争先锋，以可靠和周全建立名声。", effects: { grain: 6, integrity: 5, sentiment: 4 } },
+  ]},
+  { id: "liubei-save-xuzhou", scriptId: "liubei", year: 193, historical: true, title: "驰援徐州", category: "历史大事", text: "曹军攻徐州，陶谦遣使求救。刘备兵力有限，却可能借这场危机获得第一块真正的立足之地。", options: [
+    { label: "兼程赴援，与曹军对峙", detail: "救援弱者可以赢得民望，也可能被强敌击溃。", chance: 54, tag: "军事", successEffects: { army: 6, sentiment: 11, population: 4 }, failEffects: { army: -12, grain: -8 } },
+    { label: "先驻小沛，接纳难民", detail: "避免决战，以救民和守城逐步取得信任。", effects: { population: 8, sentiment: 9, grain: -7 } },
+  ]},
+  { id: "liubei-xiapi-lost", scriptId: "liubei", year: 196, historical: true, punitive: true, title: "下邳失守", category: "历史大事", text: "刘备与袁术交战之际，吕布乘虚夺取下邳，家眷与府库尽落敌手。进退之间已经没有无损的道路。", options: [
+    { label: "回军争城", detail: "仓促回师可能夺回根基，也可能腹背受敌。", chance: 46, tag: "军事", successEffects: { army: 5, grain: 4 }, failEffects: { army: -14, grain: -12, sentiment: -7 } },
+    { label: "暂投吕布，屯驻小沛", detail: "忍辱保存旧部，但名望与自主都将受损。", effects: { army: -5, sentiment: -7, population: 4 } },
+  ]},
+  { id: "liubei-leave-xuchang", scriptId: "liubei", year: 199, historical: true, title: "许都脱身", category: "历史大事", text: "曹操青梅煮酒，直言天下英雄只有彼此。恰逢讨袁术的军令下达，刘备得到离开许都的机会。", options: [
+    { label: "请兵截袁术，乘机出走", detail: "谋划得当便能重获自主，败露则无路可退。", chance: 57, tag: "谋略", successEffects: { army: 6, sentiment: 6 }, failEffects: { army: -11, integrity: -6 } },
+    { label: "留在许都，继续韬晦", detail: "暂时安全，却会逐渐失去自己的部众。", effects: { army: -5, grain: 6, integrity: 3 } },
+  ]},
+  { id: "liubei-bowang", scriptId: "liubei", year: 202, historical: true, title: "博望初胜", category: "历史大事", text: "曹将夏侯惇进逼新野，刘备兵少，熟悉山道。诸将建议伪退设伏，也有人主张固守城寨。", options: [
+    { label: "焚营伪退，伏兵反击", detail: "诱敌深入考验军令和时机。", chance: 60, tag: "谋略", successEffects: { army: 9, sentiment: 7 }, failEffects: { army: -10, grain: -6 } },
+    { label: "坚守新野，不轻出战", detail: "保存实力，但无法扩大战果。", effects: { army: 4, grain: -5, sentiment: 3 } },
+  ]},
+  { id: "liubei-jingzhou-years", scriptId: "liubei", year: 205, historical: true, title: "新野寄寓", category: "历史大事", text: "在荆州寄居多年，旧部日渐壮大，刘表却始终不愿交付重任。北方流民与荆州士人都来投奔。", options: [
+    { label: "广纳流民，屯田练兵", detail: "在有限地盘上慢慢积累自己的根基。", effects: { population: 8, grain: 7, army: 5, integrity: -2 } },
+    { label: "结交荆襄士人，静候时局", detail: "以人才和声望弥补土地不足。", chance: 64, tag: "谋略", successEffects: { sentiment: 9, integrity: 5 }, failEffects: { grain: -5, sentiment: -3 } },
+  ]},
+  { id: "liubei-enter-yi", scriptId: "liubei", year: 211, historical: true, title: "应邀入蜀", category: "历史大事", text: "刘璋畏惧张鲁，邀请刘备率军入蜀。益州险塞富庶，但客军与州牧之间的信任十分脆弱。", options: [
+    { label: "率军入蜀，驻葭萌关", detail: "借援助之名取得战略入口。", effects: { army: 6, grain: 7, integrity: -5, sentiment: 3 } },
+    { label: "只遣将助防，留守荆州", detail: "避免背主之名，也可能错失益州。", effects: { integrity: 7, sentiment: 5, army: 2 } },
+  ]},
+  { id: "liubei-hanzhong-campaign", scriptId: "liubei", year: 217, historical: true, title: "汉中相持", category: "历史大事", text: "曹刘两军在汉中山谷反复争夺，粮道比城池更重要。法正建议据险消耗，诸将则请主动决战。", options: [
+    { label: "据定军山，断其粮道", detail: "利用地形等待曹军疲惫。", chance: 62, tag: "谋略", successEffects: { army: 8, grain: 6 }, failEffects: { grain: -10, army: -6 } },
+    { label: "增兵强攻，速决汉中", detail: "正面投入更大，也可能提前结束战事。", chance: 54, tag: "军事", successEffects: { army: 11, sentiment: 6, grain: -8 }, failEffects: { army: -14, grain: -12 } },
+  ]},
+
+  // 刘裕：补京口起义后的复晋、南燕战事和北伐准备。
+  { id: "liuyu-restore-jin", scriptId: "liuyu", year: 406, historical: true, title: "还都复晋", category: "历史大事", text: "桓玄余党渐平，晋室重回建康。北府军功臣势盛，朝廷旧族则担心寒门武人掌握中枢。", options: [
+    { label: "还政朝廷，自镇京口", detail: "保持名分，以军权而非官位巩固实力。", effects: { integrity: 8, sentiment: 6, army: 4 } },
+    { label: "入掌中枢，裁撤旧党", detail: "迅速控制朝廷，也会激起士族反弹。", chance: 56, tag: "吏治", successEffects: { integrity: 7, grain: 5 }, failEffects: { integrity: -9, sentiment: -6 } },
+  ]},
+  { id: "liuyu-nanyan", scriptId: "liuyu", year: 409, historical: true, title: "北伐南燕", category: "历史大事", text: "南燕屡扰淮北，刘裕决定越过淮水直趋广固。群臣担忧后路空虚，北府将士却渴望收复青齐。", options: [
+    { label: "轻装北进，直逼广固", detail: "以速度压倒南燕，粮道风险极高。", chance: 58, tag: "军事", successEffects: { army: 10, sentiment: 7, grain: -8 }, failEffects: { army: -13, grain: -12 } },
+    { label: "沿淮置戍，稳步推进", detail: "进军较慢，但能保全后方。", effects: { grain: -7, army: 6, integrity: 3 } },
+  ]},
+  { id: "liuyu-luxun-end", scriptId: "liuyu", year: 411, historical: true, title: "卢循败亡", category: "历史大事", text: "卢循退出岭南后走投无路，其余部与沿海流民仍散布各地。朝廷需要决定如何结束这场多年民变。", options: [
+    { label: "追剿首领，赦免胁从", detail: "区分首从有助于恢复岭南秩序。", chance: 62, tag: "吏治", successEffects: { sentiment: 9, integrity: 7, population: 4 }, failEffects: { army: -6, sentiment: -5 } },
+    { label: "迁其余众，编为军户", detail: "削弱地方联系，同时增加军中不稳定因素。", effects: { army: 7, population: 4, sentiment: -5 } },
+  ]},
+  { id: "liuyu-sima-xiuzhi", scriptId: "liuyu", year: 415, historical: true, title: "荆州拒命", category: "历史大事", text: "荆州刺史司马休之拒绝交出权力，宗室与地方军队相互声援。北伐之前，长江上游不能继续割据。", options: [
+    { label: "溯江进军，解除荆州兵权", detail: "迅速统一后方，失败则北伐无从谈起。", chance: 57, tag: "军事", successEffects: { army: 8, integrity: 6 }, failEffects: { army: -12, grain: -8 } },
+    { label: "许以终身荣养，换其交权", detail: "用政治妥协避免内战。", chance: 61, tag: "谋略", successEffects: { integrity: 7, sentiment: 6, grain: -4 }, failEffects: { integrity: -7, army: -4 } },
+  ]},
+
+  // 唐太宗：补统一战争、贞观内政和东突厥至辽东之间的空档。
+  { id: "taizong-liuwuzhou", scriptId: "taizong", year: 619, historical: true, title: "河东失守", category: "历史大事", text: "刘武周南下夺取太原，唐军接连退败。李世民请求率军渡河，以坚壁不战拖垮敌军粮道。", options: [
+    { label: "坚壁待饥，再纵兵追击", detail: "忍耐比决战更考验军纪。", chance: 60, tag: "谋略", successEffects: { army: 9, grain: 6 }, failEffects: { army: -8, grain: -10 } },
+    { label: "立即决战，夺回河东", detail: "速战可振军心，也可能重蹈败局。", chance: 52, tag: "军事", successEffects: { army: 12, sentiment: 6 }, failEffects: { army: -15, grain: -9 } },
+  ]},
+  { id: "taizong-fugongshi", scriptId: "taizong", year: 624, historical: true, title: "江淮底定", category: "历史大事", text: "辅公祏兵败，江南再次归唐。当地豪族、杜伏威旧部与新任官吏之间仍彼此猜疑。", options: [
+    { label: "赦旧部，恢复州县", detail: "尽快让江淮从战争回到生产。", effects: { population: 7, grain: 8, sentiment: 6 } },
+    { label: "清查同党，重置军镇", detail: "防止再次叛乱，但容易扩大株连。", chance: 57, tag: "吏治", successEffects: { integrity: 8, army: 5 }, failEffects: { sentiment: -8, population: -3 } },
+  ]},
+  { id: "taizong-liangshidu", scriptId: "taizong", year: 628, historical: true, title: "朔方归唐", category: "历史大事", text: "梁师都长期依附突厥，据守朔方。城中有人愿作内应，边将则请以大军压境。", options: [
+    { label: "联络城中内应", detail: "以较小代价结束割据。", chance: 61, tag: "谋略", successEffects: { army: 7, grain: 5, population: 4 }, failEffects: { grain: -6, army: -4 } },
+    { label: "大军围城，隔绝突厥", detail: "更稳妥，也需要承担围城消耗。", effects: { grain: -10, army: 6, sentiment: 3 } },
+  ]},
+  { id: "taizong-death-row", scriptId: "taizong", year: 632, historical: true, title: "纵囚归家", category: "历史大事", text: "太宗允许数百名死囚回乡料理家事，约定来年自行归狱。法司担心逃亡，朝野则视为仁信之举。", options: [
+    { label: "依约纵归，来年候返", detail: "以君臣信义检验教化。", chance: 65, tag: "民生", successEffects: { sentiment: 11, integrity: 6 }, failEffects: { integrity: -8, sentiment: -3 } },
+    { label: "改为减刑，不许离狱", detail: "保守处理，兼顾法律与宽仁。", effects: { sentiment: 5, integrity: 4 } },
+  ]},
+  { id: "taizong-empress-death", scriptId: "taizong", year: 636, historical: true, title: "文德皇后崩", category: "历史大事", text: "长孙皇后病逝，留下薄葬遗言。太宗悲恸，群臣担心皇室丧仪再次增加百姓徭役。", options: [
+    { label: "遵遗言薄葬", detail: "以克制延续贞观初政。", effects: { sentiment: 9, integrity: 7, grain: 4 } },
+    { label: "依皇后大礼厚葬", detail: "彰显国礼，也会动用大量国帑民力。", effects: { grain: -12, sentiment: -3, integrity: 2 } },
+  ]},
+  { id: "taizong-turkic-settlement", scriptId: "taizong", year: 639, historical: true, title: "突厥内徙", category: "历史大事", text: "东突厥旧部大量归附，朝廷争论应把他们安置在塞内，还是扶立可汗迁回漠南。", options: [
+    { label: "分置州县，编户内徙", detail: "便于控制，也可能激化边民矛盾。", effects: { population: 9, army: 5, sentiment: -5, integrity: -3 } },
+    { label: "扶立可汗，置于塞外", detail: "以藩屏守边，但需要长期维系盟约。", chance: 60, tag: "谋略", successEffects: { army: 8, grain: 5 }, failEffects: { army: -7, grain: -6 } },
+  ]},
+  { id: "taizong-heir-strife", scriptId: "taizong", year: 642, historical: true, title: "东宫暗潮", category: "历史大事", text: "太子承乾与魏王李泰各自延揽宾客，朝臣逐渐分成两派。若继续放任，储位之争将进入宫禁。", options: [
+    { label: "限制诸王属官，公开申明储位", detail: "以制度压住党争，也会得罪受宠皇子。", chance: 60, tag: "吏治", successEffects: { integrity: 9, sentiment: 5 }, failEffects: { integrity: -9, sentiment: -4 } },
+    { label: "分别训诫，暂不改变待遇", detail: "避免立即决裂，但暗中争斗仍会持续。", effects: { integrity: -4, sentiment: 2, grain: 3 } },
+  ]},
+  { id: "taizong-xueyantuo", scriptId: "taizong", year: 647, historical: true, title: "薛延陀亡", category: "历史大事", text: "薛延陀汗国崩解，铁勒诸部纷纷遣使内附。北方骤然出现大片没有稳定秩序的草原。", options: [
+    { label: "置羁縻州府，保留部落首领", detail: "以较低成本建立名义秩序。", effects: { army: 7, grain: 5, integrity: -3, sentiment: 4 } },
+    { label: "迁强部入塞，唐军驻防", detail: "控制更直接，转运和安置成本很高。", requirements: { grain: 95, army: 100 }, failOnUnmet: true, effects: { grain: -14, army: 8, population: 5 } },
+  ]},
+
+  // 宋太祖：补后周征战与统一南方的十年空档。
+  { id: "song-huainan-war", scriptId: "song", year: 956, historical: true, title: "淮南鏖兵", category: "历史大事", text: "后周与南唐争夺淮南，寿州久攻不下，水网又使粮运艰难。赵匡胤奉命在前线寻找突破。", options: [
+    { label: "抢占浮桥，切断援军", detail: "迅速夺取水陆节点，失败则容易被夹击。", chance: 57, tag: "军事", successEffects: { army: 9, grain: 5 }, failEffects: { army: -12, grain: -8 } },
+    { label: "整顿转运，围城待降", detail: "以持久后勤消磨守军。", requirements: { grain: 72 }, failOnUnmet: true, effects: { grain: -12, army: 6, integrity: 3 } },
+  ]},
+  { id: "song-jinghu", scriptId: "song", year: 963, historical: true, title: "荆湖归宋", category: "历史大事", text: "借道讨张文表的大军进入荆南，湖南与荆南政权相继失去抵抗。新得州县横跨长江中游。", options: [
+    { label: "收其府库，赦免旧臣", detail: "迅速接管财赋并维持地方秩序。", effects: { grain: 10, population: 6, sentiment: 6 } },
+    { label: "改置守令，裁撤旧军", detail: "强化中央控制，也会制造大批失业军士。", chance: 58, tag: "吏治", successEffects: { integrity: 9, army: 5 }, failEffects: { sentiment: -7, army: -4 } },
+  ]},
+  { id: "song-kaibao-rule", scriptId: "song", year: 968, historical: true, title: "开宝新政", category: "历史大事", text: "天下渐趋统一，朝廷准备把地方财赋、刑狱与官员任命更多收归中央。州镇担心权力尽失。", options: [
+    { label: "遣转运使掌一路财赋", detail: "削弱藩镇财权，提高国库控制力。", chance: 63, tag: "财政", successEffects: { grain: 12, integrity: 6 }, failEffects: { grain: -6, integrity: -5 } },
+    { label: "保留州镇分成，换取服从", detail: "改革较缓，地方阻力也较小。", effects: { grain: 6, sentiment: 4, integrity: -3 } },
+  ]},
+  { id: "song-southern-han", scriptId: "song", year: 971, historical: true, title: "岭南归附", category: "历史大事", text: "宋军攻入广州，南汉灭亡。当地酷刑、宦官政治与海贸税利一并交到新朝手中。", options: [
+    { label: "废酷刑，开放海贸", detail: "以新政争取岭南民心。", effects: { sentiment: 10, grain: 8, integrity: 5 } },
+    { label: "接管府库，严控港口", detail: "收入立见，也会延续旧政积弊。", effects: { grain: 14, sentiment: -7, integrity: -5 } },
+  ]},
+  { id: "song-tang-campaign", scriptId: "song", year: 974, historical: true, title: "采石浮桥", category: "历史大事", text: "宋军准备渡江攻南唐，工匠提出在采石矶架设浮桥。若桥成，长江天险将第一次被北军正面跨越。", options: [
+    { label: "昼夜造桥，大军齐渡", detail: "工程、护卫与军令必须严密配合。", chance: 58, tag: "军事", successEffects: { army: 10, grain: -6 }, failEffects: { army: -13, grain: -12 } },
+    { label: "水师佯攻，另寻渡口", detail: "不把全军押在一座浮桥上。", chance: 62, tag: "谋略", successEffects: { army: 7, grain: 4 }, failEffects: { grain: -8, army: -5 } },
+  ]},
+
+  // 成吉思汗：草原统一早期纪年存在争议，采用游戏年表中的代表性阶段事件。
+  { id: "genghis-thirteen-wings", scriptId: "genghis", year: 1192, historical: true, title: "十三翼交锋", category: "历史大事", text: "札木合聚集诸部来攻，乞颜部被编成十三翼迎战。即使一时受挫，如何约束部众也决定联盟能否继续。", options: [
+    { label: "集中中军迎战札木合", detail: "以正面会战检验新汗的号令。", chance: 54, tag: "军事", successEffects: { army: 10, sentiment: 5 }, failEffects: { army: -12, population: -3 } },
+    { label: "保存诸翼，边退边收拢部众", detail: "不争一战胜负，把失败转化为长期凝聚。", effects: { army: -4, sentiment: 7, population: 5 } },
+  ]},
+  { id: "genghis-wang-khan", scriptId: "genghis", year: 1195, historical: true, title: "王罕求援", category: "历史大事", text: "克烈部王罕遭亲族驱逐，向铁木真求援。扶他复位可以得到强大盟友，也会把乞颜部卷入克烈内争。", options: [
+    { label: "助王罕复位，重申父盟", detail: "以旧盟换取草原政治资本。", chance: 60, tag: "谋略", successEffects: { army: 7, grain: 6, sentiment: 5 }, failEffects: { army: -8, grain: -7 } },
+    { label: "只收容其部众，不替他出兵", detail: "扩充自身人口，但公开破坏旧日盟誓。", effects: { population: 8, army: 4, sentiment: -5 } },
+  ]},
+  { id: "genghis-tatar-campaign", scriptId: "genghis", year: 1198, historical: true, title: "讨塔塔儿", category: "历史大事", text: "金朝遣使约攻塔塔儿，王罕也愿共同出兵。借外力复仇的机会已经出现，战后封赏却未必公平。", options: [
+    { label: "联军急击塔塔儿", detail: "利用多方夹击迅速削弱世仇。", chance: 59, tag: "军事", successEffects: { army: 9, population: 4, grain: 4 }, failEffects: { army: -10, grain: -8 } },
+    { label: "索取封号与互市后再出兵", detail: "先把联盟转化为可见利益。", chance: 61, tag: "谋略", successEffects: { grain: 9, integrity: 4 }, failEffects: { sentiment: -5, grain: -4 } },
+  ]},
+  { id: "genghis-khuiten", scriptId: "genghis", year: 1201, historical: true, title: "阔亦田会战", category: "历史大事", text: "札木合被诸部推为古儿汗，反对铁木真的联盟在阔亦田集结。暴雨将至，两军都在等待先机。", options: [
+    { label: "冒雨突击联盟中军", detail: "恶劣天气既是风险，也是瓦解联军的机会。", chance: 55, tag: "军事", successEffects: { army: 11, sentiment: 7 }, failEffects: { army: -13, population: -3 } },
+    { label: "散布败讯，诱其诸部先逃", detail: "联盟缺乏互信，谣言可能比箭矢更有效。", chance: 60, tag: "谋略", successEffects: { army: 7, grain: 5 }, failEffects: { integrity: -5, army: -5 } },
+  ]},
+  { id: "genghis-western-xia-first", scriptId: "genghis", year: 1209, historical: true, title: "西夏请和", category: "历史大事", text: "蒙古军越过贺兰山，西夏都城受困。河渠决水使围城受阻，夏主愿献女纳贡。", options: [
+    { label: "受降纳贡，转兵休整", detail: "把胜势换成稳定补给，不在坚城下久耗。", effects: { grain: 11, army: 5, sentiment: 4 } },
+    { label: "继续攻城，迫其彻底臣服", detail: "围城军若失去补给，胜势也会反转。", chance: 51, tag: "军事", successEffects: { army: 10, grain: 8 }, failEffects: { army: -14, grain: -13 } },
+  ]},
+  { id: "genghis-jin-moves-capital", scriptId: "genghis", year: 1214, historical: true, title: "金廷南迁", category: "历史大事", text: "金帝献出财货与公主求和后迁都南京，中都军民认为朝廷弃城。蒙古诸将请求立即回师。", options: [
+    { label: "回师围中都", detail: "抓住人心瓦解的时机扩大胜果。", chance: 57, tag: "军事", successEffects: { army: 10, grain: 9, population: 4 }, failEffects: { army: -11, grain: -9 } },
+    { label: "接受和议，经营塞北", detail: "避免持续攻城，把所得用于巩固草原。", effects: { grain: 12, army: 3, sentiment: 4 } },
+  ]},
+  { id: "genghis-muqali", scriptId: "genghis", year: 1217, historical: true, title: "木华黎经略", category: "历史大事", text: "西征准备日紧，金国战场却不能停顿。木华黎受命以少量蒙古军统合各族降军，经略中原。", options: [
+    { label: "授国王号，专断征伐", detail: "充分授权可以维持东线，也会形成强大方面军。", effects: { army: 8, integrity: -5, grain: 6 } },
+    { label: "分设监军，岁报战果", detail: "加强控制，但可能降低前线反应速度。", chance: 60, tag: "吏治", successEffects: { integrity: 8, army: 5 }, failEffects: { army: -6, integrity: -4 } },
+  ]},
+  { id: "genghis-central-asia-return", scriptId: "genghis", year: 1222, historical: true, title: "河中定局", category: "历史大事", text: "花剌子模诸城相继陷落，远征军已深入河中与呼罗珊。继续追击残敌，还是开始安排归途，成为新的争论。", options: [
+    { label: "继续追击，扫清残部", detail: "扩大威慑，也将进一步拉长补给线。", chance: 54, tag: "军事", successEffects: { army: 8, grain: 7 }, failEffects: { army: -12, grain: -13 } },
+    { label: "设达鲁花赤，分军班师", detail: "让征服转入治理，保全部众返回草原。", effects: { integrity: 7, grain: 8, army: -2 } },
+  ]},
+  { id: "genghis-final-xia", scriptId: "genghis", year: 1225, historical: true, title: "再征西夏", category: "历史大事", text: "西夏拒绝出兵西征，又收容蒙古仇敌。大汗决定再次南下，但多年远征后人马都需要休养。", options: [
+    { label: "诸路合围，迫其决战", detail: "以最后一次大规模动员结束西夏问题。", requirements: { army: 105, grain: 75 }, failOnUnmet: true, effects: { army: -12, grain: -16, sentiment: 4 } },
+    { label: "限期交人纳贡", detail: "用外交最后试探西夏是否愿意屈服。", chance: 54, tag: "谋略", successEffects: { grain: 10, army: 5 }, failEffects: { sentiment: -6, army: -4 } },
+  ]},
+
+  // 明太祖：补群雄竞争、开国后北边与整肃政治之间的空档。
+  { id: "ming-chuzhou", scriptId: "ming", year: 1354, historical: true, title: "滁州立足", category: "历史大事", text: "朱元璋离开濠州旧部，招募自己的队伍攻取滁州。新附将士来源复杂，军粮也只能就地筹措。", options: [
+    { label: "严明军纪，不许扰民", detail: "短期筹粮更难，却能建立不同于群雄的名声。", effects: { grain: -6, army: 7, sentiment: 10, integrity: 6 } },
+    { label: "取豪强粮饷军", detail: "迅速补足军需，也可能把地方推向敌方。", effects: { grain: 11, army: 5, sentiment: -7, integrity: -3 } },
+  ]},
+  { id: "ming-zhedong-scholars", scriptId: "ming", year: 1359, historical: true, title: "浙东群贤", category: "历史大事", text: "刘基、宋濂等浙东士人陆续来到应天。军府第一次拥有可以规划制度、外交和天下形势的文臣集团。", options: [
+    { label: "置礼贤馆，咨以天下大计", detail: "让文臣进入决策核心。", chance: 66, tag: "谋略", successEffects: { integrity: 8, sentiment: 7, grain: 4 }, failEffects: { grain: -4, integrity: -3 } },
+    { label: "先授地方官，考察实务", detail: "从治理州县开始检验才干。", effects: { integrity: 6, grain: 5 } },
+  ]},
+  { id: "ming-longwan", scriptId: "ming", year: 1361, historical: true, title: "龙湾余波", category: "历史大事", text: "陈友谅水军进逼应天受挫后，双方仍在长江上游争夺。是乘胜追击，还是先稳固江东根本？", options: [
+    { label: "溯江追击，夺取安庆", detail: "抓住敌军新败扩大控制范围。", chance: 57, tag: "军事", successEffects: { army: 9, grain: 6 }, failEffects: { army: -11, grain: -8 } },
+    { label: "修城练水军，等待再战", detail: "不给敌人反扑的机会，扩张则会放缓。", effects: { army: 6, grain: 4, sentiment: 3 } },
+  ]},
+  { id: "ming-zhang-shicheng", scriptId: "ming", year: 1366, historical: true, title: "平江围城", category: "历史大事", text: "张士诚困守平江，城中富庶而防御坚固。诸将请求强攻，文臣担心江南财赋毁于战火。", options: [
+    { label: "长围断粮，保全城郭", detail: "用时间换取较完整的江南。", requirements: { grain: 78 }, failOnUnmet: true, effects: { grain: -13, army: 7, population: 6 } },
+    { label: "水陆强攻，迅速破城", detail: "缩短战事，但伤亡与破坏更大。", chance: 53, tag: "军事", successEffects: { army: 9, grain: 7 }, failEffects: { army: -13, population: -4 } },
+  ]},
+  { id: "ming-conquer-xia", scriptId: "ming", year: 1371, historical: true, title: "明夏归附", category: "历史大事", text: "大军水陆入蜀，明升开城请降。四川经历多年割据，山川险阻与旧军安置都是新问题。", options: [
+    { label: "保全降主，安抚蜀中", detail: "以宽待降者换取州县迅速稳定。", effects: { population: 7, sentiment: 8, grain: 5 } },
+    { label: "分迁旧军，重设卫所", detail: "避免地方复叛，也会增加迁徙成本。", effects: { army: 7, integrity: 5, sentiment: -5, grain: -5 } },
+  ]},
+  { id: "ming-northern-recovery", scriptId: "ming", year: 1374, historical: true, title: "北边再议", category: "历史大事", text: "岭北之战失利后，北元骑兵仍往来塞外。将领主张继续深入，户部则要求先恢复边地屯田。", options: [
+    { label: "沿长城设卫，军屯自给", detail: "以长期建设替代频繁远征。", effects: { army: 7, grain: 6, population: 3 } },
+    { label: "再遣精骑寻找王庭", detail: "胜利可洗刷前败，风险依然很高。", chance: 48, tag: "军事", successEffects: { army: 10, sentiment: 6 }, failEffects: { army: -14, grain: -11 } },
+  ]},
+  { id: "ming-weisuo", scriptId: "ming", year: 1377, historical: true, title: "卫所定制", category: "历史大事", text: "天下卫所渐成体系，军户世袭、屯田供军的规则需要统一。逃役和将领侵占屯田已经出现。", options: [
+    { label: "清丈屯田，军粮归卫", detail: "整顿得当可让边军减少国库负担。", chance: 60, tag: "吏治", successEffects: { army: 7, grain: 9, integrity: 6 }, failEffects: { army: -5, integrity: -6 } },
+    { label: "准卫所自理，按额出兵", detail: "中央少加干预，也容易积累隐患。", effects: { grain: 5, army: 4, integrity: -5 } },
+  ]},
+  { id: "ming-yunnan", scriptId: "ming", year: 1383, historical: true, title: "云南新附", category: "历史大事", text: "明军平定云南后，元梁王旧部、土官与各族百姓都需要重新安排。直接设府与沿用土官各有利弊。", options: [
+    { label: "流官土官并用", detail: "保留地方结构，同时逐步纳入朝廷。", chance: 62, tag: "吏治", successEffects: { population: 7, grain: 6, integrity: 5 }, failEffects: { sentiment: -6, grain: -5 } },
+    { label: "全面改土设府", detail: "控制更直接，地方反弹也更强。", effects: { integrity: 8, army: 4, sentiment: -8, grain: -5 } },
+  ]},
+  { id: "ming-guohuan", scriptId: "ming", year: 1386, historical: true, punitive: true, title: "郭桓案发", category: "历史大事", text: "户部侍郎郭桓被告侵盗官粮，账册牵连各地官员与富户。追赃越广，伪造口供和层层摊派也越难避免。", options: [
+    { label: "穷追赃粮，扩大审讯", detail: "可能追回巨款，也会让案件迅速失控。", effects: { grain: 12, integrity: -12, sentiment: -10, population: -2 } },
+    { label: "限定证据，只办主犯", detail: "放弃夸大的追赃数字，保住司法边界。", chance: 55, tag: "吏治", successEffects: { integrity: 10, sentiment: 6 }, failEffects: { grain: -6, integrity: -7 } },
+  ]},
+  { id: "ming-buir-lake", scriptId: "ming", year: 1389, historical: true, title: "捕鱼儿海之后", category: "历史大事", text: "蓝玉深入捕鱼儿海大破北元，俘获人口牲畜无数。如何处置降众与功高诸将，关系到北边和朝局。", options: [
+    { label: "厚赏将士，分置降众", detail: "以胜利巩固军心并恢复边地人口。", effects: { grain: -9, army: 9, population: 7, sentiment: 5 } },
+    { label: "收缴战利，限制诸将私属", detail: "强化朝廷控制，也会招致勋贵不满。", chance: 57, tag: "吏治", successEffects: { grain: 10, integrity: 8 }, failEffects: { army: -8, integrity: -6 } },
+  ]},
+  { id: "ming-princes-border", scriptId: "ming", year: 1396, historical: true, title: "诸王塞上", category: "历史大事", text: "北边诸王掌握重兵，既是屏藩，也逐渐形成各自班底。皇太孙年少，朝廷必须重新界定亲王军权。", options: [
+    { label: "定期换防，兵权归五军府", detail: "提前约束藩王，需要朝廷拥有足够执行力。", chance: 54, tag: "吏治", successEffects: { integrity: 10, army: 4 }, failEffects: { army: -8, integrity: -7 } },
+    { label: "仍令诸王专守一方", detail: "边防更有力，却把未来问题留给继承者。", effects: { army: 8, integrity: -7, sentiment: 2 } },
+  ]},
+  { id: "liubei-anxi", scriptId: "liubei", year: 186, historical: true, title: "安喜去官", category: "历史大事", text: "平定黄巾后，刘备仅得安喜县尉。督邮到县索求逢迎，微末官位与胸中抱负第一次正面冲突。", options: [
+    { label: "弃官而去，保存旧部", detail: "不受折辱，却再次失去官府立足点。", effects: { integrity: 7, sentiment: 6, grain: -4 } },
+    { label: "忍辱留任，经营县政", detail: "先积累治理经验，再等待新的机会。", chance: 60, tag: "吏治", successEffects: { grain: 5, sentiment: 7, integrity: 4 }, failEffects: { integrity: -6, sentiment: -3 } },
+  ]},
+  { id: "liuyu-liuyi", scriptId: "liuyu", year: 412, historical: true, title: "刘毅伏诛", category: "历史大事", text: "荆州刺史刘毅拥兵自重，又与朝廷中枢结交。北府旧将之间的权力冲突已经无法继续掩盖。", options: [
+    { label: "先发制人，收其兵权", detail: "迅速消除割据风险，也会加深功臣疑惧。", chance: 57, tag: "军事", successEffects: { army: 7, integrity: 5 }, failEffects: { army: -11, grain: -7 } },
+    { label: "召回建康，以高位羁縻", detail: "尝试不经内战完成权力交接。", chance: 55, tag: "谋略", successEffects: { integrity: 8, sentiment: 5 }, failEffects: { integrity: -8, army: -5 } },
+  ]},
+  { id: "taizong-tuyuhun", scriptId: "taizong", year: 634, historical: true, title: "吐谷浑犯边", category: "历史大事", text: "吐谷浑侵扰河西，扣留唐使。李靖请率军越雪山追击，朝臣担心远征再次拖长补给线。", options: [
+    { label: "命李靖深入追击", detail: "在高原展开远征，需要精锐与转运配合。", chance: 58, tag: "军事", successEffects: { army: 9, sentiment: 6, grain: -7 }, failEffects: { army: -12, grain: -11 } },
+    { label: "固守河西，招抚其部", detail: "以边防和分化换取较低战争成本。", chance: 61, tag: "谋略", successEffects: { army: 6, grain: 5 }, failEffects: { sentiment: -5, army: -4 } },
+  ]},
+  { id: "song-huainan-settlement", scriptId: "song", year: 958, historical: true, title: "淮南归周", category: "历史大事", text: "南唐割让江北诸州，淮南多年战火暂息。新边界、降军和恢复漕运都需要前线将领立即处置。", options: [
+    { label: "整修漕渠，恢复盐运", detail: "把战果转化为稳定财赋。", chance: 63, tag: "财政", successEffects: { grain: 11, population: 4 }, failEffects: { grain: -6, integrity: -4 } },
+    { label: "沿江增寨，严防反攻", detail: "优先巩固军事边界。", effects: { army: 7, grain: -6, sentiment: 3 } },
+  ]},
+  { id: "genghis-kereit-fall", scriptId: "genghis", year: 1203, historical: true, title: "克烈覆亡", category: "历史大事", text: "与王罕的联盟彻底破裂，克烈部在突袭后溃散。大量贵族、牧民与工匠等待胜者处置。", options: [
+    { label: "打散诸部，按千户重编", detail: "削弱旧贵族，把人口直接纳入新军制。", effects: { army: 9, population: 7, integrity: 5, sentiment: -4 } },
+    { label: "保留首领，令其宣誓效忠", detail: "接收更快，但旧有依附关系仍然存在。", effects: { population: 8, grain: 5, integrity: -5 } },
+  ]},
+  { id: "genghis-zhongdu", scriptId: "genghis", year: 1215, historical: true, title: "中都陷落", category: "历史大事", text: "长期围困后，中都失守。城内人口、仓库和工匠远超草原诸部以往接管的规模。", options: [
+    { label: "禁掠三日，登记工匠户口", detail: "约束诸军，把城市转化为长期资源。", chance: 58, tag: "吏治", successEffects: { population: 9, grain: 9, integrity: 7 }, failEffects: { sentiment: -9, population: -4 } },
+    { label: "分赏诸军，带工匠北归", detail: "立即兑现战利品，城市损失会更加严重。", effects: { grain: 12, army: 6, population: -4, sentiment: -8 } },
+  ]},
+  { id: "ming-join-rebels", scriptId: "ming", year: 1352, historical: true, title: "濠州投军", category: "历史大事", text: "饥荒与战乱席卷淮西，朱元璋走入濠州红巾军营。郭子兴愿意收留这个无家可归的年轻人。", options: [
+    { label: "投军效力，从亲兵做起", detail: "在乱军中以纪律和战功取得信任。", chance: 60, tag: "军事", successEffects: { army: 8, sentiment: 5 }, failEffects: { army: -7, grain: -4 } },
+    { label: "联络乡里，先聚同伴", detail: "建立自己的小班底，再进入更大的势力。", effects: { population: 5, army: 5, grain: -3 } },
+  ]},
+  { id: "ming-empress-ma", scriptId: "ming", year: 1382, historical: true, title: "马皇后崩", category: "历史大事", text: "马皇后病逝，临终仍劝皇帝求贤纳谏、善待百姓。宫中失去了一位能够缓和重刑与猜忌的人。", options: [
+    { label: "遵遗言减役恤民", detail: "把丧礼化为休养生息的诏令。", effects: { sentiment: 10, integrity: 6, grain: -4 } },
+    { label: "大修陵寝，极尽哀荣", detail: "寄托哀思，也会增加民力负担。", effects: { grain: -12, sentiment: -6, integrity: -2 } },
+  ]},
+];
+
+const historicalEvents: EventTemplate[] = [...additionalHistoricalEvents, ...coreHistoricalEvents, ...lifeGapHistoricalEvents];
 const allEventTemplates = [...historicalEvents, ...randomEvents];
 const qinConquestEventIds = ["qin-conquer-han", "qin-conquer-zhao", "qin-conquer-wei", "qin-conquer-chu", "qin-conquer-yan", "qin-unification"];
 const qinConquestBaseYears = [-230, -228, -225, -223, -222, -221];
 const qinConquestRequirementReduction = 15;
+const normalPopulationTaxCap = 180;
+const regionalPopulationTaxCap = 120;
+const qinInitialPopulationTaxCap = 90;
+const qinPopulationTaxCapPerConquest = 15;
+const populationTaxRate = .065;
+const unifiedTaxCapScripts = new Set(["liubang", "hanwu", "taizong", "song", "genghis", "ming"]);
 const emptyHistoricalProgress = (): HistoricalProgress => ({ qinConquestIndex: 0, qinConquestDelay: 0, qinConquestRetries: 0, qinConquestRequirementRelief: 0 });
+
+function populationTaxCap(scriptId: string, qinConquestIndex = 0) {
+  if (scriptId === "qin") return Math.min(normalPopulationTaxCap, qinInitialPopulationTaxCap + qinConquestIndex * qinPopulationTaxCapPerConquest);
+  return unifiedTaxCapScripts.has(scriptId) ? normalPopulationTaxCap : regionalPopulationTaxCap;
+}
 
 const clamp = (n: number, min = -100, max = 999) => Math.max(min, Math.min(max, Math.round(n)));
 const addEffects = (stats: Stats, effects: Partial<Stats>): Stats => ({
@@ -2658,6 +3016,44 @@ function lowerConquestRequirements(requirements: Partial<Stats> | undefined, rel
   return Object.fromEntries((Object.entries(requirements) as [StatKey, number][]).map(([key, value]) => [key, Math.max(0, value - relief)])) as Partial<Stats>;
 }
 
+function shiftConquestRequirements(requirements: Partial<Stats> | undefined, delta: number) {
+  if (!requirements || delta === 0) return requirements;
+  return Object.fromEntries((Object.entries(requirements) as [StatKey, number][]).map(([key, value]) => [key, Math.max(0, value + delta)])) as Partial<Stats>;
+}
+
+function applyQinConquestContext(event: EventTemplate, historyFlags: string[]) {
+  if (event.qinConquestStage === undefined) return event;
+  const flags = new Set(historyFlags);
+  let requirementShift = flags.has("qin_coalition_success") ? -10 : 0;
+  const notes: string[] = [];
+  if (flags.has("qin_coalition_success")) notes.push("五国合纵此前已被击破，诸侯元气与互信受损，灭国要求降低10点。");
+  if (event.qinConquestStage === 0 && !flags.has("qin_mengao_han_success")) {
+    requirementShift += 15;
+    notes.push("蒙骜攻韩未能取得决定性胜果，灭韩要求提高15点。");
+  }
+  if (event.qinConquestStage === 1 && !flags.has("qin_fanwu_success")) {
+    requirementShift += 15;
+    notes.push("番吾之战未能削弱赵军部署，灭赵要求提高15点。");
+  }
+  if (event.qinConquestStage === 2 && !flags.has("qin_juan_success")) {
+    requirementShift += 15;
+    notes.push("卷城之战未能动摇魏国抵抗，灭魏要求提高15点。");
+  }
+  if (event.qinConquestStage === 4 && flags.has("qin_jingke_yan_weakened")) {
+    requirementShift -= 10;
+    notes.push("刺秦未遂后的处置削弱了燕国，灭燕要求降低10点。");
+  }
+  if (requirementShift === 0 && notes.length === 0) return event;
+  return {
+    ...event,
+    text: `${event.text} ${notes.join("")}`,
+    options: event.options.map((option) => ({
+      ...option,
+      requirements: option.qinConquest === "advance" ? shiftConquestRequirements(option.requirements, requirementShift) : option.requirements,
+    })),
+  };
+}
+
 function applyQinConquestPressure(event: EventTemplate, retries: number, requirementRelief: number) {
   if (event.qinConquestStage === undefined || (retries <= 0 && requirementRelief <= 0)) return event;
   const pressureText = retries > 0 ? `此国已第${retries + 1}次摆上廷议，拖延使军粮、军心与朝局代价进一步上升。` : "";
@@ -2709,6 +3105,7 @@ function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYe
   const effective = liveState(stats).effective;
   const required = historicalEvents
     .filter((event) => historyEventScheduled(event, scriptId, year, historyFlags, progress))
+    .map((event) => applyQinConquestContext(event, historyFlags))
     .map((event) => applyQinConquestPressure(event, progress.qinConquestRetries, progress.qinConquestRequirementRelief))
     .slice(0, 4);
   const conditional: EventTemplate[] = [];
@@ -2782,7 +3179,13 @@ function normalizeSave(raw: unknown): GameState | null {
   const rosterIds = roles.map((role) => seatAssignments[role]).filter(Boolean) as string[];
   const randomSeed = Number.isInteger(saved.randomSeed) ? saved.randomSeed! >>> 0 : legacySaveSeed(saved);
   const randomCount = Number.isInteger(saved.randomCount) && saved.randomCount! >= 0 ? Math.floor(saved.randomCount!) : 0;
-  const historyFlags = Array.isArray(saved.historyFlags) ? [...new Set(saved.historyFlags.filter((flag): flag is string => typeof flag === "string"))] : [];
+  const historyFlagSet = new Set(Array.isArray(saved.historyFlags) ? saved.historyFlags.filter((flag): flag is string => typeof flag === "string") : []);
+  if ((saved.version ?? 0) < 9 && saved.scriptId === "qin" && (saved.year ?? -246) > -245) historyFlagSet.add("qin_juan_success");
+  if ((saved.version ?? 0) < 8 && saved.scriptId === "qin") {
+    if ((saved.year ?? -246) > -244) historyFlagSet.add("qin_mengao_han_success");
+    if ((saved.year ?? -246) > -232) historyFlagSet.add("qin_fanwu_success");
+  }
+  const historyFlags = [...historyFlagSet];
   const qinConquestIndex = Number.isInteger(saved.qinConquestIndex) ? clamp(saved.qinConquestIndex!, 0, qinConquestEventIds.length) : legacyQinConquestIndex(saved);
   const qinConquestDelay = Number.isInteger(saved.qinConquestDelay) && saved.qinConquestDelay! >= 0 ? Math.floor(saved.qinConquestDelay!) : 0;
   const qinConquestRetries = Number.isInteger(saved.qinConquestRetries) && saved.qinConquestRetries! >= 0 ? Math.floor(saved.qinConquestRetries!) : 0;
@@ -2790,9 +3193,9 @@ function normalizeSave(raw: unknown): GameState | null {
   const difficulty: DifficultyId = difficulties.some((item) => item.id === saved.difficulty) ? saved.difficulty! : "easy";
   const events = saved.events.map((event) => {
     const template = allEventTemplates.find((item) => item.id === event.id);
-    return template ? applyQinConquestPressure(template, qinConquestRetries, qinConquestRequirementRelief) : event;
+    return template ? applyQinConquestPressure(applyQinConquestContext(template, historyFlags), qinConquestRetries, qinConquestRequirementRelief) : event;
   });
-  return { ...saved, version: 7, difficulty, seatAssignments, rosterIds, randomSeed, randomCount, historyFlags, events, qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief } as GameState;
+  return { ...saved, version: 9, difficulty, seatAssignments, rosterIds, randomSeed, randomCount, historyFlags, events, qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief } as GameState;
 }
 
 function drawRosterCandidates(seats: SeatAssignments, selectedIds: string[]) {
@@ -2891,14 +3294,14 @@ function App() {
     stats = addEffects(stats, policy.effects);
     roster.forEach((person) => { stats = addEffects(stats, person.bonuses); });
     stats = addEffects(stats, { population: variance(), grain: variance(), army: variance(), sentiment: variance(), integrity: variance() });
-    const growth = annualGrowth(stats, policyId, difficulty);
+    const growth = annualGrowth(stats, policyId, difficulty, scriptId, 0);
     stats = addEffects(stats, growth.effects);
     const effective = liveState(stats).effective;
     const progress = emptyHistoricalProgress();
     const yearEvents = buildYearEvents(scriptId, script.startYear, stats, 0, 0, randomSeed, randomCount, [], progress);
     randomCount = yearEvents.randomCount;
     const initial: GameState = {
-      version: 7, phase: "reign", difficulty, scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
+      version: 9, phase: "reign", difficulty, scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
       stats, events: yearEvents.events, outcome: null,
       chronicle: [{ year: script.startYear, season: "春", title: "开国建元", note: `${people.find((person) => person.id === rosterSeats.皇帝)?.name || "新君"}与开国班底共治天下。${growth.note}` }],
       lowArmyYears: effective.army < 55 ? 1 : 0, unrestYears: effective.sentiment <= -60 ? 1 : 0, alteredHistory: false,
@@ -2977,7 +3380,7 @@ function App() {
       if (!current) return current;
       if (current.elapsed >= 500) return { ...current, phase: "ending", endingVictory: true, endingReason: "五百年间国祚不断，制度与民生经受住一代代风雨。你的王朝已成真正的千古一朝。" };
       const year = nextCalendarYear(current.year);
-      const growth = annualGrowth(current.stats, current.policyId, current.difficulty);
+      const growth = annualGrowth(current.stats, current.policyId, current.difficulty, current.scriptId, current.qinConquestIndex);
       const stats = addEffects(current.stats, growth.effects);
       if (stats.population < 18 || stats.grain <= 0) return { ...current, year, stats, phase: "ending", endingVictory: false, endingReason: stats.grain <= 0 ? "岁首核账，国库已经无粮可支，天下由此土崩瓦解。" : "连年凋敝后，编户不足以支撑国家，王朝悄然终结。" };
       const effective = liveState(stats).effective;
@@ -3029,16 +3432,16 @@ function App() {
   );
 }
 
-function annualGrowth(stats: Stats, policyId: string, difficulty: DifficultyId) {
+function annualGrowth(stats: Stats, policyId: string, difficulty: DifficultyId, scriptId: string, qinConquestIndex = 0) {
   const effective = liveState(stats).effective;
   const rest = policyId === "rest" ? 1.5 : 0;
   const governanceGrowth = effective.integrity / 48;
   const population = clamp(2.2 + effective.sentiment / 32 + rest + governanceGrowth, -8, 8);
-  const populationContributionCap = 120;
+  const populationContributionCap = populationTaxCap(scriptId, qinConquestIndex);
   const productivePopulation = Math.min(stats.population, populationContributionCap);
   const subsistenceOutput = stats.population * .05;
   const civilianUse = stats.population * .05;
-  const taxableSurplus = productivePopulation * .07;
+  const taxableSurplus = productivePopulation * populationTaxRate;
   const populationYield = subsistenceOutput + taxableSurplus;
   const militaryCost = effective.army * .025;
   const administration = effective.integrity / 18;
@@ -3057,7 +3460,7 @@ function annualGrowth(stats: Stats, policyId: string, difficulty: DifficultyId) 
       ],
       grain: [
         { label: `生计产出 ${formatDelta(subsistenceOutput)}`, value: subsistenceOutput, detail: `基础人口 ${stats.population} × 0.05 = ${formatDelta(subsistenceOutput)}，与同规模的民用消耗相抵，不直接形成国库盈余。` },
-        { label: `人口赋税 ${formatDelta(taxableSurplus)}${stats.population > populationContributionCap ? " · 已封顶" : ""}`, value: taxableSurplus, detail: `可转化为国家钱粮的赋税盈余只计算前 ${populationContributionCap} 点人口，即 ${productivePopulation} × 0.07 = ${formatDelta(taxableSurplus)}，最高为 +8.4。人口超过土地承载上限后，不再增加赋税盈余。` },
+        { label: `人口赋税 ${formatDelta(taxableSurplus)}${stats.population > populationContributionCap ? " · 已封顶" : ""}`, value: taxableSurplus, detail: `可转化为国家钱粮的赋税盈余只计算前 ${populationContributionCap} 点人口，即 ${productivePopulation} × ${populationTaxRate} = ${formatDelta(taxableSurplus)}，当前上限最高为 ${formatDelta(populationContributionCap * populationTaxRate)}。${scriptId === "qin" && qinConquestIndex < 6 ? `秦国每吞并一国，上限提高 ${qinPopulationTaxCapPerConquest} 点；统一后达到 ${normalPopulationTaxCap}。` : "人口超过土地承载与统治范围上限后，不再增加赋税盈余。"}` },
         { label: `民用 ${formatDelta(-civilianUse)}`, value: -civilianUse, detail: `基础人口 ${stats.population} × 0.05 = ${formatDelta(civilianUse)}，作为每年民用消耗。` },
         { label: `军费 ${formatDelta(-militaryCost)}`, value: -militaryCost, detail: `当前有效武备 ${effective.army} × 0.025 = ${formatDelta(militaryCost)}，作为每年军费消耗。` },
         { label: `吏治 ${formatDelta(administration)}`, value: administration, detail: `当前有效吏治 ${effective.integrity} ÷ 18 = ${formatDelta(administration)}，计入每年钱粮增长；清明吏治提高收入，腐败吏治会侵蚀人口产出带来的盈余。` },
@@ -3117,8 +3520,8 @@ function TopBar({ setPhase, openSaves, game, canSave }: { setPhase: (phase: Phas
   return <nav className="topbar"><button className="brand" onClick={() => !game && setPhase("landing")}><i>祚</i><span>五百年王朝<small>RISE OF DYNASTY</small></span></button><div><span className="top-status">{game ? `${yearLabel(game.year)} · 国祚第${game.elapsed}年` : "正在开国"}</span><button className="nav-button" onClick={openSaves}>▣ {canSave ? "存读档" : "读取存档"}</button></div></nav>;
 }
 
-function StatPanel({ stats, policyId, difficulty }: { stats: Stats; policyId: string; difficulty: DifficultyId }) {
-  const growth = annualGrowth(stats, policyId, difficulty);
+function StatPanel({ stats, policyId, difficulty, scriptId, qinConquestIndex }: { stats: Stats; policyId: string; difficulty: DifficultyId; scriptId: string; qinConquestIndex: number }) {
+  const growth = annualGrowth(stats, policyId, difficulty, scriptId, qinConquestIndex);
   const live = liveState(stats);
   const sentimentBuffs = [
     live.modifiers.supply && { label: `供养不足 ${live.modifiers.supply}`, value: live.modifiers.supply, detail: `人口需要钱粮 ${formatDelta(live.modifiers.grainNeed).slice(1)}（人口 ${stats.population} × 0.8）。当前钱粮 ${stats.grain} 低于需求线，缺口占需求的比例 × 24 并四舍五入，民情 ${live.modifiers.supply}；钱粮达到需求线后立即消失。` },
@@ -3130,11 +3533,11 @@ function StatPanel({ stats, policyId, difficulty }: { stats: Stats; policyId: st
   ];
   const integrityBuffs: ModifierView[] = [];
   return <div className="stats-panel">
-    <div className="number-stat"><span>户</span><div><small>人口 · 万户</small><strong>{stats.population}<b className={growth.effects.population >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.population)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.population.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
-    <div className="number-stat"><span>仓</span><div><small>钱粮 · 国用</small><strong>{stats.grain}<b className={growth.effects.grain >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.grain)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.grain.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
-    <div className="number-stat"><span>兵</span><div><small>武备 · 基础 {stats.army}</small><strong>{live.effective.army}</strong><em>当前实效</em><div className="stat-buffs">{armyBuffs.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
-    <AxisStat label="民情" value={live.effective.sentiment} baseValue={stats.sentiment} modifiers={sentimentBuffs} text={axisLabel("sentiment", live.effective.sentiment)} left="民怨沸腾" right="安居乐业" />
-    <AxisStat label="吏治" value={live.effective.integrity} baseValue={stats.integrity} modifiers={integrityBuffs} annualChange={growth.effects.integrity} annualDetail={growth.breakdown.integrity[0].detail} text={axisLabel("integrity", live.effective.integrity)} left="贪墨成风" right="海内澄清" />
+    <div className="number-stat"><span>户</span><div><small>人口</small><strong>{stats.population}<b className={growth.effects.population >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.population)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.population.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
+    <div className="number-stat"><span>仓</span><div><small>钱粮</small><strong>{stats.grain}<b className={growth.effects.grain >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.grain)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.grain.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
+    <div className="number-stat army-stat"><span>兵</span><div><small>武备</small><strong>{live.effective.army}</strong><div className="stat-buffs">{armyBuffs.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
+    <AxisStat label="民情" value={live.effective.sentiment} modifiers={sentimentBuffs} text={axisLabel("sentiment", live.effective.sentiment)} left="民怨沸腾" right="安居乐业" />
+    <AxisStat label="吏治" value={live.effective.integrity} modifiers={integrityBuffs} annualChange={growth.effects.integrity} annualDetail={growth.breakdown.integrity[0].detail} text={axisLabel("integrity", live.effective.integrity)} left="贪墨成风" right="海内澄清" />
   </div>;
 }
 
@@ -3144,8 +3547,8 @@ function ModifierChip({ item }: { item: ModifierView }) {
   return <i className={item.value < 0 ? "debuff" : "buff"} tabIndex={0}>{item.label}<span role="tooltip">{item.detail}</span></i>;
 }
 
-function AxisStat({ label, value, baseValue, modifiers, annualChange, annualDetail, text, left, right }: { label: string; value: number; baseValue: number; modifiers: ModifierView[]; annualChange?: number; annualDetail?: string; text: string; left: string; right: string }) {
-  return <div className="axis-stat"><div><small>{label} · 基础 {baseValue}</small><strong>{text}</strong><span className="axis-values"><b>{value}</b>{annualChange !== undefined && <em className={annualChange < 0 ? "annual-delta negative" : "annual-delta positive"} tabIndex={0}>{formatDelta(annualChange)}<span role="tooltip">{annualDetail}</span></em>}</span></div>{modifiers.length > 0 && <div className="stat-buffs">{modifiers.map((item) => <ModifierChip item={item} key={item.label} />)}</div>}<div className="axis"><i style={{ left: `${(value + 100) / 2}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
+function AxisStat({ label, value, modifiers, annualChange, annualDetail, text, left, right }: { label: string; value: number; modifiers: ModifierView[]; annualChange?: number; annualDetail?: string; text: string; left: string; right: string }) {
+  return <div className="axis-stat"><div><small>{label}</small><strong>{text}</strong><span className="axis-values"><b>{value}</b>{annualChange !== undefined && <em className={annualChange < 0 ? "annual-delta negative" : "annual-delta positive"} tabIndex={0}>{formatDelta(annualChange)}<span role="tooltip">{annualDetail}</span></em>}</span></div>{modifiers.length > 0 && <div className="stat-buffs">{modifiers.map((item) => <ModifierChip item={item} key={item.label} />)}</div>}<div className="axis"><i style={{ left: `${(value + 100) / 2}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
 }
 
 function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear }: { game: GameState; script: Script; policy: typeof policies[number]; roster: Person[]; onChoose: (option: EventOption) => void; onContinue: () => void; onNextYear: () => void }) {
@@ -3153,7 +3556,7 @@ function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear 
   const isYearEnd = game.seasonIndex === 4;
   const assigned = (role: Role) => roster.find((person) => person.id === game.seatAssignments[role]);
   const emperor = assigned("皇帝");
-  return <section className="reign-page"><div className="reign-header"><div><span>{script.title} · 君主 {emperor?.name}</span><h1>{yearLabel(game.year)}</h1><p>国祚第 {game.elapsed} 年 · {difficultyRule(game.difficulty).name}难度 · 国策「{policy.name}」{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} policyId={game.policyId} difficulty={game.difficulty} /><div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +7%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className="cabinet-person" key={role}><div><small>{role}</small><b>{person?.name}</b></div><span>{person?.tags.join(" · ")}</span></div> })}</div></aside>
+  return <section className="reign-page"><div className="reign-header"><div><span>{script.title} · 君主 {emperor?.name}</span><h1>{yearLabel(game.year)}</h1><p>国祚第 {game.elapsed} 年 · {difficultyRule(game.difficulty).name}难度 · 国策「{policy.name}」{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} policyId={game.policyId} difficulty={game.difficulty} scriptId={game.scriptId} qinConquestIndex={game.qinConquestIndex} /><div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +7%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className="cabinet-person" key={role}><div><small>{role}</small><b>{person?.name}</b></div><span>{person?.tags.join(" · ")}</span></div> })}</div></aside>
       <article className="court"><div className="yearline">{seasons.map((season, index) => <div className={index < game.seasonIndex ? "done" : index === game.seasonIndex ? "active" : ""} key={season}><i>{index < game.seasonIndex ? "✓" : season}</i><span>{season}{index === 0 ? "耕" : index === 1 ? "长" : index === 2 ? "收" : "藏"}</span></div>)}</div>
         {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {seasons[game.seasonIndex]}季</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}　`}{option.chance && `成功率 ${finalOptionChance(option, game.stats, roster, policy, game.difficulty)}%　`}{option.effects && effectText(option.effects)}</small>{option.chance && <div className="chance-results"><em className="success-result"><b>成功</b>{effectText(option.successEffects || {}) || "国势无直接变化"}</em><em className="fail-result"><b>失败</b>{effectText(option.failEffects || {}) || "国势无直接变化"}</em></div>}</div><span>决断</span></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === 3 ? "封存本年奏牍" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
         <Chronicle entries={game.chronicle} /></article></div></section>;
@@ -3161,7 +3564,7 @@ function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear 
 
 function YearEnd({ game, onNext }: { game: GameState; onNext: () => void }) {
   const effective = liveState(game.stats).effective;
-  const growth = annualGrowth(game.stats, game.policyId, game.difficulty).effects;
+  const growth = annualGrowth(game.stats, game.policyId, game.difficulty, game.scriptId, game.qinConquestIndex).effects;
   return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁结算人口、钱粮增长与吏治自然损耗。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {formatDelta(growth.population)}　钱粮 {formatDelta(growth.grain)}　吏治 {formatDelta(growth.integrity)}</strong></div><div className="warning-row">{effective.army < 55 && <span>⚑ 武备低迷，来年边患概率上升</span>}{effective.sentiment <= -60 && <span>⚠ 民怨沸腾，起义正在酝酿</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情与武备正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
 }
 

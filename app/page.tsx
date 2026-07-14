@@ -3034,8 +3034,12 @@ function annualGrowth(stats: Stats, policyId: string, difficulty: DifficultyId) 
   const rest = policyId === "rest" ? 1.5 : 0;
   const governanceGrowth = effective.integrity / 48;
   const population = clamp(2.2 + effective.sentiment / 32 + rest + governanceGrowth, -8, 8);
-  const populationYield = stats.population * .12;
+  const populationContributionCap = 120;
+  const productivePopulation = Math.min(stats.population, populationContributionCap);
+  const subsistenceOutput = stats.population * .05;
   const civilianUse = stats.population * .05;
+  const taxableSurplus = productivePopulation * .07;
+  const populationYield = subsistenceOutput + taxableSurplus;
   const militaryCost = effective.army * .025;
   const administration = effective.integrity / 18;
   const grain = clamp(populationYield + (policyId === "rest" ? 5 : 0) + administration - civilianUse - militaryCost, -20, 20);
@@ -3052,7 +3056,8 @@ function annualGrowth(stats: Stats, policyId: string, difficulty: DifficultyId) 
         ...(governanceGrowth ? [{ label: `吏治 ${formatDelta(governanceGrowth)}`, value: governanceGrowth, detail: `当前吏治 ${effective.integrity} ÷ 48 = ${formatDelta(governanceGrowth)}，计入每年人口增长；正吏治为增益，负吏治为减益，吏治归零时消失。` }] : []),
       ],
       grain: [
-        { label: `人口产出 ${formatDelta(populationYield)}`, value: populationYield, detail: `基础人口 ${stats.population} × 0.12 = ${formatDelta(populationYield)}，计入每年钱粮增长；正常情况下足以覆盖大部分民用与军费。` },
+        { label: `生计产出 ${formatDelta(subsistenceOutput)}`, value: subsistenceOutput, detail: `基础人口 ${stats.population} × 0.05 = ${formatDelta(subsistenceOutput)}，与同规模的民用消耗相抵，不直接形成国库盈余。` },
+        { label: `人口赋税 ${formatDelta(taxableSurplus)}${stats.population > populationContributionCap ? " · 已封顶" : ""}`, value: taxableSurplus, detail: `可转化为国家钱粮的赋税盈余只计算前 ${populationContributionCap} 点人口，即 ${productivePopulation} × 0.07 = ${formatDelta(taxableSurplus)}，最高为 +8.4。人口超过土地承载上限后，不再增加赋税盈余。` },
         { label: `民用 ${formatDelta(-civilianUse)}`, value: -civilianUse, detail: `基础人口 ${stats.population} × 0.05 = ${formatDelta(civilianUse)}，作为每年民用消耗。` },
         { label: `军费 ${formatDelta(-militaryCost)}`, value: -militaryCost, detail: `当前有效武备 ${effective.army} × 0.025 = ${formatDelta(militaryCost)}，作为每年军费消耗。` },
         { label: `吏治 ${formatDelta(administration)}`, value: administration, detail: `当前有效吏治 ${effective.integrity} ÷ 18 = ${formatDelta(administration)}，计入每年钱粮增长；清明吏治提高收入，腐败吏治会侵蚀人口产出带来的盈余。` },

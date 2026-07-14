@@ -88,8 +88,12 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /判定失败。局势未如所愿，代价已经显现。/);
   assert.doesNotMatch(page, /决策奏效（成功率/);
   assert.match(page, /const integrity = -6 - rule\.integrityDecayPenalty/);
-  assert.match(page, /const populationYield = stats\.population \* \.12/);
+  assert.match(page, /const populationContributionCap = 120/);
+  assert.match(page, /const productivePopulation = Math\.min\(stats\.population, populationContributionCap\)/);
+  assert.match(page, /const subsistenceOutput = stats\.population \* \.05/);
   assert.match(page, /const civilianUse = stats\.population \* \.05/);
+  assert.match(page, /const taxableSurplus = productivePopulation \* \.07/);
+  assert.match(page, /const populationYield = subsistenceOutput \+ taxableSurplus/);
   assert.match(page, /const militaryCost = effective\.army \* \.025/);
   assert.match(page, /const administration = effective\.integrity \/ 18/);
   assert.match(page, /clamp\(populationYield \+ \(policyId === "rest" \? 5 : 0\) \+ administration - civilianUse - militaryCost, -20, 20\)/);
@@ -137,10 +141,16 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   };
   assert.deepEqual(Object.fromEntries(Object.entries(difficultyRules).map(([id, rule]) => [id, -6 - rule.integrityDecayPenalty])), { easy: -6, hard: -9, hell: -12 });
   assert.deepEqual(Object.fromEntries(Object.entries(difficultyRules).map(([id, rule]) => [id, Math.max(1, Math.min(100, 65 - rule.chancePenalty))])), { easy: 65, hard: 55, hell: 45 });
-  const grainGrowth = (population, effectiveArmy, integrity) => Math.round(population * .12 + integrity / 18 - population * .05 - effectiveArmy * .025);
+  const populationContribution = (population) => Math.min(population, 120) * .07;
+  const grainGrowth = (population, effectiveArmy, integrity) => Math.round(population * .05 + populationContribution(population) + integrity / 18 - population * .05 - effectiveArmy * .025);
   assert.ok(grainGrowth(100, 140, 0) > 0, "population output should cover civilian and military use under neutral administration");
   assert.ok(grainGrowth(100, 140, -40) > 0, "moderately poor administration should not immediately force grain income negative");
   assert.ok(grainGrowth(100, 140, -80) < 0, "severely corrupt administration should be able to force grain income negative");
+  assert.equal(populationContribution(120), 8.4);
+  assert.equal(populationContribution(300), 8.4, "population beyond the land carrying limit should not keep increasing treasury surplus");
+  assert.match(page, /人口赋税 \$\{formatDelta\(taxableSurplus\)\}/);
+  assert.match(page, /已封顶/);
+  assert.match(page, /人口超过土地承载上限后，不再增加赋税盈余/);
   const supplyPenalty = (population, grain) => {
     const need = population * .8;
     const ratio = need > 0 ? Math.max(0, need - grain) / need : 0;

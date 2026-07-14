@@ -105,7 +105,7 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /clamp\(populationYield \+ \(policyId === "rest" \? 5 : 0\) \+ administration - civilianUse - militaryCost, -20, 20\)/);
   assert.match(page, /积弊滋生 \$\{integrity\}/);
   assert.match(page, /岁首合计扣减 \$\{Math\.abs\(integrity\)\} 点/);
-  assert.match(page, /const effects = \{ population, grain, integrity \}/);
+  assert.match(page, /const effects = \{ population, grain, sentiment, integrity \}/);
   assert.match(page, /formatDelta\(growth\.effects\.population\)/);
   assert.match(page, /formatDelta\(growth\.effects\.grain\)/);
   assert.match(page, /annualChange=\{growth\.effects\.integrity\}/);
@@ -361,7 +361,21 @@ test("models imperial authority, hidden loyalty, rebellions, and recruitment fol
   assert.equal(rebellionChance(55, 20), 0);
   assert.equal(rebellionChance(30, 90), 0);
   assert.ok(rebellionChance(20, 30) > rebellionChance(45, 70));
-  assert.match(page, /if \(effective\.sentiment <= -60 && unrestYears >= 1\) conditional\.push\(reviewedRandomEvents\.find\(\(event\) => event\.id === "rebellion"\)!\)/);
+  assert.match(page, /function frontierArmyRequirement\(population: number\)/);
+  assert.match(page, /clamp\(40 \+ population \* \.4, 55, 180\)/);
+  const frontierNeed = (population) => Math.max(55, Math.min(180, Math.round(40 + population * .4)));
+  assert.deepEqual([50, 100, 150, 200, 300].map(frontierNeed), [60, 80, 100, 120, 160]);
+  assert.match(page, /effective\.army < frontierNeed && lowArmyYears >= 1/);
+
+  assert.match(page, /function peasantUprisingChance\(sentiment: number, unrestYears: number, difficulty: DifficultyId\)/);
+  assert.match(page, /if \(sentiment > -30 \|\| unrestYears < 1\) return 0/);
+  assert.match(page, /if \(sentiment <= -60\) return 100/);
+  assert.match(page, /\(-sentiment - 30\) \* 1\.2 \+ \(unrestYears - 1\) \* 10 \+ rule\.uprisingChanceBonus/);
+  assert.match(page, /sentimentSoftCap: 70, uprisingChanceBonus: 0/);
+  assert.match(page, /sentimentSoftCap: 55, uprisingChanceBonus: 8/);
+  assert.match(page, /sentimentSoftCap: 40, uprisingChanceBonus: 16/);
+  assert.match(page, /stats\.sentiment > rule\.sentimentSoftCap \? -Math\.ceil\(\(stats\.sentiment - rule\.sentimentSoftCap\) \/ 15\) : 0/);
+  assert.match(page, /事件标示的民情增减仍按原数值完整结算/);
 
   assert.match(page, /title: "权臣叛变"/);
   assert.match(page, /title: "俘获贼首"/);

@@ -138,9 +138,9 @@ const statNames: Record<StatKey, string> = {
 };
 
 const difficulties = [
-  { id: "easy", name: "简单", seal: "易", desc: "初始国势不变，适合从容熟悉五百年国运。", integrityDecayPenalty: 0, chancePenalty: 0, initialStatPenalty: 0 },
-  { id: "hard", name: "困难", seal: "难", desc: "初始国势降低10%，积弊滋生更快，朝廷的每次冒险也更难如愿。", integrityDecayPenalty: 3, chancePenalty: 10, initialStatPenalty: .1 },
-  { id: "hell", name: "地狱", seal: "狱", desc: "初始国势降低20%，吏治迅速败坏，任何成败判定都更加凶险。", integrityDecayPenalty: 6, chancePenalty: 20, initialStatPenalty: .2 },
+  { id: "easy", name: "简单", seal: "易", desc: "初始国势不变，民情软上限70，适合从容熟悉五百年国运。", integrityDecayPenalty: 0, chancePenalty: 0, initialStatPenalty: 0, sentimentSoftCap: 70, uprisingChanceBonus: 0 },
+  { id: "hard", name: "困难", seal: "难", desc: "初始国势降低10%，民情软上限55，积弊与民变风险都更难压制。", integrityDecayPenalty: 3, chancePenalty: 10, initialStatPenalty: .1, sentimentSoftCap: 55, uprisingChanceBonus: 8 },
+  { id: "hell", name: "地狱", seal: "狱", desc: "初始国势降低20%，民情软上限40，低民情会迅速积聚起义风险。", integrityDecayPenalty: 6, chancePenalty: 20, initialStatPenalty: .2, sentimentSoftCap: 40, uprisingChanceBonus: 16 },
 ] as const;
 
 const difficultyRule = (id: DifficultyId) => difficulties.find((item) => item.id === id) || difficulties[0];
@@ -3213,6 +3213,17 @@ function ministerRebellionChance(authority: number, loyalty: number) {
   return clamp((55 - authority) * 1.1 + Math.max(0, 75 - loyalty) * .8, 0, 70);
 }
 
+function frontierArmyRequirement(population: number) {
+  return clamp(40 + population * .4, 55, 180);
+}
+
+function peasantUprisingChance(sentiment: number, unrestYears: number, difficulty: DifficultyId) {
+  if (sentiment > -30 || unrestYears < 1) return 0;
+  if (sentiment <= -60) return 100;
+  const rule = difficultyRule(difficulty);
+  return clamp((-sentiment - 30) * 1.2 + (unrestYears - 1) * 10 + rule.uprisingChanceBonus, 5, 80);
+}
+
 function makeMinisterRebellionEvent(person: Person, role: Role, year: number): EventTemplate {
   return {
     id: `minister-rebellion-${person.id}-${year}`,
@@ -3288,7 +3299,7 @@ function suppressLaterHistoricalEvents(events: EventTemplate[], seasonIndex: num
   return { events: replacements, randomCount: picked.randomCount };
 }
 
-function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYears: number, unrestYears: number, randomSeed: number, randomCount: number, historyFlags: string[], progress: HistoricalProgress, seats: SeatAssignments, pendingEvents: EventTemplate[] = []) {
+function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYears: number, unrestYears: number, difficulty: DifficultyId, randomSeed: number, randomCount: number, historyFlags: string[], progress: HistoricalProgress, seats: SeatAssignments, pendingEvents: EventTemplate[] = []) {
   const effective = liveState(stats).effective;
   const required = reviewedHistoricalEvents
     .filter((event) => historyEventScheduled(event, scriptId, year, historyFlags, progress))
@@ -3300,8 +3311,13 @@ function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYe
   const rebellionRoll = rollMinisterRebellion(stats, seats, randomSeed, count, year);
   count = rebellionRoll.randomCount;
   if (rebellionRoll.event) conditional.push(rebellionRoll.event);
-  if (effective.army < 55 && lowArmyYears >= 1) conditional.push(reviewedRandomEvents.find((event) => event.id === "invasion")!);
-  if (effective.sentiment <= -60 && unrestYears >= 1) conditional.push(reviewedRandomEvents.find((event) => event.id === "rebellion")!);
+  const frontierNeed = frontierArmyRequirement(stats.population);
+  if (effective.army < frontierNeed && lowArmyYears >= 1) conditional.push(reviewedRandomEvents.find((event) => event.id === "invasion")!);
+  const uprisingChance = peasantUprisingChance(effective.sentiment, unrestYears, difficulty);
+  if (uprisingChance > 0) {
+    if (seededRandom(randomSeed, count) * 100 < uprisingChance) conditional.push(reviewedRandomEvents.find((event) => event.id === "rebellion")!);
+    count += 1;
+  }
   const excluded = new Set(conditional.map((event) => event.id));
   const base = reviewedRandomEvents.filter((event) => !["invasion", "rebellion"].includes(event.id) && !excluded.has(event.id));
   const picked = seededShuffle(base, randomSeed, count);
@@ -3555,13 +3571,13 @@ function App() {
     stats = addEffects(stats, growth.effects);
     const effective = liveState(stats).effective;
     const progress = emptyHistoricalProgress();
-    const yearEvents = buildYearEvents(scriptId, script.startYear, stats, 0, 0, randomSeed, randomCount, [], progress, rosterSeats, []);
+    const yearEvents = buildYearEvents(scriptId, script.startYear, stats, 0, 0, difficulty, randomSeed, randomCount, [], progress, rosterSeats, []);
     randomCount = yearEvents.randomCount;
     const initial: GameState = {
       version: 10, phase: "reign", difficulty, scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
       stats, events: yearEvents.events, outcome: null,
       chronicle: [{ year: script.startYear, season: "春", title: "开国建元", note: `${people.find((person) => person.id === rosterSeats.皇帝)?.name || "新君"}与开国班底共治天下。${growth.note}` }],
-      lowArmyYears: effective.army < 55 ? 1 : 0, unrestYears: effective.sentiment <= -60 ? 1 : 0, alteredHistory: false,
+      lowArmyYears: effective.army < frontierArmyRequirement(stats.population) ? 1 : 0, unrestYears: effective.sentiment <= -30 ? 1 : 0, alteredHistory: false,
       annualNote: growth.note, endingReason: "", endingVictory: false, randomSeed, randomCount: yearEvents.randomCount, historyFlags: [], pendingEvents: yearEvents.pendingEvents, unavailablePersonIds: [], ...progress,
     };
     setGame(activateCurrentEvent(initial)); setPhase("reign"); window.scrollTo({ top: 0, behavior: "smooth" });
@@ -3750,9 +3766,9 @@ function App() {
       const stats = addEffects(current.stats, growth.effects);
       if (stats.population < 18 || stats.grain <= 0) return { ...current, year, stats, phase: "ending", endingVictory: false, endingReason: stats.grain <= 0 ? "岁首核账，国库已经无粮可支，天下由此土崩瓦解。" : "连年凋敝后，编户不足以支撑国家，王朝悄然终结。" };
       const effective = liveState(stats).effective;
-      const lowArmyYears = effective.army < 55 ? current.lowArmyYears + 1 : 0;
-      const unrestYears = effective.sentiment <= -60 ? current.unrestYears + 1 : 0;
-      const yearEvents = buildYearEvents(current.scriptId, year, stats, lowArmyYears, unrestYears, current.randomSeed, current.randomCount, current.historyFlags, current, current.seatAssignments, current.pendingEvents);
+      const lowArmyYears = effective.army < frontierArmyRequirement(stats.population) ? current.lowArmyYears + 1 : 0;
+      const unrestYears = effective.sentiment <= -30 ? current.unrestYears + 1 : 0;
+      const yearEvents = buildYearEvents(current.scriptId, year, stats, lowArmyYears, unrestYears, current.difficulty, current.randomSeed, current.randomCount, current.historyFlags, current, current.seatAssignments, current.pendingEvents);
       return activateCurrentEvent({ ...current, year, elapsed: current.elapsed + 1, stats, seasonIndex: 0, outcome: null, annualNote: growth.note, lowArmyYears, unrestYears, events: yearEvents.events, pendingEvents: yearEvents.pendingEvents, randomCount: yearEvents.randomCount, chronicle: [...current.chronicle, { year, season: "春", title: "岁首国计", note: growth.note }].slice(-30) });
     });
   };
@@ -3815,10 +3831,11 @@ function annualGrowth(stats: Stats, policyId: string, difficulty: DifficultyId, 
   const grain = clamp(populationYield + (policyId === "rest" ? 5 : 0) + administration - civilianUse - militaryCost, -20, 20);
   const rule = difficultyRule(difficulty);
   const integrity = -6 - rule.integrityDecayPenalty;
-  const effects = { population, grain, integrity };
+  const sentiment = stats.sentiment > rule.sentimentSoftCap ? -Math.ceil((stats.sentiment - rule.sentimentSoftCap) / 15) : 0;
+  const effects = { population, grain, sentiment, integrity };
   return {
     effects,
-    note: `户口${population >= 0 ? "增" : "减"}${Math.abs(population)}，府库${grain >= 0 ? "盈" : "耗"}${Math.abs(grain)}，吏治自然损耗${Math.abs(integrity)}。`,
+    note: `户口${population >= 0 ? "增" : "减"}${Math.abs(population)}，府库${grain >= 0 ? "盈" : "耗"}${Math.abs(grain)}，${sentiment < 0 ? `民情高位回落${Math.abs(sentiment)}，` : ""}吏治自然损耗${Math.abs(integrity)}。`,
     breakdown: {
       population: [
         { label: `民情 ${formatDelta(effective.sentiment / 32)}`, value: effective.sentiment / 32, detail: `有效民情 ${effective.sentiment} ÷ 32 = ${formatDelta(effective.sentiment / 32)}，计入每年人口增长；民情变化后立即重算。` },
@@ -3833,6 +3850,7 @@ function annualGrowth(stats: Stats, policyId: string, difficulty: DifficultyId, 
         { label: `吏治 ${formatDelta(administration)}`, value: administration, detail: `当前有效吏治 ${effective.integrity} ÷ 18 = ${formatDelta(administration)}，计入每年钱粮增长；清明吏治提高收入，腐败吏治会侵蚀人口产出带来的盈余。` },
         ...(policyId === "rest" ? [{ label: "休养 +5", value: 5, detail: "国策“休养生息”固定使每年钱粮增长 +5；更换国策后消失。" }] : []),
       ],
+      sentiment: [{ label: `软上限 ${rule.sentimentSoftCap}${sentiment < 0 ? ` · ${sentiment}` : ""}`, value: sentiment, detail: `${rule.name}难度的民情软上限为 ${rule.sentimentSoftCap}。当前基础民情 ${stats.sentiment}${sentiment < 0 ? `，超出部分每15点使岁首民情回落1点，本年共回落 ${Math.abs(sentiment)} 点` : "，未超过软上限，本年不发生自然回落"}；事件标示的民情增减仍按原数值完整结算。` }],
       integrity: [{ label: `积弊滋生 ${integrity}`, value: integrity, detail: `吏治每年基础损耗 6 点${rule.integrityDecayPenalty ? `，${rule.name}难度额外损耗 ${rule.integrityDecayPenalty} 点` : ""}，岁首合计扣减 ${Math.abs(integrity)} 点。此项不改变当前吏治，只有进入下一年时才结算；需要通过事件中的整饬吏治持续弥补。` }],
     },
   };
@@ -3975,7 +3993,7 @@ function StatPanel({ stats, policyId, difficulty, scriptId, qinConquestIndex }: 
     <div className="number-stat"><span>仓</span><div><small>钱粮</small><strong>{stats.grain}<b className={growth.effects.grain >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.grain)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.grain.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
     <div className="number-stat army-stat"><span>兵</span><div><small>武备</small><strong>{live.effective.army}</strong><div className="stat-buffs">{armyBuffs.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
     <AxisStat label="皇权" value={stats.authority} modifiers={[]} text={authorityLabel(stats.authority)} left="权臣掣肘" right="乾纲独断" min={0} max={100} />
-    <AxisStat label="民情" value={live.effective.sentiment} modifiers={sentimentBuffs} text={axisLabel("sentiment", live.effective.sentiment)} left="民怨沸腾" right="安居乐业" />
+    <AxisStat label="民情" value={live.effective.sentiment} modifiers={sentimentBuffs} annualChange={growth.effects.sentiment} annualDetail={growth.breakdown.sentiment[0].detail} text={axisLabel("sentiment", live.effective.sentiment)} left="民怨沸腾" right="安居乐业" />
     <AxisStat label="吏治" value={live.effective.integrity} modifiers={integrityBuffs} annualChange={growth.effects.integrity} annualDetail={growth.breakdown.integrity[0].detail} text={axisLabel("integrity", live.effective.integrity)} left="贪墨成风" right="海内澄清" />
   </div>;
 }
@@ -4005,8 +4023,11 @@ function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear 
 function YearEnd({ game, onNext }: { game: GameState; onNext: () => void }) {
   const effective = liveState(game.stats).effective;
   const growth = annualGrowth(game.stats, game.policyId, game.difficulty, game.scriptId, game.qinConquestIndex).effects;
+  const frontierNeed = frontierArmyRequirement(game.stats.population);
+  const projectedUnrestYears = effective.sentiment <= -30 ? game.unrestYears + 1 : 0;
+  const projectedUprisingChance = peasantUprisingChance(effective.sentiment, projectedUnrestYears, game.difficulty);
   if (game.debugHistory) return <div className="year-end debug-year-end"><span>本年史事已毕</span><h2>{yearLabel(game.year)} · 分支已记录</h2><p>继续后将自动跳过空白年份，前往当前选择所导向的下一个历史节点。</p><button className="primary xl" onClick={onNext}>推演下一历史年份</button></div>;
-  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁结算人口、钱粮增长与吏治自然损耗。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {formatDelta(growth.population)}　钱粮 {formatDelta(growth.grain)}　吏治 {formatDelta(growth.integrity)}</strong></div><div className="warning-row">{effective.army < 55 && <span>⚑ 武备低迷，来年边患概率上升</span>}{effective.sentiment <= -60 && <span>⚠ 民怨沸腾，农民起义正在酝酿</span>}{game.stats.authority < 55 && <span>♜ 皇权衰微，班底中忠诚不足者可能叛变</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情与武备正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
+  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁结算人口、钱粮、民情回落与吏治自然损耗。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {formatDelta(growth.population)}　钱粮 {formatDelta(growth.grain)}　民情 {formatDelta(growth.sentiment)}　吏治 {formatDelta(growth.integrity)}</strong></div><div className="warning-row">{effective.army < frontierNeed && <span>⚑ 有效武备 {effective.army} 低于当前人口所需的边防线 {frontierNeed}，来年可能出现烽火入塞</span>}{projectedUprisingChance > 0 && <span>⚠ 若来岁仍维持当前低民情，农民起义概率为 {projectedUprisingChance}%</span>}{game.stats.authority < 55 && <span>♜ 皇权衰微，班底中忠诚不足者可能叛变</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情与武备正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
 }
 
 function Chronicle({ entries }: { entries: Chronicle[] }) {

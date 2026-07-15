@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 
-type Phase = "landing" | "script" | "policy" | "roster" | "reign" | "ending";
+type Phase = "landing" | "script" | "policy" | "roster" | "reign" | "summary" | "ending";
 type DifficultyId = "easy" | "hard" | "hell";
 type StatKey = "population" | "grain" | "army" | "sentiment" | "integrity" | "authority";
 type Season = "春" | "夏" | "秋" | "冬";
-type SkillTag = "民生" | "财政" | "军事" | "吏治" | "谋略";
+type SkillTag = "民生" | "财政" | "军事" | "吏治" | "谋略" | "外交";
 type Role = "皇帝" | "宰相" | "名将" | "财政" | "监察";
 
 type Stats = Record<StatKey, number>;
@@ -20,7 +20,7 @@ type Person = {
   quote: string;
   tags: SkillTag[];
   bonuses: Partial<Stats>;
-  /** 仅用于治国阶段的权臣叛变判定，不向玩家直接展示。皇帝没有此项。 */
+  /** 仅用于治国阶段的权臣叛变判定，不向玩家直接展示；只有实际坐在非皇帝席位时才启用。 */
   loyalty?: number;
   specialRecruit?: boolean;
 };
@@ -47,6 +47,7 @@ type EventOption = {
   successEffects?: Partial<Stats>;
   failEffects?: Partial<Stats>;
   chance?: number;
+  chanceModifiers?: { historyFlag: string; delta: number }[];
   tag?: SkillTag;
   requirements?: Requirement;
   failOnUnmet?: boolean;
@@ -55,6 +56,10 @@ type EventOption = {
   setHistoryFlags?: string[];
   successHistoryFlags?: string[];
   failHistoryFlags?: string[];
+  followupEventId?: string;
+  successFollowupEventId?: string;
+  failFollowupEventId?: string;
+  failEndingReason?: string;
   qinConquest?: "advance" | "delay";
   specialAction?: "fight-minister" | "pardon-minister" | "execute-minister" | "fight-peasants" | "pardon-peasant" | "execute-peasant";
 };
@@ -67,6 +72,7 @@ type EventTemplate = {
   historical?: boolean;
   scriptId?: string;
   year?: number;
+  catchUp?: boolean;
   requiresHistoryFlags?: string[];
   excludesHistoryFlags?: string[];
   punitive?: boolean;
@@ -87,9 +93,10 @@ type Outcome = {
 };
 
 type Chronicle = { year: number; season: Season; title: string; note: string };
+type KeyYearRecord = { id: string; label: string; year: number; historicalYear: number };
 
 type GameState = {
-  version: 10;
+  version: 12;
   phase: Phase;
   difficulty: DifficultyId;
   scriptId: string;
@@ -116,12 +123,14 @@ type GameState = {
   qinConquestDelay: number;
   qinConquestRetries: number;
   qinConquestRequirementRelief: number;
+  liubangThreeQinRetries: number;
   pendingEvents: EventTemplate[];
   unavailablePersonIds: string[];
+  keyYears: KeyYearRecord[];
   debugHistory?: boolean;
 };
 
-type HistoricalProgress = Pick<GameState, "qinConquestIndex" | "qinConquestDelay" | "qinConquestRetries" | "qinConquestRequirementRelief">;
+type HistoricalProgress = Pick<GameState, "qinConquestIndex" | "qinConquestDelay" | "qinConquestRetries" | "qinConquestRequirementRelief" | "liubangThreeQinRetries">;
 
 type SeatAssignments = Record<Role, string | null>;
 
@@ -190,6 +199,48 @@ const scripts: Script[] = [
   { id: "genghis", title: "成吉思汗纪", ruler: "铁木真", dynasty: "大蒙古国", startYear: 1189, startLabel: "淳熙十六年 · 草原称汗", color: "#65704a", motto: "聚诸部，开万里", description: "从被推举为汗开始。骑兵锐不可当，治理辽阔疆域才是真正考验。", base: { population: 42, grain: 48, army: 96, sentiment: 8, integrity: -8, authority: 78 } },
   { id: "ming", title: "明太祖纪", ruler: "朱元璋", dynasty: "明", startYear: 1352, startLabel: "至正十二年 · 濠州投军", color: "#8c302d", motto: "驱逐胡虏，重整山河", description: "从濠州投军开始。最懂百姓饥寒，也最警惕功臣与贪官。", base: { population: 52, grain: 56, army: 68, sentiment: 24, integrity: 18, authority: 70 } },
 ];
+
+const openingKeyYears: Record<string, Omit<KeyYearRecord, "year">> = {
+  qin: { id: "opening-qin", label: "秦王即位", historicalYear: -246 },
+  liubang: { id: "opening-liubang", label: "沛县起兵", historicalYear: -209 },
+  hanwu: { id: "opening-hanwu", label: "汉武帝即位", historicalYear: -141 },
+  caocao: { id: "opening-caocao", label: "陈留起兵", historicalYear: 189 },
+  liubei: { id: "opening-liubei", label: "涿郡起兵", historicalYear: 184 },
+  sunce: { id: "opening-sunce", label: "江东创业", historicalYear: 194 },
+  liuyu: { id: "opening-liuyu", label: "京口举义", historicalYear: 404 },
+  taizong: { id: "opening-taizong", label: "晋阳起兵", historicalYear: 617 },
+  song: { id: "opening-song", label: "投身军旅", historicalYear: 951 },
+  genghis: { id: "opening-genghis", label: "草原称汗", historicalYear: 1189 },
+  ming: { id: "opening-ming", label: "濠州投军", historicalYear: 1352 },
+};
+
+const eventKeyYears: Partial<Record<string, Omit<KeyYearRecord, "year">>> = {
+  "qin-unification": { id: "qin-unification", label: "六合一统", historicalYear: -221 },
+  "liubang-early-founding": { id: "liubang-early-founding", label: "提前建立汉朝", historicalYear: -202 },
+  "liubang-found-han": { id: "liubang-found-han", label: "定陶称帝", historicalYear: -202 },
+  "hanwu-mayi": { id: "hanwu-mayi", label: "转向主动击胡", historicalYear: -133 },
+  "hanwu-luntai": { id: "hanwu-luntai", label: "轮台回望", historicalYear: -89 },
+  "caocao-xudu": { id: "caocao-xudu", label: "奉帝都许", historicalYear: 196 },
+  "caocao-guandu": { id: "caocao-guandu", label: "官渡决胜", historicalYear: 200 },
+  "liubei-chengdu": { id: "liubei-chengdu", label: "入主益州", historicalYear: 214 },
+  "liubei-jingzhou": { id: "liubei-jingzhou", label: "荆州风急", historicalYear: 219 },
+  "sunce-jiangdong": { id: "sunce-jiangdong", label: "横渡江东", historicalYear: 195 },
+  "sunce-assassin": { id: "sunce-assassin", label: "丹徒遇刺", historicalYear: 200 },
+  "liuyu-found-song": { id: "liuyu-found-song", label: "晋宋禅代", historicalYear: 420 },
+  "taizong-xuanwu": { id: "taizong-xuanwu", label: "玄武门之变", historicalYear: 626 },
+  "taizong-turks": { id: "taizong-turks", label: "阴山擒颉利", historicalYear: 630 },
+  "song-chenqiao": { id: "song-chenqiao", label: "陈桥受禅", historicalYear: 960 },
+  "song-tang-campaign": { id: "song-tang-campaign", label: "南征江南", historicalYear: 974 },
+  "genghis-kurultai": { id: "genghis-kurultai", label: "斡难河大会", historicalYear: 1206 },
+  "genghis-western-xia": { id: "genghis-western-xia", label: "西夏末路", historicalYear: 1227 },
+  "ming-foundation": { id: "ming-foundation", label: "洪武开国", historicalYear: 1368 },
+  "ming-princes-border": { id: "ming-princes-border", label: "诸王塞上", historicalYear: 1396 },
+};
+
+function initialKeyYears(script: Script): KeyYearRecord[] {
+  const opening = openingKeyYears[script.id];
+  return opening ? [{ ...opening, year: script.startYear }] : [];
+}
 
 const policies = [
   { id: "martial", name: "尚武开边", seal: "武", desc: "整军备边，主动争夺战略空间。军事事件成功率提高，钱粮消耗也更大。", effects: { army: 12, grain: -8, sentiment: -4, authority: 4 } as Partial<Stats>, tag: "军事" as SkillTag },
@@ -1762,21 +1813,75 @@ const originalPeopleSeeds: OriginalPersonSeed[] = [
   }
 ];
 
-const roleProfile: Record<Role, Pick<Person, "tags" | "bonuses">> = {
-  皇帝: { tags: ["谋略", "民生"], bonuses: { sentiment: 8, integrity: 6 } },
-  宰相: { tags: ["谋略", "吏治"], bonuses: { integrity: 10, grain: 5 } },
-  名将: { tags: ["军事", "谋略"], bonuses: { army: 14, grain: -2 } },
-  财政: { tags: ["财政", "民生"], bonuses: { grain: 15, population: 3 } },
-  监察: { tags: ["吏治", "民生"], bonuses: { integrity: 15, sentiment: 3 } },
+type AbilityProfileKey = "sovereign" | "statecraft" | "command" | "economy" | "oversight" | "reform" | "militaryAdmin" | "militaryFinance" | "strategyFinance" | "commandPeople" | "diplomaticStrategy" | "diplomaticFinance" | "diplomaticMilitary";
+
+// 能力与任职彻底分离：角色改任主副职时，不再随职位自动更换标签或加成。
+const abilityProfiles: Record<AbilityProfileKey, Pick<Person, "tags" | "bonuses">> = {
+  sovereign: { tags: ["谋略", "民生"], bonuses: { sentiment: 8, integrity: 6 } },
+  statecraft: { tags: ["谋略", "吏治"], bonuses: { integrity: 10, grain: 5 } },
+  command: { tags: ["军事", "谋略"], bonuses: { army: 14, grain: -2 } },
+  economy: { tags: ["财政", "民生"], bonuses: { grain: 15, population: 3 } },
+  oversight: { tags: ["吏治", "民生"], bonuses: { integrity: 15, sentiment: 3 } },
+  reform: { tags: ["财政", "吏治"], bonuses: { grain: 10, integrity: 10 } },
+  militaryAdmin: { tags: ["军事", "吏治"], bonuses: { army: 11, integrity: 7 } },
+  militaryFinance: { tags: ["军事", "财政"], bonuses: { army: 10, grain: 9 } },
+  strategyFinance: { tags: ["谋略", "财政"], bonuses: { grain: 11, army: 3 } },
+  commandPeople: { tags: ["军事", "民生"], bonuses: { army: 11, sentiment: 7 } },
+  diplomaticStrategy: { tags: ["外交", "谋略"], bonuses: { sentiment: 8, grain: 5 } },
+  diplomaticFinance: { tags: ["外交", "财政"], bonuses: { grain: 11, sentiment: 5 } },
+  diplomaticMilitary: { tags: ["外交", "军事"], bonuses: { army: 9, sentiment: 6 } },
 };
 
-const primaryRoleOverrides: Partial<Record<string, Role>> = {
-  商鞅: "财政", 王猛: "财政", 苏绰: "财政", 高颎: "财政", 陆贽: "财政", 姚崇: "财政", 范仲淹: "财政",
-  耶律楚材: "财政", 脱脱: "财政", 李善长: "财政", 李鸿章: "财政", 章惇: "财政", 鄂尔泰: "财政", 曹参: "财政",
-  蒙恬: "财政", 赵充国: "财政", 邓艾: "财政", 陶侃: "财政", 李绩: "财政", 郭子仪: "财政", 左宗棠: "财政",
-  戚继光: "财政", 孟珙: "财政", 郭元振: "财政",
-  张良: "监察", 陈平: "监察", 荀彧: "监察", 谢安: "监察", 裴度: "监察", 司马光: "监察", 欧阳修: "监察",
-  刘伯温: "监察", 徐阶: "监察", 赵云: "监察", 周瑜: "监察", 陆逊: "监察", 羊祜: "监察", 韦孝宽: "监察", 辛弃疾: "监察",
+const historicalAbilityGroups: Record<"sovereign" | "statecraft" | "command" | "economy" | "oversight", string[]> = {
+  sovereign: ["汉文帝", "刘秀", "孙权", "隋文帝", "武则天", "唐玄宗", "宋仁宗", "忽必烈", "朱棣", "康熙", "雍正", "乾隆", "秦孝公", "秦昭襄王", "汉景帝", "汉宣帝", "汉明帝", "汉章帝", "拓跋焘", "高欢", "宇文泰", "隋炀帝", "完颜阿骨打", "朱标", "朱瞻基", "多尔衮"],
+  statecraft: ["张良", "陈平", "李斯", "商鞅", "霍光", "司马懿", "荀彧", "郭嘉", "王猛", "谢安", "杜如晦", "裴度", "姚崇", "宋璟", "范仲淹", "司马光", "欧阳修", "陆秀夫", "耶律楚材", "脱脱", "刘伯温", "李善长", "曾国藩", "李鸿章", "曹参", "董仲舒", "丙吉", "魏相", "主父偃", "窦婴", "班固", "邓禹", "法正", "庞统", "鲁肃", "杜预", "崔浩", "苏绰", "高颎", "长孙无忌", "马周", "张柬之", "张说", "李泌", "陆贽", "柳宗元", "李德裕", "牛僧孺", "韦皋", "赵普", "寇准", "富弼", "韩琦", "吕蒙正", "蔡襄", "王旦", "章惇", "赵鼎", "虞允文", "余玠", "贾似道", "郝经", "刘秉忠", "史天泽", "许衡", "严嵩", "高拱", "徐阶", "杨廷和", "杨士奇", "杨荣", "杨溥", "孙承宗", "洪承畴", "胡林翼", "纪晓岚", "张廷玉", "鄂尔泰", "鳌拜"],
+  command: ["卫青", "霍去病", "王翦", "蒙恬", "周瑜", "陆逊", "邓艾", "羊祜", "祖逖", "桓温", "陶侃", "李绩", "郭子仪", "李光弼", "韩世忠", "伯颜", "常遇春", "戚继光", "左宗棠", "周勃", "灌婴", "樊哙", "李广", "赵充国", "陈汤", "班超", "马援", "吴汉", "关羽", "张飞", "赵云", "马超", "黄忠", "姜维", "吕蒙", "张辽", "典韦", "许褚", "夏侯惇", "夏侯渊", "陆抗", "慕容垂", "韦孝宽", "陈庆之", "檀道济", "高长恭", "杨素", "郭元振", "薛仁贵", "苏定方", "裴行俭", "王忠嗣", "高仙芝", "哥舒翰", "浑瑊", "辛弃疾", "孟珙", "阿术", "张弘范", "完颜宗弼", "完颜宗望", "袁崇焕", "熊廷弼", "李成梁", "施琅", "年羹尧", "岳钟琪"],
+  economy: ["郑和", "赵过"],
+  oversight: ["张骞", "狄仁杰", "文天祥", "于谦", "汲黯", "冯唐", "郅都", "周处", "褚遂良", "张九龄", "韩愈", "颜真卿", "柳公绰", "李纲", "张世杰", "卢象升", "林则徐", "丁宝桢", "刘统勋"],
+};
+
+const abilityProfileByName = Object.fromEntries(
+  Object.entries(historicalAbilityGroups).flatMap(([profile, names]) => names.map((name) => [name, profile])),
+) as Record<string, AbilityProfileKey>;
+
+const historicalAbilityOverrides: Partial<Record<string, AbilityProfileKey>> = {
+  李斯: "reform", 商鞅: "reform", 王猛: "reform", 姚崇: "reform", 苏绰: "reform", 范仲淹: "oversight",
+  耶律楚材: "economy", 脱脱: "reform", 李善长: "reform", 曹参: "oversight", 章惇: "reform", 鄂尔泰: "reform",
+  蒙恬: "militaryAdmin", 邓艾: "militaryFinance", 陶侃: "militaryAdmin", 郭子仪: "commandPeople", 戚继光: "militaryAdmin",
+  左宗棠: "militaryFinance", 赵充国: "militaryFinance", 郭元振: "militaryFinance", 孟珙: "militaryAdmin", 曾国藩: "militaryAdmin",
+  胡林翼: "militaryFinance", 杜预: "militaryFinance", 韦皋: "diplomaticMilitary", 洪承畴: "militaryAdmin", 于谦: "militaryAdmin",
+  鳌拜: "militaryAdmin", 张骞: "diplomaticStrategy", 郑和: "diplomaticFinance", 林则徐: "reform",
+  富弼: "diplomaticStrategy", 郝经: "diplomaticStrategy", 班超: "diplomaticMilitary", 鲁肃: "diplomaticStrategy", 李鸿章: "diplomaticFinance",
+};
+
+type HistoricalRoleProfile = Pick<Person, "role" | "secondaryRoles">;
+
+// 这里只修正史实定位，不再承担职业数量配平。
+const historicalRoleOverrides: Partial<Record<string, HistoricalRoleProfile>> = {
+  曾国藩: { role: "名将", secondaryRoles: ["财政", "监察"] },
+  胡林翼: { role: "财政", secondaryRoles: ["名将", "监察"] },
+  多尔衮: { role: "名将", secondaryRoles: ["宰相"] },
+  张骞: { role: "财政", secondaryRoles: ["名将"] },
+  李鸿章: { role: "财政", secondaryRoles: ["名将"] },
+  郑和: { role: "名将", secondaryRoles: ["财政"] },
+  杜预: { role: "名将", secondaryRoles: ["财政", "监察"] },
+  韦皋: { role: "名将", secondaryRoles: ["财政"] },
+  鳌拜: { role: "名将", secondaryRoles: ["宰相"] },
+  洪承畴: { role: "名将", secondaryRoles: ["宰相", "监察"] },
+  于谦: { role: "名将", secondaryRoles: ["监察"] },
+  文天祥: { role: "宰相", secondaryRoles: ["监察"] },
+  李纲: { role: "宰相", secondaryRoles: ["监察", "名将"] },
+  张世杰: { role: "名将", secondaryRoles: ["监察"] },
+  卢象升: { role: "名将", secondaryRoles: ["监察"] },
+  余玠: { role: "名将", secondaryRoles: ["宰相", "监察"] },
+  刘统勋: { role: "宰相", secondaryRoles: ["监察"] },
+  董仲舒: { role: "监察", secondaryRoles: ["宰相"] },
+  班固: { role: "监察", secondaryRoles: ["宰相"] },
+  柳宗元: { role: "监察", secondaryRoles: ["宰相"] },
+  蔡襄: { role: "财政", secondaryRoles: ["监察"] },
+  郝经: { role: "监察", secondaryRoles: ["宰相"] },
+  许衡: { role: "监察", secondaryRoles: ["宰相"] },
+  纪晓岚: { role: "监察", secondaryRoles: ["宰相"] },
 };
 
 const historicalRosterQuotes: Record<string, string> = {
@@ -1995,24 +2100,21 @@ const historicalLoyalty: Partial<Record<string, number>> = {
   董卓: 12, 安禄山: 5, 侯景: 6, 朱温: 8, 高欢: 32, 宇文泰: 39, 李克用: 52, 吴三桂: 10,
 };
 
-const loyaltyFor = (person: Pick<Person, "name" | "role">) => person.role === "皇帝" ? undefined : historicalLoyalty[person.name] ?? 82;
+const loyaltyFor = (person: Pick<Person, "name">) => historicalLoyalty[person.name] ?? 82;
 
 const importedPeople: Person[] = originalPeopleSeeds.map((seed) => {
-  const role = primaryRoleOverrides[seed.name] || seed.role;
-  const secondaryRoles = role === seed.role
-    ? seed.secondaryRoles
-    : [seed.role, ...seed.secondaryRoles].filter((item, index, items) => item !== role && items.indexOf(item) === index);
+  const roleProfile = historicalRoleOverrides[seed.name] || { role: seed.role, secondaryRoles: seed.secondaryRoles };
+  const abilityProfile = abilityProfiles[historicalAbilityOverrides[seed.name] || abilityProfileByName[seed.name]];
   return {
     ...seed,
-    role,
-    secondaryRoles,
-    quote: rosterQuote({ ...seed, role }),
-    tags: [...roleProfile[role].tags],
-    bonuses: { ...roleProfile[role].bonuses },
+    ...roleProfile,
+    quote: rosterQuote({ ...seed, ...roleProfile }),
+    tags: [...abilityProfile.tags],
+    bonuses: { ...abilityProfile.bonuses },
   };
 });
 
-const people: Person[] = [...corePeople, ...importedPeople].map((person) => person.role === "皇帝" ? person : { ...person, loyalty: loyaltyFor(person) });
+const people: Person[] = [...corePeople, ...importedPeople].map((person) => person.role === "皇帝" && person.secondaryRoles.length === 0 ? person : { ...person, loyalty: loyaltyFor(person) });
 
 // 这些人物不会进入开局抽签池，只能在平定农民起义后的招安事件中加入班底。
 const specialRecruits: Person[] = [
@@ -2040,7 +2142,7 @@ const randomEvents: EventTemplate[] = [
     { label: "压下案卷", detail: "朝堂暂时安静，蛀虫继续长大。", effects: { grain: 5, integrity: -12 } },
   ]},
   { id: "frontier-market", title: "互市与烽燧", category: "边患", text: "边地部族请求开放互市，守将则称其中混有探子。是以利驭之，还是以兵拒之？", options: [
-    { label: "开互市，遣使结盟", detail: "柔远之策需要谋略支撑。", chance: 60, tag: "谋略", successEffects: { grain: 10, sentiment: 3, army: 3 }, failEffects: { grain: -3, army: -8 } },
+    { label: "开互市，遣使结盟", detail: "使节熟悉边俗与谈判尺度，能显著提高结盟成功率。", chance: 58, tag: "外交", successEffects: { grain: 10, sentiment: 3, army: 3 }, failEffects: { grain: -3, army: -8 } },
     { label: "耀兵塞上", detail: "武备足则震慑，不足则露怯。", chance: 48, tag: "军事", successEffects: { army: 10, sentiment: 2 }, failEffects: { army: -12, grain: -7 } },
     { label: "闭关拒绝", detail: "最稳妥，也失去一条财路。", effects: { army: 2, grain: -3 } },
   ]},
@@ -2091,7 +2193,7 @@ const randomEvents: EventTemplate[] = [
   { id: "invasion", title: "烽火入塞", category: "边患", text: "敌骑越塞，三郡告急。多年的武备松弛在这一刻都写进了战报。", options: [
     { label: "亲征迎敌", detail: "武力不足则国门洞开。", requirements: { army: 70 }, failOnUnmet: true, effects: { army: -10, grain: -10, sentiment: 8 } },
     { label: "坚壁清野", detail: "以空间换时间。", effects: { population: -5, grain: -8, army: 4, sentiment: -7 } },
-    { label: "遣使议和", detail: "谋臣能争来喘息，也可能换来屈辱。", chance: 52, tag: "谋略", successEffects: { grain: -8, army: 2 }, failEffects: { grain: -15, sentiment: -10, army: -6 } },
+    { label: "遣使议和", detail: "外交人才可争来喘息，也可能因误判敌情换来屈辱。", chance: 50, tag: "外交", successEffects: { grain: -8, army: 2 }, failEffects: { grain: -15, sentiment: -10, army: -6 } },
   ]},
   { id: "granary-fire", title: "仓廪夜火", category: "灾异", text: "州仓深夜失火，官吏称是天干物燥，守仓役卒却说起火前曾看见账吏搬运粮袋。", options: [
     { label: "重修仓廪，增设火道", detail: "先恢复储粮能力，再防下一场火。", effects: { grain: -8, integrity: 7, sentiment: 4 } },
@@ -2249,7 +2351,7 @@ const randomEvents: EventTemplate[] = [
     { label: "查封欠户田宅抵税", detail: "国库很快见粮，许多田产也会流向有力者。", effects: { grain: 12, army: 3, sentiment: -12, integrity: -6 } },
   ]},
   { id: "border-hostage", title: "质子入朝", category: "边患", text: "邻国愿送王子入朝为质，换取停战与边市。有人称这是诚意，也有人担心质子只是来结交朝臣。", options: [
-    { label: "厚待质子，缔结盟约", detail: "识其真意可稳住边境，误判则让对方摸清朝局。", chance: 62, tag: "谋略", successEffects: { army: 8, grain: 4, integrity: 3 }, failEffects: { army: -7, sentiment: -6, integrity: -3 } },
+    { label: "厚待质子，缔结盟约", detail: "外交人才更善于辨别诚意与试探，误判则会让对方摸清朝局。", chance: 60, tag: "外交", successEffects: { army: 8, grain: 4, integrity: 3 }, failEffects: { army: -7, sentiment: -6, integrity: -3 } },
     { label: "礼送归国，只开边市", detail: "不以人质维系和平，先让双方从贸易获利。", effects: { grain: 6, sentiment: 5, army: -2 } },
     { label: "留质子，暂停一切互市", detail: "握住谈判筹码，也令邻国与边商同时不满。", effects: { army: 7, grain: 3, integrity: -7, sentiment: -4 } },
   ]},
@@ -2352,25 +2454,64 @@ const additionalHistoricalEvents: EventTemplate[] = [
     { label: "通商设吏，徐图岭南", detail: "不求一次征服，以贸易和移民逐步进入百越。", chance: 60, tag: "财政", successEffects: { grain: 12, population: 6, integrity: 5 }, failEffects: { grain: -10, army: -6, sentiment: -4 } },
   ]},
 
-  { id: "liubang-uprising", scriptId: "liubang", year: -209, historical: true, title: "沛县举义", category: "历史大事", text: "陈胜吴广已揭竿而起，沛县父老推举刘邦主持城中。秦吏与豪杰都在等待第一面旗帜。", options: [
-    { label: "开仓聚众，自称沛公", detail: "民心可聚兵，也可能因组织不及而迅速溃散。", chance: 60, tag: "民生", successEffects: { army: 10, sentiment: 12, grain: -5 }, failEffects: { population: -5, army: -8, sentiment: -6 } },
-    { label: "据守沛县，静观天下", detail: "先保存根本，却会把先机让给别路义军。", effects: { grain: 5, army: 4, sentiment: -2 } },
+  { id: "liubang-uprising", scriptId: "liubang", year: -209, historical: true, title: "沛县举义", category: "历史大事", text: "沛县城门已开，秦吏伏诛，刘邦也已受父老豪杰推举为沛公。义旗既立，眼下要决定的是如何把仓促聚起的人马变成一支真正的义军。", options: [
+    { label: "开仓赈民，整编沛中子弟", detail: "先用粮食安定父老、约束军纪，再从乡里扩充义军根基。", chance: 65, tag: "民生", successEffects: { army: 10, sentiment: 12, grain: -6, authority: 5 }, failEffects: { population: -4, army: -6, sentiment: -5, authority: -3 } },
+    { label: "轻兵西进，沿途收纳亡命", detail: "不困守一县，以行军速度和连战声势吸引各地反秦之众。", chance: 60, tag: "军事", successEffects: { population: 4, army: 14, grain: -7, authority: 7 }, failEffects: { army: -10, grain: -8, sentiment: -5, authority: -5 } },
+  ]},
+  { id: "liubang-dang-campaign", scriptId: "liubang", year: -208, historical: true, title: "砀郡整军", category: "历史大事", text: "离开沛县后，义军在丰、砀之间辗转，与秦军数度交锋，部众聚散无常。项梁正在薛地召集楚地诸将；若要继续西进，沛公必须先取得兵员、粮械与立足之名。", options: [
+    { label: "会师项梁，受楚军节制", detail: "借楚军旗号补充兵粮最为稳妥，但沛公也要暂时居于人下。", effects: { army: 12, grain: 8, sentiment: 4, authority: -4 } },
+    { label: "转战砀郡，自行收兵", detail: "靠连战取胜树立自己的旗号；若攻势受挫，仓促聚起的部众仍可能再次离散。", chance: 58, tag: "军事", successEffects: { population: 5, army: 15, grain: 5, authority: 8 }, failEffects: { population: -4, army: -11, grain: -8, sentiment: -6, authority: -6 } },
   ]},
   { id: "liubang-guanzhong", scriptId: "liubang", year: -207, historical: true, title: "约法入关", category: "历史大事", text: "秦王已降，关中府库与百姓尽在眼前。是以宽法收心，还是先取财货犒军？", options: [
-    { label: "约法三章，封存府库", detail: "用克制换取关中人心。", effects: { grain: -5, sentiment: 16, integrity: 10 } },
-    { label: "尽取府库以赏三军", detail: "军粮立刻充足，也会让百姓把新军视作另一支暴秦。", effects: { grain: 12, army: 7, sentiment: -13, integrity: -8 }, setHistoryFlags: ["liubang_looted_guanzhong"] },
+    { label: "约法三章，封存府库", detail: "用克制换取关中人心。", effects: { grain: -5, sentiment: 16, integrity: 10 }, setHistoryFlags: ["liubang_accords_guanzhong"], followupEventId: "liubang-guard-pass-humane" },
+    { label: "尽取府库以赏三军", detail: "军粮立刻充足，也会让百姓把新军视作另一支暴秦。", effects: { grain: 12, army: 7, sentiment: -13, integrity: -8 }, setHistoryFlags: ["liubang_looted_guanzhong"], followupEventId: "liubang-guard-pass-looted" },
   ]},
-  { id: "liubang-qin-support", scriptId: "liubang", year: -206, historical: true, excludesHistoryFlags: ["liubang_looted_guanzhong"], title: "关中父老", category: "历史大事", text: "约法入关之后，关中父老送来楚军营垒与道路消息。赴鸿门之前，这份民间相助也可能成为一条生路。", options: [
-    { label: "受其向导，轻车赴宴", detail: "借熟悉山川的父老避开楚军耳目。", effects: { army: 4, sentiment: 7, grain: -3 } },
-    { label: "谢绝私助，严守军令", detail: "不让百姓卷入楚汉军争。", effects: { integrity: 7, sentiment: 4 } },
+  { id: "liubang-guard-pass-humane", scriptId: "liubang", historical: true, title: "函谷设防", category: "历史大事", text: "鲰生进言：‘距关，毋内诸侯，秦地可尽王也。’关中百姓初附，项羽诸侯军却正向函谷关逼近。是否闭关，将决定双方会不会在鸿门兵戎相见。", options: [
+    { label: "听从鲰生，闭守函谷关", detail: "先占据关中形胜，却会直接触怒兵势正盛的项羽。", effects: { army: 5, grain: -4, authority: 6 }, setHistoryFlags: ["liubang_guarded_pass"], followupEventId: "liubang-xiangbo" },
+    { label: "开关迎纳诸侯", detail: "避免与楚军立即冲突，也等于放弃独占秦地的姿态。", effects: { sentiment: 4, integrity: 3, authority: -5 }, setHistoryFlags: ["liubang_opened_pass"], followupEventId: "liubang-hanzhong" },
   ]},
-  { id: "liubang-qin-resistance", scriptId: "liubang", year: -206, historical: true, requiresHistoryFlags: ["liubang_looted_guanzhong"], punitive: true, title: "关中闭户", category: "历史大事", text: "军士取尽府库后，秦吏与父老闭门相拒。项羽的细作也在关中四处收集怨言，准备送往鸿门。", options: [
-    { label: "退还所取，安抚关中", detail: "财货已经分入军中，追回退还只能挽回一部分人心。", effects: { grain: -14, army: -3, sentiment: -2 } },
-    { label: "搜捕告变者", detail: "强行压住消息，会让军民裂痕变得更深。", effects: { population: -3, army: -4, sentiment: -12, integrity: -10 } },
+  { id: "liubang-guard-pass-looted", scriptId: "liubang", historical: true, punitive: true, title: "函谷设防", category: "历史大事", text: "鲰生进言：‘距关，毋内诸侯，秦地可尽王也。’然而府库已经分入军中，关中父老多有怨言；一旦闭关，项羽将同时得到曹无伤的密报与秦地民怨。", options: [
+    { label: "听从鲰生，闭守函谷关", detail: "以关塞阻挡诸侯，但此时已经没有关中人心替沛公解释。", effects: { army: 5, grain: -5, sentiment: -5, authority: 6 }, setHistoryFlags: ["liubang_guarded_pass"], followupEventId: "liubang-hongmen-danger" },
+    { label: "开关迎纳诸侯", detail: "退让关中门户，避免把民怨与楚军兵锋同时引向自己。", effects: { sentiment: 3, integrity: 2, authority: -6 }, setHistoryFlags: ["liubang_opened_pass"], followupEventId: "liubang-hanzhong" },
   ]},
-  { id: "liubang-gaixia", scriptId: "liubang", year: -202, historical: true, title: "垓下决楚", category: "历史大事", text: "鸿沟和议已破，项羽退至垓下。韩信请统诸军合围，这是结束乱世的一战。", options: [
-    { label: "合诸侯兵围垓下", detail: "武备不济，诸侯便不会为汉军押上全部。", requirements: { army: 85, grain: 65 }, failOnUnmet: true, rewardRequirements: { army: 115, grain: 90 }, alternateText: "楚军在垓下彻底瓦解，诸侯无一敢再反复，统一比旧史更加稳固。", effects: { army: -18, grain: -12, sentiment: 13 } },
-    { label: "守鸿沟之约", detail: "天下暂分楚汉，兵火稍息，统一却遥遥无期。", effects: { army: 3, grain: 5, sentiment: -4, integrity: -5 } },
+  { id: "liubang-xiangbo", scriptId: "liubang", historical: true, title: "求告项伯", category: "历史大事", text: "曹无伤密告项羽，楚军扬言次日击破沛公。项伯念及与张良的旧交，连夜驰入汉营；这层关系是赴鸿门前唯一可靠的生门。", options: [
+    { label: "厚礼求告，陈明封库本意", detail: "请项伯转告项羽：闭关只是防盗待命，并无独王关中之心。", effects: { grain: -5, integrity: 4 }, followupEventId: "liubang-hongmen-safe" },
+    { label: "与项伯约为婚姻", detail: "用私人婚约换取项伯居中斡旋，代价是让军国大事染上私相请托。", effects: { grain: -3, integrity: -4, authority: -1 }, followupEventId: "liubang-hongmen-safe" },
+  ]},
+  { id: "liubang-hongmen-safe", scriptId: "liubang", historical: true, title: "鸿门宴", category: "历史大事", text: "项伯已在项羽面前说明封库与守关缘由，并答应席间照应。鸿门仍有四十万楚军与项庄之剑，但沛公已经握住一条退路。", options: [
+    { label: "去：亲赴鸿门，卑辞谢罪", detail: "项伯与樊哙先后护持，沛公必能脱身，只需暂时放下关中王的姿态。", effects: { army: -4, sentiment: 3, authority: -3 }, setHistoryFlags: ["liubang_survived_hongmen"], followupEventId: "liubang-hanzhong" },
+    { label: "不去：整军拒楚", detail: "拒绝赴宴等于立即与项羽决裂，此后只能连续击破前来问罪的楚军。", effects: { army: -5, grain: -6, authority: 9 }, setHistoryFlags: ["liubang_refused_hongmen"], followupEventId: "liubang-if-hangu" },
+  ]},
+  { id: "liubang-hongmen-danger", scriptId: "liubang", historical: true, punitive: true, title: "鸿门宴", category: "历史大事", text: "府库已被取尽，函谷关又曾拒绝诸侯。没有关中父老为沛公作证，也没有项伯提前居中说项；项羽军中认定这是一场蓄意背约。", options: [
+    { label: "去：亲赴鸿门辩白", detail: "只能在盛怒的项羽与范增面前临场求生；绝大多数情况下，沛公会被直接诛杀。", chance: 12, tag: "谋略", successEffects: { army: -9, grain: -5, authority: -8 }, failEffects: { army: -30, population: -10, authority: -20 }, successHistoryFlags: ["liubang_survived_hongmen"], successFollowupEventId: "liubang-hanzhong", failEndingReason: "鸿门宴上无人居中转圜，项羽采纳范增之议诛杀沛公。尚未建立的汉业随主帅之死土崩瓦解。" },
+    { label: "不去：整军拒楚", detail: "拒绝赴宴等于立即与项羽决裂，此后只能连续击破前来问罪的楚军。", effects: { army: -5, grain: -6, authority: 9 }, setHistoryFlags: ["liubang_refused_hongmen"], followupEventId: "liubang-if-hangu" },
+  ]},
+  { id: "liubang-hanzhong", scriptId: "liubang", historical: true, title: "赴汉中", category: "历史大事", text: "项羽背弃先入关者王关中的旧约，改封刘邦为汉王，令其领巴、蜀、汉中。关中三王扼守故秦之地，汉军必须穿过褒斜栈道退入南郑。", options: [
+    { label: "受封汉王，烧绝栈道", detail: "以毁路向项羽示弱，掩藏重返关中的意图；行军受损，却能为暗度陈仓保住突然性。", effects: { grain: 10, army: -6, sentiment: 5, authority: -5 }, setHistoryFlags: ["liubang_in_hanzhong", "liubang_burned_plank_road"], followupEventId: "liubang-three-qin" },
+    { label: "保全栈道，厉兵东向", detail: "保住交通线并提前整军，立即获得更多武备；东归意图也会暴露，使暗度陈仓成功率降低24个百分点。", effects: { grain: -8, army: 11, sentiment: -2, authority: 6 }, setHistoryFlags: ["liubang_in_hanzhong", "liubang_preserved_plank_road"], followupEventId: "liubang-three-qin" },
+  ]},
+  { id: "liubang-three-qin", scriptId: "liubang", historical: true, title: "还定三秦", category: "历史大事", text: "项羽东向平齐，章邯、司马欣、董翳分据关中。韩信请明修栈道、暗度陈仓，在诸侯尚未站稳之前夺回秦地。", options: [
+    { label: "明修栈道，暗度陈仓", detail: "烧毁旧栈道时可用佯修迷惑章邯；若此前保全栈道，奇袭成功率额外降低24个百分点。失败后将重整再攻，并使后续历史顺延。", chance: 72, chanceModifiers: [{ historyFlag: "liubang_preserved_plank_road", delta: -24 }], tag: "军事", successEffects: { army: 15, grain: 10, population: 6, authority: 9 }, failEffects: { army: -15, grain: -11, population: -4, authority: -7 }, successHistoryFlags: ["liubang_three_qin_settled"] },
+    { label: "招降秦卒，分路东进", detail: "利用三秦军民对旧将的不满稳步推进，速度较慢但更重收心；失败后将重整再攻，并使后续历史顺延。", chance: 64, tag: "民生", successEffects: { army: 9, grain: 7, sentiment: 10, authority: 5 }, failEffects: { army: -8, grain: -8, sentiment: -6, authority: -4 }, successHistoryFlags: ["liubang_three_qin_settled"] },
+  ]},
+  { id: "liubang-pengcheng", scriptId: "liubang", year: -205, catchUp: true, historical: true, requiresHistoryFlags: ["liubang_three_qin_settled"], title: "彭城溃败", category: "历史大事", text: "汉王裹挟五诸侯、号称五十六万众攻入彭城，项羽却以三万精骑回师突击。诸侯军顷刻瓦解，汉王必须在楚骑合围前保存性命与残部。", options: [
+    { label: "收拢败军，退守荥阳", detail: "让萧何征发关中兵补充沿途败卒，在荥阳重新建立防线。", chance: 68, tag: "谋略", successEffects: { army: -10, grain: -8, population: -3, authority: -5 }, failEffects: { army: -18, grain: -12, population: -6, sentiment: -8, authority: -9 }, setHistoryFlags: ["liubang_after_pengcheng"] },
+    { label: "弃置辎重，轻骑西撤", detail: "不再设法收拢诸侯军，以更大物资损失换取汉王与近卫脱身。", effects: { army: -14, grain: -18, population: -4, sentiment: -6, authority: -7 }, setHistoryFlags: ["liubang_after_pengcheng"] },
+  ]},
+  { id: "liubang-if-hangu", scriptId: "liubang", historical: true, title: "函谷拒楚", category: "历史改写", text: "沛公拒赴鸿门，项羽命英布、龙且率前锋叩关。楚军声势正盛，这是拒宴之后第一场无法回避的决战。", options: [
+    { label: "凭关列阵，正面拒楚", detail: "需要武备达到78、钱粮达到48，否则函谷一破便再无退路。", requirements: { army: 78, grain: 48 }, failOnUnmet: true, effects: { army: -10, grain: -8, authority: 7 }, followupEventId: "liubang-if-pengcheng" },
+    { label: "诱敌入谷，伏兵断后", detail: "需要武备达到74、钱粮达到58，以更多补给换取较低的正面军力要求。", requirements: { army: 74, grain: 58 }, failOnUnmet: true, effects: { army: -8, grain: -12, authority: 6 }, followupEventId: "liubang-if-pengcheng" },
+  ]},
+  { id: "liubang-if-pengcheng", scriptId: "liubang", historical: true, title: "彭城争锋", category: "历史改写", text: "函谷受挫后，项羽亲率楚军回击。汉军若不能在彭城外挡住这次反扑，关中诸侯将立即倒向西楚。", options: [
+    { label: "合诸侯军迎击项羽", detail: "需要武备达到92、钱粮达到62，诸侯才肯共同压上主力。", requirements: { army: 92, grain: 62 }, failOnUnmet: true, effects: { army: -13, grain: -10, sentiment: 5, authority: 8 }, followupEventId: "liubang-if-guangwu" },
+    { label: "坚壁清野，拖垮楚骑", detail: "需要武备达到88、钱粮达到72，长期对峙会消耗更多库存。", requirements: { army: 88, grain: 72 }, failOnUnmet: true, effects: { army: -10, grain: -16, population: -3, authority: 7 }, followupEventId: "liubang-if-guangwu" },
+  ]},
+  { id: "liubang-if-guangwu", scriptId: "liubang", historical: true, title: "广武决胜", category: "历史改写", text: "楚军连续失利，退守广武。天下尚未经历数年楚汉相持，汉军必须用最后一战证明拒赴鸿门不是一场鲁莽豪赌。", options: [
+    { label: "全军渡河，强攻楚垒", detail: "最终武备要求提升至108、钱粮要求提升至78；不能取胜便是全线崩溃。", requirements: { army: 108, grain: 78 }, failOnUnmet: true, effects: { army: -18, grain: -14, sentiment: 12, authority: 12 }, followupEventId: "liubang-early-founding" },
+    { label: "断绝粮道，迫楚军决战", detail: "需要武备达到102、钱粮达到90，以更雄厚的库存完成包围。", requirements: { army: 102, grain: 90 }, failOnUnmet: true, effects: { army: -14, grain: -20, sentiment: 10, authority: 11 }, followupEventId: "liubang-early-founding" },
+  ]},
+  { id: "liubang-early-founding", scriptId: "liubang", historical: true, title: "提前定鼎", category: "历史改写", text: "拒赴鸿门后的三场大战全部告捷，西楚主力提前瓦解。诸侯奉汉王为天下共主，汉朝得以在旧史之前建立。", options: [
+    { label: "即皇帝位，建国号汉", detail: "以连战所得的威望结束诸侯并立，提前建立汉朝。", effects: { population: 8, grain: 8, army: 8, sentiment: 15, integrity: 6, authority: 18 }, setHistoryFlags: ["liubang_han_founded_early"] },
   ]},
   { id: "liubang-baideng", scriptId: "liubang", year: -200, historical: true, title: "白登重围", category: "历史大事", text: "轻进追击的汉军被匈奴围在白登山，风雪与断粮比敌骑更先逼近。", options: [
     { label: "固守待奇计解围", detail: "谋臣若能看透敌营，尚有一线生门。", chance: 55, tag: "谋略", successEffects: { army: 5, sentiment: 6, grain: -8 }, failEffects: { army: -18, grain: -12, sentiment: -8 } },
@@ -2407,7 +2548,7 @@ const additionalHistoricalEvents: EventTemplate[] = [
   ]},
   { id: "hanwu-dayuan", scriptId: "hanwu", year: -104, historical: true, title: "大宛汗血", category: "历史大事", text: "大宛拒献良马，又杀汉使。朝廷欲越万里沙漠征伐贰师城，以打通西域声威。", options: [
     { label: "再发大军征大宛", detail: "没有雄厚钱粮与军力，远征只会把士卒埋在沿途。", requirements: { grain: 100, army: 95 }, failOnUnmet: true, effects: { grain: -28, army: -14, population: 4, sentiment: 5 } },
-    { label: "重开互市求马", detail: "财政与外交若能配合，可用较小代价获得良马。", chance: 60, tag: "财政", successEffects: { grain: -8, army: 11, integrity: 3 }, failEffects: { grain: -18, army: -4, sentiment: -5 } },
+    { label: "重开互市求马", detail: "通过使节与贸易重建关系，可用较小代价获得良马。", chance: 60, tag: "外交", successEffects: { grain: -8, army: 11, integrity: 3 }, failEffects: { grain: -18, army: -4, sentiment: -5 } },
   ]},
   { id: "hanwu-witchcraft", scriptId: "hanwu", year: -91, historical: true, title: "巫蛊祸起", category: "历史大事", text: "宫中搜出木偶，诬告沿着酷吏与近臣一路指向太子。京师兵戈将起，父子之间只隔一道真伪未明的奏章。", options: [
     { label: "命酷吏穷治巫蛊", detail: "猜疑会让案件自行扩张，直到吞没储君与无数百姓。", effects: { population: -8, sentiment: -18, integrity: -16 } },
@@ -2448,7 +2589,7 @@ const additionalHistoricalEvents: EventTemplate[] = [
     { label: "留守新野，整训部曲", detail: "先求眼前自保，失去一次重画天下的机会。", effects: { army: 6, grain: 5 }, setHistoryFlags: ["liubei_without_longzhong"] },
   ]},
   { id: "liubei-redcliffs", scriptId: "liubei", year: 208, historical: true, excludesHistoryFlags: ["liubei_without_longzhong"], title: "联吴拒曹", category: "历史大事", text: "长坂败后兵不满万，曹军已至江陵。诸葛亮请赴江东说服孙权共同抗敌。", options: [
-    { label: "遣使联吴，共拒曹军", detail: "联盟若成可转危为安，若败便无处立足。", chance: 55, tag: "谋略", successEffects: { army: 15, grain: 10, sentiment: 8 }, failEffects: { army: -20, grain: -12, sentiment: -6 } },
+    { label: "遣使联吴，共拒曹军", detail: "联盟若成可转危为安，若败便无处立足。", chance: 55, tag: "外交", successEffects: { army: 15, grain: 10, sentiment: 8 }, failEffects: { army: -20, grain: -12, sentiment: -6 } },
     { label: "避战西入益州", detail: "保存残部，却把荆州与盟友都留给曹军。", effects: { population: -4, grain: 6, army: -5, sentiment: -5 } },
   ]},
   { id: "liubei-xiakou-council", scriptId: "liubei", year: 208, historical: true, requiresHistoryFlags: ["liubei_without_longzhong"], title: "夏口问盟", category: "历史大事", text: "长坂败后兵不满万，曹军已至江陵。没有卧龙出使，鲁肃却奉孙权之命来到夏口，试探两家是否仍能共同拒曹。", options: [
@@ -2593,10 +2734,6 @@ const coreHistoricalEvents: EventTemplate[] = [
     { label: "秘不发丧，依旧东归", detail: "吏治腐败时，密谋将吞噬王朝。", requirements: { integrity: 5 }, failOnUnmet: true, effects: { integrity: -18, sentiment: -12 } },
     { label: "召集重臣共议国本", detail: "以制度约束阴谋。", chance: 62, tag: "吏治", successEffects: { integrity: 10, sentiment: 8 }, failEffects: { integrity: -15, sentiment: -10 } },
   ]},
-  { id: "liubang-hongmen", scriptId: "liubang", year: -206, historical: true, title: "鸿门宴", category: "历史大事", text: "项羽四十万大军驻鸿门，席间剑影逼人。能否从宴席全身而退，将决定关中归属。", options: [
-    { label: "卑辞谢罪，伺机脱身", detail: "谋臣越强，生门越宽。", chance: 58, tag: "谋略", successEffects: { army: 6, sentiment: 4 }, failEffects: { army: -15, grain: -8 } },
-    { label: "掷杯为号，席间搏杀", detail: "武备不足便是王朝未立先亡。", requirements: { army: 82 }, failOnUnmet: true, effects: { army: -18, sentiment: 10 } },
-  ]},
   { id: "hanwu-mobei", scriptId: "hanwu", year: -119, historical: true, title: "漠北决战", category: "历史大事", text: "大军将深入漠北，追击匈奴主力。此战若胜可绝边患，粮道若断则数十年积蓄尽空。", options: [
     { label: "倾国出塞，封狼居胥", detail: "钱粮与武备必须同时经得住考验。", requirements: { grain: 95, army: 100 }, failOnUnmet: true, rewardRequirements: { grain: 130, army: 115 }, alternateText: "漠北主力尽破，边境获得数十年安宁，帝国没有被战争拖空。", effects: { grain: -35, army: -16, sentiment: 7 } },
     { label: "分路蚕食，保全粮道", detail: "稳健推进，战果有限。", chance: 64, tag: "军事", successEffects: { grain: -14, army: 5 }, failEffects: { grain: -20, army: -8 } },
@@ -2655,9 +2792,33 @@ const lifeGapHistoricalEvents: EventTemplate[] = [
   ]},
 
   // 汉高祖：补楚汉相持与晚年异姓王危机。
-  { id: "liubang-xingyang", scriptId: "liubang", year: -204, historical: true, title: "荥阳危城", category: "历史大事", text: "楚军围困荥阳，汉军粮道将断。纪信愿乘王车诈降，韩信则请求继续开辟北方战场。", options: [
-    { label: "遣纪信诈降，主力突围", detail: "以少数人的牺牲保存汉王与主力。", chance: 58, tag: "谋略", successEffects: { army: 9, grain: 4, sentiment: -3 }, failEffects: { army: -15, grain: -10 } },
-    { label: "固守待韩信援军", detail: "守城需要军粮，却能避免仓促突围。", requirements: { grain: 62, army: 70 }, failOnUnmet: true, effects: { grain: -15, army: 6, sentiment: 5 } },
+  { id: "liubang-xingyang", scriptId: "liubang", historical: true, title: "荥阳危城", category: "历史大事", text: "反间计虽使范增离去，楚军仍围困荥阳并截断甬道。纪信愿乘王车诈降，汉王若不能保住性命与主力，楚汉之争将在此结束。", options: [
+    { label: "遣纪信诈降，主力突围", detail: "以纪信与守军的牺牲换取汉王从西门脱身。", chance: 70, tag: "谋略", successEffects: { army: 7, grain: -6, sentiment: -4, authority: 5 }, failEffects: { army: -25, grain: -16, population: -8, authority: -18 }, successHistoryFlags: ["liubang_escaped_xingyang"], failEndingReason: "纪信诈降未能骗过楚军，荥阳各门同时陷落，汉王在突围途中被俘。楚汉之争就此结束，王朝陨落。" },
+    { label: "固守敖仓，等待外军解围", detail: "需要武备达到82、钱粮达到65，才能守住敖仓与甬道，等到韩信、彭越从侧翼改变战局。", requirements: { army: 82, grain: 65 }, failOnUnmet: true, effects: { grain: -15, army: 6, sentiment: 5, authority: 6 }, setHistoryFlags: ["liubang_escaped_xingyang"], failEndingReason: "敖仓粮道被楚军彻底切断，荥阳在内外无援中失守，汉王未能脱离重围。王朝随危城一同覆灭。" },
+  ]},
+  { id: "liubang-fanzeng", scriptId: "liubang", year: -204, catchUp: true, historical: true, requiresHistoryFlags: ["liubang_after_pengcheng"], title: "离间范增", category: "历史大事", text: "荥阳被围，陈平判断项羽多疑而范增专权，可以黄金数万斤行反间计，使楚国君臣彼此猜忌，为汉王突围先除一臂。", options: [
+    { label: "赐陈平金四万斤，任其反间", detail: "不问钱财去向，让陈平收买楚使、散布亚父与汉私通的流言。", effects: { grain: -14, army: 5, integrity: -5, authority: 7 }, setHistoryFlags: ["liubang_fanzeng_removed"], followupEventId: "liubang-xingyang" },
+    { label: "厚待楚使，故作范增私交", detail: "以礼遇差别诱使项羽自行生疑；耗费较少，但能施展的离间层次也更有限。", effects: { grain: -7, army: 3, authority: 4 }, setHistoryFlags: ["liubang_fanzeng_removed"], followupEventId: "liubang-xingyang" },
+  ]},
+  { id: "liubang-liyiqi-qi", scriptId: "liubang", year: -203, catchUp: true, historical: true, requiresHistoryFlags: ["liubang_escaped_xingyang"], title: "郦食其说齐", category: "历史大事", text: "郦食其请凭三寸之舌说齐王田广归汉，韩信大军也已奉命东进。若齐国先降而军令未止，使者与统帅之间将形成致命冲突。", options: [
+    { label: "遣郦食其说齐，急令韩信止兵", detail: "争取不战而下齐国，也必须让前线将帅及时收到统一军令。", chance: 66, tag: "外交", successEffects: { population: 6, grain: 10, sentiment: 9, authority: 5 }, failEffects: { army: -7, grain: -5, sentiment: -5, authority: -3 }, setHistoryFlags: ["liubang_qi_campaign_resolved"], followupEventId: "liubang-hanxin-king" },
+    { label: "仍令韩信以兵定齐", detail: "不让外交改变既定军令，军事收益更直接，齐地百姓与郦食其却要承担代价。", effects: { population: -6, grain: 8, army: 11, sentiment: -9, authority: 4 }, setHistoryFlags: ["liubang_qi_campaign_resolved"], followupEventId: "liubang-hanxin-king" },
+  ]},
+  { id: "liubang-hanxin-king", scriptId: "liubang", historical: true, title: "韩信假王", category: "历史大事", text: "齐地既定，韩信遣使请求代理齐王，以镇抚反复之国。汉王正在广武与项羽相持，既离不开韩信之兵，也不能不顾封王对皇权的侵蚀。", options: [
+    { label: "从张良议，立韩信为齐王", detail: "既要用人，便给足名位，换取韩信率齐军参与最后合围。", effects: { army: 15, grain: -5, sentiment: 4, authority: -7 }, setHistoryFlags: ["liubang_hanxin_committed"] },
+    { label: "只许假王，遣使督军", detail: "保留名分上的控制；若韩信心生疑惧，垓下会师便可能失约。", chance: 46, tag: "谋略", successEffects: { army: 8, authority: 3 }, failEffects: { army: -14, grain: -7, authority: -10 }, setHistoryFlags: ["liubang_hanxin_committed"] },
+  ]},
+  { id: "liubang-gaixia", scriptId: "liubang", year: -202, catchUp: true, historical: true, requiresHistoryFlags: ["liubang_hanxin_committed"], title: "垓下决楚", category: "历史大事", text: "鸿沟和议已破，项羽退至垓下。韩信、彭越能否如约会师，决定汉朝是在今年建立，还是继续陷在楚汉战争之中。", options: [
+    { label: "分封齐梁，合诸侯兵围垓下", detail: "以明确封地换取韩信、彭越全军赴约，完成对楚军的最后合围。", chance: 74, tag: "军事", successEffects: { army: -15, grain: -12, sentiment: 14, authority: 12 }, failEffects: { army: -15, grain: -12, sentiment: -7, authority: -8 }, successFollowupEventId: "liubang-found-han", failHistoryFlags: ["liubang_gaixia_delayed"] },
+    { label: "不再许地，独率汉军追击", detail: "避免继续分封，却要承担诸侯按兵不动、汉军孤军受挫的风险。", chance: 48, tag: "军事", successEffects: { army: -18, grain: -10, sentiment: 12, authority: 17 }, failEffects: { army: -20, grain: -14, sentiment: -9, authority: -10 }, successFollowupEventId: "liubang-found-han", failHistoryFlags: ["liubang_gaixia_delayed"] },
+  ]},
+  { id: "liubang-gaixia-rematch", scriptId: "liubang", year: -201, catchUp: true, historical: true, requiresHistoryFlags: ["liubang_gaixia_delayed"], title: "再合诸侯", category: "历史大事", text: "垓下首战未能歼灭楚军，汉朝建立已经推迟一年。项羽收拢残部退守淮北，韩信、彭越要求兑现封地后再度会师。", options: [
+    { label: "兑现封地，再围楚军", detail: "需要武备达到96、钱粮达到68；再败便不再有第三次合围的机会。", requirements: { army: 96, grain: 68 }, failOnUnmet: true, failEndingReason: "垓下再战失利，诸侯离心、楚军反攻，汉军再也无力维持天下之争，王朝就此陨落。", effects: { army: -17, grain: -15, sentiment: 10, authority: 8 }, followupEventId: "liubang-found-han" },
+    { label: "征发关中，独力决战", detail: "需要武备达到108、钱粮达到78，以中央军承担更高要求换取完整皇权；未能破楚则汉军主力尽丧。", requirements: { army: 108, grain: 78 }, failOnUnmet: true, failEndingReason: "关中兵在垓下孤军覆没，汉王失去最后一支可用主力，诸侯随即倒戈，王朝就此陨落。", effects: { army: -20, grain: -17, sentiment: 8, authority: 14 }, followupEventId: "liubang-found-han" },
+  ]},
+  { id: "liubang-found-han", scriptId: "liubang", historical: true, title: "定陶称帝", category: "历史大事", text: "项羽已死，楚地尽降，诸侯共同尊奉汉王为皇帝。汉不再只是巴蜀封国，一个统一王朝将在定陶正式建立。", options: [
+    { label: "即皇帝位，建国号汉", detail: "先定君臣名分，再议功臣封赏与天下制度。", effects: { population: 8, grain: 8, army: 6, sentiment: 15, integrity: 7, authority: 18 }, setHistoryFlags: ["liubang_han_founded"] },
+    { label: "告祭天地，议定封赏后即位", detail: "用更充分的封赏换取诸侯拥戴，新朝皇权则要承受分封代价。", effects: { population: 7, grain: -5, army: 10, sentiment: 17, integrity: 5, authority: 11 }, setHistoryFlags: ["liubang_han_founded"] },
   ]},
   { id: "liubang-bairen-plot", scriptId: "liubang", year: -198, historical: true, title: "柏人疑云", category: "历史大事", text: "赵相贯高谋刺之事败露，赵王张敖是否知情尚无定论。廷尉请穷治同党，诸侯则人人自危。", options: [
     { label: "审明首从，只诛谋者", detail: "查清证据后再定罪，可以稳住诸侯。", chance: 62, tag: "吏治", successEffects: { integrity: 9, sentiment: 7 }, failEffects: { integrity: -8, sentiment: -5 } },
@@ -2682,7 +2843,7 @@ const lifeGapHistoricalEvents: EventTemplate[] = [
     { label: "拆分旧部，交由诸将统领", detail: "避免一军独大，也可能破坏精锐协同。", chance: 60, tag: "军事", successEffects: { army: 7, integrity: 5 }, failEffects: { army: -9, sentiment: -4 } },
   ]},
   { id: "hanwu-zhangqian-second", scriptId: "hanwu", year: -115, historical: true, title: "乌孙之使", category: "历史大事", text: "张骞自西域归来，主张厚赂乌孙、联络诸国，从侧翼压迫匈奴。使团与财货将远行数年。", options: [
-    { label: "厚币结乌孙", detail: "以财货换取联盟和商路。", chance: 63, tag: "谋略", successEffects: { grain: 10, army: 6, sentiment: 4 }, failEffects: { grain: -14, integrity: -3 } },
+    { label: "厚币结乌孙", detail: "以财货、使节和长期信誉换取联盟与商路。", chance: 63, tag: "外交", successEffects: { grain: 10, army: 6, sentiment: 4 }, failEffects: { grain: -14, integrity: -3 } },
     { label: "只遣使绘图，不许重赂", detail: "节省国帑，但难以迅速改变西域局势。", effects: { grain: 4, army: 3, integrity: 2 } },
   ]},
   { id: "hanwu-nanyue-war", scriptId: "hanwu", year: -112, historical: true, title: "南越相乱", category: "历史大事", text: "南越太后请求内属，丞相吕嘉却杀汉使并举兵。岭南道路湿热遥远，朝廷必须决定如何回应。", options: [
@@ -2702,7 +2863,7 @@ const lifeGapHistoricalEvents: EventTemplate[] = [
     { label: "清点损耗，追究虚报", detail: "查清军费可以挽回国帑，也可能寒了军心。", chance: 58, tag: "吏治", successEffects: { grain: 13, integrity: 7 }, failEffects: { army: -7, integrity: -5 } },
   ]},
   { id: "hanwu-su-wu", scriptId: "hanwu", year: -100, historical: true, title: "苏武持节", category: "历史大事", text: "出使匈奴的苏武拒绝屈降，被徙往北海。朝廷既要回应使节受辱，也要避免重新耗尽边军。", options: [
-    { label: "扣留匈奴使者，要求归还", detail: "强硬交涉能维护国威，也可能再启战端。", chance: 55, tag: "谋略", successEffects: { army: 6, sentiment: 8 }, failEffects: { army: -6, grain: -7 } },
+    { label: "扣留匈奴使者，要求归还", detail: "强硬交涉能维护国威，也可能再启战端。", chance: 55, tag: "外交", successEffects: { army: 6, sentiment: 8 }, failEffects: { army: -6, grain: -7 } },
     { label: "遣使通问，长期营救", detail: "保持外交渠道，等待局势变化。", effects: { grain: -4, sentiment: 5, integrity: 3 } },
   ]},
   { id: "hanwu-liquor-monopoly", scriptId: "hanwu", year: -98, historical: true, title: "榷酒入官", category: "历史大事", text: "连年用兵令国库紧张，桑弘羊请求将酒类专卖收归官府。商贾反对，郡县却称可立得巨额收入。", options: [
@@ -2875,7 +3036,7 @@ const lifeGapHistoricalEvents: EventTemplate[] = [
   ]},
   { id: "genghis-tatar-campaign", scriptId: "genghis", year: 1198, historical: true, title: "讨塔塔儿", category: "历史大事", text: "金朝遣使约攻塔塔儿，王罕也愿共同出兵。借外力复仇的机会已经出现，战后封赏却未必公平。", options: [
     { label: "联军急击塔塔儿", detail: "利用多方夹击迅速削弱世仇。", chance: 59, tag: "军事", successEffects: { army: 9, population: 4, grain: 4 }, failEffects: { army: -10, grain: -8 } },
-    { label: "索取封号与互市后再出兵", detail: "先把联盟转化为可见利益。", chance: 61, tag: "谋略", successEffects: { grain: 9, integrity: 4 }, failEffects: { sentiment: -5, grain: -4 } },
+    { label: "索取封号与互市后再出兵", detail: "先把联盟转化为可见利益。", chance: 61, tag: "外交", successEffects: { grain: 9, integrity: 4 }, failEffects: { sentiment: -5, grain: -4 } },
   ]},
   { id: "genghis-khuiten", scriptId: "genghis", year: 1201, historical: true, title: "阔亦田会战", category: "历史大事", text: "札木合被诸部推为古儿汗，反对铁木真的联盟在阔亦田集结。暴雨将至，两军都在等待先机。", options: [
     { label: "冒雨突击联盟中军", detail: "恶劣天气既是风险，也是瓦解联军的机会。", chance: 55, tag: "军事", successEffects: { army: 11, sentiment: 7 }, failEffects: { army: -13, population: -3 } },
@@ -2899,7 +3060,7 @@ const lifeGapHistoricalEvents: EventTemplate[] = [
   ]},
   { id: "genghis-final-xia", scriptId: "genghis", year: 1225, historical: true, title: "再征西夏", category: "历史大事", text: "西夏拒绝出兵西征，又收容蒙古仇敌。大汗决定再次南下，但多年远征后人马都需要休养。", options: [
     { label: "诸路合围，迫其决战", detail: "以最后一次大规模动员结束西夏问题。", requirements: { army: 105, grain: 75 }, failOnUnmet: true, effects: { army: -12, grain: -16, sentiment: 4 } },
-    { label: "限期交人纳贡", detail: "用外交最后试探西夏是否愿意屈服。", chance: 54, tag: "谋略", successEffects: { grain: 10, army: 5 }, failEffects: { sentiment: -6, army: -4 } },
+    { label: "限期交人纳贡", detail: "用外交最后试探西夏是否愿意屈服。", chance: 54, tag: "外交", successEffects: { grain: 10, army: 5 }, failEffects: { sentiment: -6, army: -4 } },
   ]},
 
   // 明太祖：补群雄竞争、开国后北边与整肃政治之间的空档。
@@ -2991,7 +3152,7 @@ const qinInitialPopulationTaxCap = 90;
 const qinPopulationTaxCapPerConquest = 15;
 const populationTaxRate = .065;
 const unifiedTaxCapScripts = new Set(["liubang", "hanwu", "taizong", "song", "genghis", "ming"]);
-const emptyHistoricalProgress = (): HistoricalProgress => ({ qinConquestIndex: 0, qinConquestDelay: 0, qinConquestRetries: 0, qinConquestRequirementRelief: 0 });
+const emptyHistoricalProgress = (): HistoricalProgress => ({ qinConquestIndex: 0, qinConquestDelay: 0, qinConquestRetries: 0, qinConquestRequirementRelief: 0, liubangThreeQinRetries: 0 });
 
 function populationTaxCap(scriptId: string, qinConquestIndex = 0) {
   if (scriptId === "qin") return Math.min(normalPopulationTaxCap, qinInitialPopulationTaxCap + qinConquestIndex * qinPopulationTaxCapPerConquest);
@@ -3074,14 +3235,16 @@ function liveState(stats: Stats) {
   };
 }
 
-function finalOptionChance(option: EventOption, stats: Stats, roster: Person[], policy: typeof policies[number], difficulty: DifficultyId) {
+function finalOptionChance(option: EventOption, stats: Stats, roster: Person[], policy: typeof policies[number], difficulty: DifficultyId, historyFlags: string[] = [], eventCategory?: string) {
   if (!option.chance) return 0;
   const effective = liveState(stats).effective;
   const members = option.tag ? roster.filter((person) => person.tags.includes(option.tag!)).length : 0;
   const policyBoost = option.tag && policy.tag === option.tag ? 8 : 0;
   const teamBoost = members * 7 + policyBoost;
-  const statBoost = option.tag === "军事" ? Math.max(-8, (effective.army - 70) / 20) : option.tag === "财政" ? (effective.grain - 70) / 20 : option.tag === "吏治" ? effective.integrity / 20 : option.tag === "民生" ? effective.sentiment / 20 : (effective.integrity + effective.sentiment) / 20;
-  return clamp(option.chance + teamBoost + statBoost - difficultyRule(difficulty).chancePenalty, 1, 100);
+  const diplomacyBoost = eventCategory === "边患" ? roster.filter((person) => person.tags.includes("外交")).length * 5 : 0;
+  const statBoost = option.tag === "军事" ? Math.max(-8, (effective.army - 70) / 20) : option.tag === "财政" ? (effective.grain - 70) / 20 : option.tag === "吏治" ? effective.integrity / 20 : option.tag === "民生" ? effective.sentiment / 20 : option.tag === "外交" ? (effective.authority + effective.sentiment) / 25 : (effective.integrity + effective.sentiment) / 20;
+  const historyModifier = (option.chanceModifiers || []).reduce((total, modifier) => total + (historyFlags.includes(modifier.historyFlag) ? modifier.delta : 0), 0);
+  return clamp(option.chance + historyModifier + teamBoost + diplomacyBoost + statBoost - difficultyRule(difficulty).chancePenalty, 1, 100);
 }
 
 const nextCalendarYear = (year: number) => year === -1 ? 1 : year + 1;
@@ -3200,12 +3363,18 @@ function historyEventAvailable(event: EventTemplate, historyFlags: string[]) {
 }
 
 function historyEventScheduled(event: EventTemplate, scriptId: string, year: number, historyFlags: string[], progress: HistoricalProgress) {
+  if (historyFlags.includes("history_complete")) return false;
   if (event.scriptId !== scriptId || !historyEventAvailable(event, historyFlags)) return false;
+  if (historyFlags.includes(`history_resolved:${event.id}`)) return false;
   if (scriptId === "qin" && event.year !== undefined && event.year >= qinConquestBaseYears[0]) {
     if (event.qinConquestStage !== undefined && event.qinConquestStage !== progress.qinConquestIndex) return false;
     return shiftCalendarYear(event.year, progress.qinConquestDelay) === year;
   }
-  return event.year === year;
+  if (scriptId === "liubang" && event.year !== undefined && event.year >= -205) {
+    const delayedYear = shiftCalendarYear(event.year, progress.liubangThreeQinRetries);
+    return delayedYear === year || (!!event.catchUp && year >= delayedYear);
+  }
+  return event.year === year || (!!event.catchUp && event.year !== undefined && year >= event.year);
 }
 
 function ministerRebellionChance(authority: number, loyalty: number) {
@@ -3351,6 +3520,51 @@ const mergeEffects = (...groups: (Partial<Stats> | undefined)[]): Partial<Stats>
   return merged;
 };
 
+function makeThreeQinRetryEvent(retries: number): EventTemplate {
+  const surpriseChance = Math.min(94, 72 + retries * 8);
+  const conciliationChance = Math.min(92, 64 + retries * 9);
+  return {
+    id: `liubang-three-qin-retry-${retries}`,
+    scriptId: "liubang",
+    historical: true,
+    punitive: true,
+    title: "重整攻秦",
+    category: "历史分支",
+    text: `还定三秦的第${retries}次攻势受挫后，章邯等军已有防备，汉军也付出了更多伤亡。萧何从巴蜀补充兵粮，韩信重新部署诸军；本次判定成功率继续提高，但战机流逝会使胜利收益递减、失败损失递增。`,
+    options: [
+      {
+        label: "重整栈道疑兵，再出陈仓",
+        detail: `第${retries}层重整效果：基础成功率提高至${surpriseChance}%，此前未烧栈道仍会降低24个百分点；本次再败，所有累积效果继续加深。`,
+        chance: surpriseChance,
+        chanceModifiers: [{ historyFlag: "liubang_preserved_plank_road", delta: -24 }],
+        tag: "军事",
+        successEffects: {
+          army: Math.max(3, 15 - retries * 2),
+          grain: Math.max(2, 10 - retries * 2),
+          population: Math.max(1, 6 - retries),
+          authority: Math.max(2, 9 - retries),
+        },
+        failEffects: { army: -(15 + retries * 3), grain: -(11 + retries * 2), population: -(4 + retries), authority: -(7 + retries * 2) },
+        successHistoryFlags: ["liubang_three_qin_settled"],
+      },
+      {
+        label: "增赦秦卒，分路再进",
+        detail: `第${retries}层重整效果：基础成功率提高至${conciliationChance}%；招抚范围不断扩大，胜利所得减少，再败则军心与民情损失更重。`,
+        chance: conciliationChance,
+        tag: "民生",
+        successEffects: {
+          army: Math.max(2, 9 - retries),
+          grain: Math.max(1, 7 - retries),
+          sentiment: Math.max(2, 10 - retries),
+          authority: Math.max(1, 5 - Math.floor(retries / 2)),
+        },
+        failEffects: { army: -(8 + retries * 2), grain: -(8 + retries * 2), sentiment: -(6 + retries), authority: -(4 + retries * 2) },
+        successHistoryFlags: ["liubang_three_qin_settled"],
+      },
+    ],
+  };
+}
+
 function activateCurrentEvent(current: GameState): GameState {
   const event = current.events[current.seasonIndex];
   if (!event || event.entered) return current;
@@ -3388,6 +3602,13 @@ function findHistoricalYear(scriptId: string, fromYear: number, historyFlags: st
     year = nextCalendarYear(year);
   }
   return null;
+}
+
+function historicalStoryRemaining(game: GameState) {
+  if (game.historyFlags.includes("history_complete")) return false;
+  if (game.pendingEvents.some((event) => event.historical)) return true;
+  if (game.events.slice(game.seasonIndex + 1).some((event) => event.historical && !game.historyFlags.includes(`history_resolved:${event.id}`))) return true;
+  return !!findHistoricalYear(game.scriptId, game.year, game.historyFlags, game);
 }
 
 function createGameSeed() {
@@ -3458,6 +3679,7 @@ function normalizeSave(raw: unknown): GameState | null {
   const qinConquestDelay = Number.isInteger(saved.qinConquestDelay) && saved.qinConquestDelay! >= 0 ? Math.floor(saved.qinConquestDelay!) : 0;
   const qinConquestRetries = Number.isInteger(saved.qinConquestRetries) && saved.qinConquestRetries! >= 0 ? Math.floor(saved.qinConquestRetries!) : 0;
   const qinConquestRequirementRelief = Number.isInteger(saved.qinConquestRequirementRelief) && saved.qinConquestRequirementRelief! >= 0 ? Math.floor(saved.qinConquestRequirementRelief!) : 0;
+  const liubangThreeQinRetries = Number.isInteger(saved.liubangThreeQinRetries) && saved.liubangThreeQinRetries! >= 0 ? Math.floor(saved.liubangThreeQinRetries!) : 0;
   const difficulty: DifficultyId = difficulties.some((item) => item.id === saved.difficulty) ? saved.difficulty! : "easy";
   const events = saved.events.map((event) => {
     const template = allEventTemplates.find((item) => item.id === event.id);
@@ -3465,16 +3687,24 @@ function normalizeSave(raw: unknown): GameState | null {
   });
   const pendingEvents = Array.isArray(saved.pendingEvents) ? saved.pendingEvents : [];
   const unavailablePersonIds = Array.isArray(saved.unavailablePersonIds) ? saved.unavailablePersonIds : [];
-  return { ...saved, version: 10, stats, difficulty, seatAssignments, rosterIds, randomSeed, randomCount, historyFlags, events, qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief, pendingEvents, unavailablePersonIds } as GameState;
+  const savedScript = scripts.find((item) => item.id === saved.scriptId)!;
+  const keyYears = Array.isArray(saved.keyYears) ? saved.keyYears : initialKeyYears(savedScript);
+  return { ...saved, version: 12, stats, difficulty, seatAssignments, rosterIds, randomSeed, randomCount, historyFlags, events, qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief, liubangThreeQinRetries, pendingEvents, unavailablePersonIds, keyYears } as GameState;
 }
 
 function drawRosterCandidates(seats: SeatAssignments, selectedIds: string[]) {
   const eligible = people.filter((person) => !selectedIds.includes(person.id) && (!seats[person.role] || person.secondaryRoles.some((role) => !seats[role])));
-  const pools = [...roles].sort(() => Math.random() - .5).map((role) => eligible.filter((person) => person.role === role).sort(() => Math.random() - .5));
+  const openRoles = roles.filter((role) => !seats[role]).sort(() => Math.random() - .5);
+  const filledRoles = roles.filter((role) => seats[role]).sort(() => Math.random() - .5);
+  const pools = [...openRoles, ...filledRoles].map((role) => eligible.filter((person) => canServe(person, role)).sort(() => Math.random() - .5));
   const candidates: Person[] = [];
+  const used = new Set<string>();
   for (let depth = 0; candidates.length < 12 && pools.some((pool) => pool[depth]); depth += 1) {
     for (const pool of pools) {
-      if (pool[depth]) candidates.push(pool[depth]);
+      if (pool[depth] && !used.has(pool[depth].id)) {
+        candidates.push(pool[depth]);
+        used.add(pool[depth].id);
+      }
       if (candidates.length === 12) break;
     }
   }
@@ -3512,7 +3742,7 @@ function App() {
   const rosterIds = roles.map((role) => activeSeats[role]).filter(Boolean) as string[];
   const roster = rosterIds.map((id) => allPeople.find((person) => person.id === id)).filter(Boolean) as Person[];
 
-  const displayPhase: Phase = game?.phase === "ending" ? "ending" : phase;
+  const displayPhase: Phase = game?.phase === "ending" || game?.phase === "summary" ? game.phase : phase;
 
   const beginRoster = () => {
     const seats = emptySeats();
@@ -3574,11 +3804,11 @@ function App() {
     const yearEvents = buildYearEvents(scriptId, script.startYear, stats, 0, 0, difficulty, randomSeed, randomCount, [], progress, rosterSeats, []);
     randomCount = yearEvents.randomCount;
     const initial: GameState = {
-      version: 10, phase: "reign", difficulty, scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
+      version: 12, phase: "reign", difficulty, scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
       stats, events: yearEvents.events, outcome: null,
       chronicle: [{ year: script.startYear, season: "春", title: "开国建元", note: `${people.find((person) => person.id === rosterSeats.皇帝)?.name || "新君"}与开国班底共治天下。${growth.note}` }],
       lowArmyYears: effective.army < frontierArmyRequirement(stats.population) ? 1 : 0, unrestYears: effective.sentiment <= -30 ? 1 : 0, alteredHistory: false,
-      annualNote: growth.note, endingReason: "", endingVictory: false, randomSeed, randomCount: yearEvents.randomCount, historyFlags: [], pendingEvents: yearEvents.pendingEvents, unavailablePersonIds: [], ...progress,
+      annualNote: growth.note, endingReason: "", endingVictory: false, randomSeed, randomCount: yearEvents.randomCount, historyFlags: [], pendingEvents: yearEvents.pendingEvents, unavailablePersonIds: [], keyYears: initialKeyYears(script), ...progress,
     };
     setGame(activateCurrentEvent(initial)); setPhase("reign"); window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -3589,11 +3819,11 @@ function App() {
     if (!first) return;
     const debugPolicyId = policies[0].id;
     const initial: GameState = {
-      version: 10, phase: "reign", difficulty: "easy", scriptId, policyId: debugPolicyId, rosterIds: [], seatAssignments: emptySeats(),
+      version: 12, phase: "reign", difficulty: "easy", scriptId, policyId: debugPolicyId, rosterIds: [], seatAssignments: emptySeats(),
       year: first.year, elapsed: 1, seasonIndex: 0, stats: { ...script.base }, events: first.events, outcome: null,
       chronicle: [{ year: first.year, season: "春", title: "历史分支模拟", note: "已跳过国策、班底与无历史事件年份，只保留本剧本的历史节点。" }],
       lowArmyYears: 0, unrestYears: 0, alteredHistory: false, annualNote: "Debug 模式不因国势变化覆亡。", endingReason: "", endingVictory: false,
-      randomSeed: createGameSeed(), randomCount: 0, historyFlags: [], pendingEvents: [], unavailablePersonIds: [], ...progress, debugHistory: true,
+      randomSeed: createGameSeed(), randomCount: 0, historyFlags: [], pendingEvents: [], unavailablePersonIds: [], keyYears: initialKeyYears(script), ...progress, debugHistory: true,
     };
     setDifficulty("easy"); setPolicyId(debugPolicyId); setRosterSeats(emptySeats()); setRosterRound(0);
     setGame(initial); setPhase("reign"); window.scrollTo({ top: 0, behavior: "smooth" });
@@ -3605,14 +3835,14 @@ function App() {
       const event = current.events[current.seasonIndex];
       const effectiveCurrent = liveState(current.stats).effective;
       if (!current.debugHistory && option.failOnUnmet && !meets(effectiveCurrent, option.requirements)) {
-        return { ...current, phase: "ending", endingVictory: false, endingReason: `${event.title}中，国力未达到「${option.label}」的最低要求。仓促的决断成为王朝覆亡的最后一根稻草。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "国祚中绝", note: `${event.title}处置失当，王朝陨落。` }] };
+        return { ...current, phase: "ending", endingVictory: false, endingReason: option.failEndingReason || `${event.title}中，国力未达到「${option.label}」的最低要求。仓促的决断成为王朝覆亡的最后一根稻草。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "国祚中绝", note: `${event.title}处置失当，王朝陨落。` }] };
       }
       let effects = option.effects || {};
       let success: boolean | undefined;
       let resultText = option.detail;
       let randomCount = current.randomCount;
       if (option.chance) {
-        const finalChance = finalOptionChance(option, current.stats, roster, policy, current.difficulty);
+        const finalChance = finalOptionChance(option, current.stats, roster, policy, current.difficulty, current.historyFlags, event.category);
         success = seededRandom(current.randomSeed, randomCount) * 100 < finalChance;
         randomCount += 1;
         effects = success ? (option.successEffects || {}) : (option.failEffects || {});
@@ -3621,14 +3851,20 @@ function App() {
       const alternate = !!option.alternateText && meets(effectiveCurrent, option.rewardRequirements);
       if (alternate) resultText = option.alternateText!;
       const historyFlags = new Set(current.historyFlags);
+      if (event.historical) historyFlags.add(`history_resolved:${event.id}`);
       option.setHistoryFlags?.forEach((flag) => historyFlags.add(flag));
       if (success === true) option.successHistoryFlags?.forEach((flag) => historyFlags.add(flag));
       if (success === false) option.failHistoryFlags?.forEach((flag) => historyFlags.add(flag));
       const nextHistoryFlags = [...historyFlags];
+      const keyYearDefinition = eventKeyYears[event.id];
+      const keyYears = keyYearDefinition && !current.keyYears.some((item) => item.id === keyYearDefinition.id)
+        ? [...current.keyYears, { ...keyYearDefinition, year: current.year }]
+        : current.keyYears;
       let qinConquestIndex = current.qinConquestIndex;
       let qinConquestDelay = current.qinConquestDelay;
       let qinConquestRetries = current.qinConquestRetries;
       let qinConquestRequirementRelief = current.qinConquestRequirementRelief;
+      let liubangThreeQinRetries = current.liubangThreeQinRetries;
       let events = current.events;
       let pendingEvents = [...current.pendingEvents];
       let unavailablePersonIds = [...current.unavailablePersonIds];
@@ -3653,6 +3889,17 @@ function App() {
           randomCount = suppressed.randomCount;
         }
         resultText = `${resultText} 此国未亡，来年仍须再决；本次之后的秦线大事也将顺延。`;
+      }
+      if (event.id === "liubang-three-qin" || event.id.startsWith("liubang-three-qin-retry-")) {
+        if (success === false) {
+          liubangThreeQinRetries += 1;
+          pendingEvents = [makeThreeQinRetryEvent(liubangThreeQinRetries), ...pendingEvents];
+          outcomeTitle = "三秦未定";
+          resultText = `本次攻秦失败，汉军退回巴蜀重整。下一次攻势的成功率将提高，但胜利收益会缩小、失败损失会增大；当前已累积${liubangThreeQinRetries}层重整效果，彭城及其后的历史节点顺延${liubangThreeQinRetries}年。`;
+        } else if (success === true && liubangThreeQinRetries > 0) {
+          outcomeTitle = "还定三秦";
+          resultText = `汉军在第${liubangThreeQinRetries}次重整后攻定三秦，终于取得东进根基。此前耽搁不会消失，彭城及其后的历史节点仍顺延${liubangThreeQinRetries}年。`;
+        }
       }
 
       const actor = event.actorId ? allPeople.find((person) => person.id === event.actorId) : undefined;
@@ -3733,19 +3980,43 @@ function App() {
         outcomeTitle = "枭首示众";
         resultText = `${actor.name}被依法处置，朝廷不再有机会招安此人。`;
       }
-      const progress = { qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief };
+      const followupEventId = success === true
+        ? (option.successFollowupEventId || option.followupEventId)
+        : success === false
+          ? (option.failFollowupEventId || option.followupEventId)
+          : option.followupEventId;
+      const followup = followupEventId ? reviewedHistoricalEvents.find((item) => item.id === followupEventId) : undefined;
+      if (followup) {
+        const scheduled = scheduleFollowup(events, pendingEvents, current.seasonIndex, followup);
+        events = scheduled.events;
+        pendingEvents = scheduled.pendingEvents;
+      }
+      const progress = { qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief, liubangThreeQinRetries };
       const stats = addEffects(current.stats, effects);
+      if (!current.debugHistory && success === false && option.failEndingReason) {
+        return { ...current, stats, events, pendingEvents, unavailablePersonIds, seatAssignments, rosterIds: nextRosterIds, randomCount, historyFlags: nextHistoryFlags, keyYears, ...progress, phase: "ending", endingVictory: false, endingReason: option.failEndingReason, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "国祚中绝", note: `${event.title}失败，王朝陨落。` }].slice(-30) };
+      }
       if (!current.debugHistory && (stats.population < 18 || stats.grain <= 0)) {
         const cause = stats.population < 18 ? "人口跌破王朝存续底线" : "国库钱粮耗尽";
-        return { ...current, stats, events, pendingEvents, unavailablePersonIds, seatAssignments, rosterIds: nextRosterIds, randomCount, historyFlags: nextHistoryFlags, ...progress, phase: "ending", endingVictory: false, endingReason: `${cause}。地方失去供养与秩序，国祚就此断绝。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "山河易色", note: `${event.title}之后，${cause}。` }] };
+        return { ...current, stats, events, pendingEvents, unavailablePersonIds, seatAssignments, rosterIds: nextRosterIds, randomCount, historyFlags: nextHistoryFlags, keyYears, ...progress, phase: "ending", endingVictory: false, endingReason: `${cause}。地方失去供养与秩序，国祚就此断绝。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "山河易色", note: `${event.title}之后，${cause}。` }] };
       }
-      return { ...current, stats, events, pendingEvents, unavailablePersonIds, seatAssignments, rosterIds: nextRosterIds, randomCount, historyFlags: nextHistoryFlags, ...progress, alteredHistory: current.alteredHistory || alternate, outcome: { title: outcomeTitle, text: resultText, effects, success, alternate }, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: event.title, note: `${option.label}。${resultText}` }].slice(-30) };
+      return { ...current, stats, events, pendingEvents, unavailablePersonIds, seatAssignments, rosterIds: nextRosterIds, randomCount, historyFlags: nextHistoryFlags, keyYears, ...progress, alteredHistory: current.alteredHistory || alternate || liubangThreeQinRetries > 0, outcome: { title: outcomeTitle, text: resultText, effects, success, alternate }, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: event.title, note: `${option.label}。${resultText}` }].slice(-30) };
     });
   };
 
   const continueSeason = () => {
     setGame((current) => {
       if (!current || !current.outcome) return current;
+      if (current.debugHistory && current.pendingEvents.length) {
+        const [followup, ...pendingEvents] = current.pendingEvents;
+        const events = [...current.events];
+        events[current.seasonIndex] = followup;
+        return activateCurrentEvent({ ...current, events, pendingEvents, outcome: null });
+      }
+      const completedEvent = current.events[current.seasonIndex];
+      if (completedEvent?.historical && !current.historyFlags.includes("history_complete") && !historicalStoryRemaining(current)) {
+        return { ...current, phase: "summary", historyFlags: [...current.historyFlags, "history_complete"] };
+      }
       const lastEventIndex = current.debugHistory ? current.events.length - 1 : 3;
       if (current.seasonIndex < lastEventIndex) return activateCurrentEvent({ ...current, seasonIndex: current.seasonIndex + 1, outcome: null });
       return { ...current, outcome: null, seasonIndex: current.debugHistory ? current.events.length : 4 };
@@ -3757,7 +4028,7 @@ function App() {
       if (!current) return current;
       if (current.debugHistory) {
         const next = findHistoricalYear(current.scriptId, current.year, current.historyFlags, current);
-        if (!next) return { ...current, phase: "ending", endingVictory: true, endingReason: "当前分支下，剧本主角生涯内的历史节点已全部模拟完毕。" };
+        if (!next) return { ...current, phase: "summary", historyFlags: [...new Set([...current.historyFlags, "history_complete"])] };
         return { ...current, year: next.year, elapsed: current.elapsed + 1, seasonIndex: 0, outcome: null, events: next.events, annualNote: "已自动跳过没有历史事件的年份。", chronicle: [...current.chronicle, { year: next.year, season: "春", title: "推演续行", note: "已自动跳至下一个历史节点。" }].slice(-30) };
       }
       if (current.elapsed >= 500) return { ...current, phase: "ending", endingVictory: true, endingReason: "五百年间国祚不断，制度与民生经受住一代代风雨。你的王朝已成真正的千古一朝。" };
@@ -3771,6 +4042,16 @@ function App() {
       const yearEvents = buildYearEvents(current.scriptId, year, stats, lowArmyYears, unrestYears, current.difficulty, current.randomSeed, current.randomCount, current.historyFlags, current, current.seatAssignments, current.pendingEvents);
       return activateCurrentEvent({ ...current, year, elapsed: current.elapsed + 1, stats, seasonIndex: 0, outcome: null, annualNote: growth.note, lowArmyYears, unrestYears, events: yearEvents.events, pendingEvents: yearEvents.pendingEvents, randomCount: yearEvents.randomCount, chronicle: [...current.chronicle, { year, season: "春", title: "岁首国计", note: growth.note }].slice(-30) });
     });
+  };
+
+  const resumeAfterHistory = () => {
+    setGame((current) => {
+      if (!current || current.debugHistory || current.phase !== "summary") return current;
+      if (current.seasonIndex < 3) return activateCurrentEvent({ ...current, phase: "reign", seasonIndex: current.seasonIndex + 1, outcome: null });
+      return { ...current, phase: "reign", seasonIndex: 4, outcome: null };
+    });
+    setPhase("reign");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const saveGame = (slot: number) => {
@@ -3799,7 +4080,7 @@ function App() {
   return (
     <main className={`app phase-${displayPhase}`}>
       <div className="grain-overlay" />
-      <BackgroundMusic key={scriptId} phase={displayPhase} scriptId={scriptId} />
+      <BackgroundMusic phase={displayPhase} scriptId={scriptId} />
       {displayPhase !== "landing" && <TopBar setPhase={setPhase} openSaves={() => setSavesOpen(true)} game={game} canSave={displayPhase === "reign" && !game?.debugHistory} />}
 
       {displayPhase === "landing" && <Landing debugAvailable={import.meta.env.DEV} debugEnabled={debugEnabled} onDebugChange={setDebugEnabled} onStart={(selectedDifficulty) => { setDifficulty(selectedDifficulty); setPhase("script"); }} onLoad={() => setSavesOpen(true)} />}
@@ -3807,6 +4088,7 @@ function App() {
       {displayPhase === "policy" && <PolicySelect selected={policyId} onSelect={setPolicyId} onBack={() => setPhase("script")} onNext={beginRoster} />}
       {displayPhase === "roster" && <RosterSelect seats={rosterSeats} round={rosterRound} redrawsLeft={redrawsLeft} candidates={candidateIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[]} activePersonId={activePersonId} onActivate={setActivePersonId} onCanMove={canMovePerson} onMove={movePerson} onRedraw={redrawCandidates} onSelect={selectPerson} onBack={() => setPhase("policy")} onStart={startReign} />}
       {displayPhase === "reign" && game && <Reign game={game} script={script} policy={policy} roster={roster} onChoose={chooseOption} onContinue={continueSeason} onNextYear={beginNextYear} />}
+      {displayPhase === "summary" && game && <HistoricalSummary game={game} script={script} onHome={restart} onContinue={resumeAfterHistory} />}
       {displayPhase === "ending" && game && <Ending game={game} script={script} onRestart={restart} onSaves={() => setSavesOpen(true)} />}
 
       {savesOpen && <SaveDrawer saves={saveMeta} current={displayPhase === "reign" && !game?.debugHistory ? game : null} onClose={() => setSavesOpen(false)} onSave={saveGame} onLoad={loadGame} onDelete={deleteSave} />}
@@ -3885,7 +4167,7 @@ function ScriptSelect({ selected, debugEnabled, onDebugStart, onSelect, onBack, 
   const chosen = scripts.find((item) => item.id === selected)!;
   return <section className="setup-page"><Progress active={0} /><header className="setup-heading"><span>第一诏</span><h2>选择历史剧本</h2><p>历史给你一道开局，但不会替你写下结局。</p></header>
     <div className="script-layout"><div className="script-grid">{scripts.map((item) => <button key={item.id} className={`script-card ${selected === item.id ? "selected" : ""}`} onClick={() => onSelect(item.id)} style={{ "--accent": item.color } as React.CSSProperties}><span className="dynasty">{item.dynasty}</span><h3>{item.title}</h3><p>{item.motto}</p><small>{item.startLabel}</small></button>)}</div>
-      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">历史原型</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span><span>皇权 {chosen.base.authority}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回首页</button><div className="script-start-actions"><button className="primary" onClick={onNext}>以此纪开局</button>{debugEnabled && <button className="debug-start" onClick={onDebugStart}>DEBUG · 仅推演历史事件</button>}</div></div></aside>
+      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><img className="script-hero-backdrop" src={`/script-heroes/${chosen.id}.webp`} alt="" aria-hidden="true" /><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">历史原型</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span><span>皇权 {chosen.base.authority}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回首页</button><div className="script-start-actions"><button className="primary" onClick={onNext}>以此纪开局</button>{debugEnabled && <button className="debug-start" onClick={onDebugStart}>DEBUG · 仅推演历史事件</button>}</div></div></aside>
     </div></section>;
 }
 
@@ -3912,6 +4194,10 @@ function BackgroundMusic({ phase, scriptId }: { phase: Phase; scriptId: string }
   const activatedRef = useRef(false);
   const trackIndex = queue.order[queue.position] ?? 0;
   const current = isReign ? pool[trackIndex] : mainTheme;
+
+  useEffect(() => {
+    setQueue({ order: shuffleMusicOrder(pool.length), position: 0 });
+  }, [scriptId, pool.length]);
 
   const play = () => {
     const audio = audioRef.current;
@@ -3952,7 +4238,7 @@ function BackgroundMusic({ phase, scriptId }: { phase: Phase; scriptId: string }
     if (activatedRef.current && !audio.muted) play();
     else setPlaying(false);
     return () => { audio.onended = null; };
-  }, [current.src, isReign, pool.length, scriptId]);
+  }, [current.src, isReign]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.muted = muted;
@@ -4016,7 +4302,7 @@ function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear 
   const emperor = assigned("皇帝");
   return <section className="reign-page"><div className="reign-header"><div><span>{script.title}{game.debugHistory ? " · 历史分支模拟" : ` · 君主 ${emperor?.name}`}</span><h1>{yearLabel(game.year)}</h1><p>{game.debugHistory ? `DEBUG · 第 ${game.elapsed} 个历史年份 · 自动跳过空白年份` : <>国祚第 {game.elapsed} 年 · {difficultyRule(game.difficulty).name}难度 · 国策「{policy.name}」</>}{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} policyId={game.policyId} difficulty={game.difficulty} scriptId={game.scriptId} qinConquestIndex={game.qinConquestIndex} />{!game.debugHistory && <div className="cabinet"><header><span>治国班底</span><small>对应专长使事件成功率 +7%</small></header><div className="cabinet-ruler"><i>{emperor?.dynasty.slice(0, 1) || "帝"}</i><div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div></div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className={`cabinet-person ${person ? "" : "vacant"}`} key={role}><div><small>{role}</small><b>{person?.name || "空缺"}</b></div><span>{person?.tags.join(" · ") || "加成已失"}</span></div> })}</div>}</aside>
       <article className="court"><div className="yearline">{seasons.slice(0, eventCount).map((season, index) => <div className={index < game.seasonIndex ? "done" : index === game.seasonIndex ? "active" : ""} key={season}><i>{index < game.seasonIndex ? "✓" : season}</i><span>{game.debugHistory ? `史事 ${index + 1}` : `${season}${index === 0 ? "耕" : index === 1 ? "长" : index === 2 ? "收" : "藏"}`}</span></div>)}</div>
-        {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {game.debugHistory ? `史事 ${game.seasonIndex + 1}` : `${seasons[game.seasonIndex]}季`}</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}　`}{option.chance && `成功率 ${finalOptionChance(option, game.stats, roster, policy, game.difficulty)}%　`}{option.effects && effectText(option.effects)}</small>{option.chance && <div className="chance-results"><em className="success-result"><b>成功</b>{effectText(option.successEffects || {}) || "国势无直接变化"}</em><em className="fail-result"><b>失败</b>{effectText(option.failEffects || {}) || "国势无直接变化"}</em></div>}</div><span>决断</span></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === eventCount - 1 ? "封存本年奏牍" : game.debugHistory ? "推演下一史事" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
+        {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {game.debugHistory ? `史事 ${game.seasonIndex + 1}` : `${seasons[game.seasonIndex]}季`}</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}${option.failOnUnmet && option.failEndingReason ? "（未通过则王朝陨落）" : ""}　`}{option.chance && `成功率 ${finalOptionChance(option, game.stats, roster, policy, game.difficulty, game.historyFlags, event.category)}%　`}{option.effects && effectText(option.effects)}</small>{option.chance && <div className="chance-results"><em className="success-result"><b>成功</b>{effectText(option.successEffects || {}) || "国势无直接变化"}</em><em className="fail-result"><b>失败</b>{option.failEndingReason ? "王朝陨落" : effectText(option.failEffects || {}) || "国势无直接变化"}</em></div>}</div><span>决断</span></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === eventCount - 1 ? "封存本年奏牍" : game.debugHistory ? "推演下一史事" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
         <Chronicle entries={game.chronicle} /></article></div></section>;
 }
 
@@ -4035,10 +4321,35 @@ function Chronicle({ entries }: { entries: Chronicle[] }) {
   return <div className="chronicle"><header><span>起居注</span><small>最近六则</small></header>{visible.map((entry, index) => <div key={`${entry.year}-${entry.season}-${index}`}><time>{yearLabel(entry.year)} · {entry.season}</time><b>{entry.title}</b><p>{entry.note}</p></div>)}</div>;
 }
 
+function historicalYearDifference(year: number, historicalYear: number) {
+  const serial = (value: number) => value < 0 ? value : value - 1;
+  const difference = serial(year) - serial(historicalYear);
+  if (difference === 0) return "与真实历史同年";
+  return `较真实历史${difference < 0 ? "提前" : "推迟"}${Math.abs(difference)}年`;
+}
+
+function HistoricalSummary({ game, script, onHome, onContinue }: { game: GameState; script: Script; onHome: () => void; onContinue: () => void }) {
+  const effective = liveState(game.stats).effective;
+  const assignedRoster = roles.map((role) => ({ role, person: allPeople.find((person) => person.id === game.seatAssignments[role]) }));
+  const summaryStats = [
+    ["人口", game.stats.population], ["钱粮", game.stats.grain], ["武备", effective.army],
+    ["民情", effective.sentiment], ["吏治", effective.integrity], ["皇权", game.stats.authority],
+  ];
+  return <section className="ending history-summary"><div className="ending-card summary-card"><img className="script-hero-backdrop summary-hero-backdrop" src={`/script-heroes/${script.id}.webp`} alt="" aria-hidden="true" />
+    <span className="ending-kicker summary-step step-1">{game.debugHistory ? "史线推演封卷" : "本纪大事已定"}</span>
+    <h1 className="summary-step step-2">{script.title} · 历史篇章完成</h1>
+    <p className="summary-step step-3">{game.debugHistory ? "当前选择导向的历史节点已全部推演完毕，关键年份与国势结存如下。" : "既定历史大事已经走到尽头。你可以就此封存本纪，也可以让王朝越过史书边界，继续面对只有通用事件的漫长岁月。"}</p>
+    <section className="summary-years summary-step step-4"><header><span>关键年份</span><small>按本局实际发生时间记录</small></header><div>{game.keyYears.map((item) => <article key={item.id}><small>{item.label}</small><strong>{yearLabel(item.year)}</strong><em>{historicalYearDifference(item.year, item.historicalYear)}</em></article>)}</div></section>
+    <section className="summary-roster summary-step step-5"><header><span>治国班底</span><small>{game.debugHistory ? "模拟模式未配置人物班底" : "封卷时实际在席名单"}</small></header>{game.debugHistory ? <p>皇帝、宰相、名将、财政、监察席位均未启用。</p> : <div>{assignedRoster.map(({ role, person }) => <article key={role}><small>{role}</small><strong>{person?.name || "空缺"}</strong><em>{person ? person.tags.join(" · ") : "加成已失"}</em></article>)}</div>}</section>
+    <section className="summary-attributes summary-step step-6"><header><span>国势结存</span><small>不再折算为单一评定分</small></header><div>{summaryStats.map(([label, value]) => <article key={label}><small>{label}</small><strong>{value}</strong></article>)}</div></section>
+    <div className="summary-actions summary-step step-7"><button className="ghost" onClick={onHome}>奉卷归档 · 回到主界面</button>{!game.debugHistory && <button className="primary" onClick={onContinue}>朕还想……再活五百年</button>}</div>
+  </div></section>;
+}
+
 function Ending({ game, script, onRestart, onSaves }: { game: GameState; script: Script; onRestart: () => void; onSaves: () => void }) {
   const effective = liveState(game.stats).effective;
   const score = clamp(game.elapsed * 2 + effective.population + effective.grain + effective.army + effective.sentiment + effective.integrity + effective.authority, 0, 9999);
-  return <section className={`ending ${game.endingVictory ? "victory" : "defeat"}`}><div className="ending-card"><span className="ending-kicker">{game.endingVictory ? "千古一朝" : "国祚已终"}</span><div className="ending-seal">{game.endingVictory ? "盛" : "殁"}</div><h1>{script.dynasty}祚 · {game.elapsed}年</h1><p>{game.endingReason}</p><div className="ending-stats"><div><small>最后年份</small><strong>{yearLabel(game.year)}</strong></div><div><small>治世评定</small><strong>{score}</strong></div><div><small>历史线</small><strong>{game.alteredHistory ? "另开新史" : "大势未改"}</strong></div></div><blockquote>“{game.chronicle[game.chronicle.length - 1]?.note}”</blockquote><div><button className="primary" onClick={onRestart}>再开一纪</button><button className="ghost" onClick={onSaves}>读取存档</button></div></div></section>;
+  return <section className={`ending ${game.endingVictory ? "victory" : "defeat"}`}><div className="ending-card"><span className="ending-kicker">{game.endingVictory ? "千古一朝" : "国祚已终"}</span>{!game.endingVictory && <div className="ending-seal">殁</div>}<h1>{script.dynasty}祚 · {game.elapsed}年</h1><p>{game.endingReason}</p><div className="ending-stats"><div><small>最后年份</small><strong>{yearLabel(game.year)}</strong></div><div><small>治世评定</small><strong>{score}</strong></div><div><small>历史线</small><strong>{game.alteredHistory ? "另开新史" : "大势未改"}</strong></div></div><blockquote>“{game.chronicle[game.chronicle.length - 1]?.note}”</blockquote><div><button className="primary" onClick={onRestart}>再开一纪</button><button className="ghost" onClick={onSaves}>读取存档</button></div></div></section>;
 }
 
 function SaveDrawer({ saves, current, onClose, onSave, onLoad, onDelete }: { saves: (GameState | null)[]; current: GameState | null; onClose: () => void; onSave: (slot: number) => void; onLoad: (slot: number) => void; onDelete: (slot: number) => void }) {

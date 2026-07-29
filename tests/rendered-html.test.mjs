@@ -330,8 +330,8 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   const randomEventSource = page.match(/const randomEvents: EventTemplate\[\] = (\[[\s\S]*?\n\]);\n\nconst additionalHistoricalEvents/);
   assert.ok(randomEventSource, "random event definitions should be readable");
   const randomEvents = Function(`return ${randomEventSource[1]}`)();
-  assert.equal(randomEvents.length, 48, "the generic random event pool should contain exactly 48 events");
-  assert.equal(new Set(randomEvents.map((event) => event.id)).size, 48, "generic random event ids should be unique");
+  assert.equal(randomEvents.length, 51, "the generic random event pool should contain exactly 51 events");
+  assert.equal(new Set(randomEvents.map((event) => event.id)).size, 51, "generic random event ids should be unique");
   assert.ok(randomEvents.some((event) => event.id === "locust" && event.title === "飞蝗蔽日"), "the generic locust event should remain");
   for (const id of ["epidemic", "early-frost", "ancient-cauldron", "maritime-trade", "postal-relay", "city-fire", "forest-commons", "irrigation-dispute", "tax-arrears", "border-hostage", "shipbuilding", "military-register"]) {
     assert.ok(randomEvents.some((event) => event.id === id), `${id} should be included in the expanded generic pool`);
@@ -367,6 +367,9 @@ test("models imperial authority, hidden loyalty, rebellions, and recruitment fol
   assert.ok(rebellionChance(20, 30) > rebellionChance(45, 70));
   assert.match(page, /function frontierArmyRequirement\(population: number\)/);
   assert.match(page, /clamp\(40 \+ population \* \.4, 55, 180\)/);
+  assert.match(page, /const militaryGovernance = stats\.integrity < 0 \? -Math\.ceil\(Math\.abs\(stats\.integrity\) \/ 20\) : 0/);
+  assert.match(page, /army: clamp\(stats\.army \+ army \+ supply \+ militaryGovernance, 0, 260\)/);
+  assert.match(page, /朝堂掣肘/);
   const frontierNeed = (population) => Math.max(55, Math.min(180, Math.round(40 + population * .4)));
   assert.deepEqual([50, 100, 150, 200, 300].map(frontierNeed), [60, 80, 100, 120, 160]);
   assert.match(page, /effective\.army < frontierNeed && lowArmyYears >= 1/);
@@ -375,6 +378,11 @@ test("models imperial authority, hidden loyalty, rebellions, and recruitment fol
   assert.match(page, /if \(sentiment > -30 \|\| unrestYears < 1\) return 0/);
   assert.match(page, /if \(sentiment <= -60\) return 100/);
   assert.match(page, /\(-sentiment - 30\) \* 1\.2 \+ \(unrestYears - 1\) \* 10 \+ rule\.uprisingChanceBonus/);
+  assert.match(page, /function corruptionCaseChance\(integrity: number, corruptionYears: number\)/);
+  assert.match(page, /if \(integrity > -30 \|\| corruptionYears < 1\) return 0/);
+  assert.match(page, /if \(integrity <= -60\) return 100/);
+  assert.match(page, /\(-integrity - 30\) \* 1\.2 \+ \(corruptionYears - 1\) \* 10/);
+  assert.match(page, /贪腐案发概率/);
   assert.match(page, /sentimentSoftCap: 70, uprisingChanceBonus: 0/);
   assert.match(page, /sentimentSoftCap: 55, uprisingChanceBonus: 8/);
   assert.match(page, /sentimentSoftCap: 40, uprisingChanceBonus: 16/);
@@ -401,4 +409,38 @@ test("models imperial authority, hidden loyalty, rebellions, and recruitment fol
       assert.ok(effects.population < 0 && effects.grain < 0 && effects.army < 0, `${option.label} must damage all three material stats on either outcome`);
     }
   }
+  for (const id of ["corruption-office-sale", "corruption-salt-account", "corruption-granary"]) {
+    const event = randomEvents.find((item) => item.id === id);
+    assert.ok(event?.punitive, `${id} should be marked punitive`);
+    for (const option of event.options) {
+      for (const effects of [option.successEffects, option.failEffects]) {
+        assert.ok(Object.values(effects).every((value) => value <= 0), `${option.label} should only mitigate corruption-case losses`);
+        assert.ok(Object.values(effects).some((value) => value < 0), `${option.label} should retain a real cost`);
+      }
+    }
+  }
+});
+
+test("checks every occupied non-emperor seat independently for rebellion", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /function rollMinisterRebellions\(/);
+  assert.match(page, /roles\.slice\(1\)\.map\(\(role\) =>/);
+  assert.match(page, /candidates\.forEach\(\(\{ person, role, chance \}\) =>/);
+  assert.match(page, /conditional\.push\(\.\.\.rebellionRoll\.events\)/);
+  assert.doesNotMatch(page, /\.sort\(\(a, b\) => b!\.chance - a!\.chance\)/);
+  assert.match(page, /pendingRebellionActors/);
+  assert.match(page, /deferredRebellions/);
+});
+
+test("uses hidden annual merit to decide difficulty-scaled authority decay", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /meritThreshold: 3, authorityDecay: 1/);
+  assert.match(page, /meritThreshold: 5, authorityDecay: 2/);
+  assert.match(page, /meritThreshold: 7, authorityDecay: 3/);
+  assert.match(page, /game\.annualSuccesses \* 3 - game\.annualFailures \* 2 \+ materialScore/);
+  assert.match(page, /game\.stats\.population - game\.yearStartMaterial\.population/);
+  assert.match(page, /game\.stats\.grain - game\.yearStartMaterial\.grain/);
+  assert.match(page, /game\.stats\.army - game\.yearStartMaterial\.army/);
+  assert.match(page, /authority: -merit\.authorityDecay/);
+  assert.match(page, /本年无足以服众之功/);
 });

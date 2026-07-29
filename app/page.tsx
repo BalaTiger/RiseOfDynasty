@@ -96,9 +96,10 @@ type Outcome = {
 
 type Chronicle = { year: number; season: Season; title: string; note: string };
 type KeyYearRecord = { id: string; label: string; year: number; historicalYear: number };
+type MaterialSnapshot = Pick<Stats, "population" | "grain" | "army">;
 
 type GameState = {
-  version: 12;
+  version: 14;
   phase: Phase;
   difficulty: DifficultyId;
   scriptId: string;
@@ -114,6 +115,7 @@ type GameState = {
   chronicle: Chronicle[];
   lowArmyYears: number;
   unrestYears: number;
+  corruptionYears: number;
   alteredHistory: boolean;
   annualNote: string;
   endingReason: string;
@@ -129,6 +131,9 @@ type GameState = {
   pendingEvents: EventTemplate[];
   unavailablePersonIds: string[];
   keyYears: KeyYearRecord[];
+  yearStartMaterial: MaterialSnapshot;
+  annualSuccesses: number;
+  annualFailures: number;
   debugHistory?: boolean;
 };
 
@@ -149,16 +154,18 @@ const statNames: Record<StatKey, string> = {
 };
 
 const difficulties = [
-  { id: "easy", name: "简单", seal: "易", desc: "初始国势不变，民情软上限70，适合从容熟悉五百年国运。", integrityDecayPenalty: 0, chancePenalty: 0, initialStatPenalty: 0, sentimentSoftCap: 70, uprisingChanceBonus: 0 },
-  { id: "hard", name: "困难", seal: "难", desc: "初始国势降低10%，民情软上限55，积弊与民变风险都更难压制。", integrityDecayPenalty: 3, chancePenalty: 10, initialStatPenalty: .1, sentimentSoftCap: 55, uprisingChanceBonus: 8 },
-  { id: "hell", name: "地狱", seal: "狱", desc: "初始国势降低20%，民情软上限40，低民情会迅速积聚起义风险。", integrityDecayPenalty: 6, chancePenalty: 20, initialStatPenalty: .2, sentimentSoftCap: 40, uprisingChanceBonus: 16 },
+  { id: "easy", name: "简单", seal: "易", desc: "国势较稳，朝局宽和，适合从容熟悉治国之道。", integrityDecayPenalty: 0, chancePenalty: 0, initialStatPenalty: 0, sentimentSoftCap: 70, uprisingChanceBonus: 0, meritThreshold: 3, authorityDecay: 1 },
+  { id: "hard", name: "困难", seal: "难", desc: "开局承压，朝局多变，每一次取舍都更考验筹谋。", integrityDecayPenalty: 3, chancePenalty: 10, initialStatPenalty: .1, sentimentSoftCap: 55, uprisingChanceBonus: 8, meritThreshold: 5, authorityDecay: 2 },
+  { id: "hell", name: "地狱", seal: "狱", desc: "内忧外患，积弊难除，王朝将在重压之下求存。", integrityDecayPenalty: 6, chancePenalty: 20, initialStatPenalty: .2, sentimentSoftCap: 40, uprisingChanceBonus: 16, meritThreshold: 7, authorityDecay: 3 },
 ] as const;
 
 const difficultyRule = (id: DifficultyId) => difficulties.find((item) => item.id === id) || difficulties[0];
 
 type MusicTrack = { src: string; title: string; artist: string; denoised?: boolean; scripts?: string[] };
+type MusicQueue = { order: number[]; position: number };
 
 const assetPath = (path: string) => `${process.env.NEXT_PUBLIC_BASE_PATH || ""}${path}`;
+const musicEnabled = process.env.NEXT_PUBLIC_DISABLE_MUSIC !== "true";
 const mainTheme: MusicTrack = { src: assetPath("/music/main-theme.mp3"), title: "Main Theme", artist: "" };
 const reignMusic: MusicTrack[] = [
   { src: assetPath("/music/erquan-yingyue-a-bing.mp3"), title: "二泉映月", artist: "阿炳", denoised: true },
@@ -175,6 +182,7 @@ const reignMusic: MusicTrack[] = [
   { src: assetPath("/music/qiujiang-yebo-cheng-wujia.mp3"), title: "秋江夜泊", artist: "程午加", scripts: ["taizong"] },
   { src: assetPath("/music/yueyang-sanzui-yue-ying.mp3"), title: "岳阳三醉", artist: "乐瑛", scripts: ["taizong"] },
 ];
+const musicPoolForScript = (scriptId: string) => reignMusic.filter((track) => !track.scripts || track.scripts.includes(scriptId));
 
 function shuffleMusicOrder(length: number, previousIndex?: number) {
   const order = Array.from({ length }, (_, index) => index);
@@ -2166,6 +2174,51 @@ const specialRecruits: Person[] = [
 
 const allPeople: Person[] = [...people, ...specialRecruits];
 
+type PreloadState =
+  | { status: "loading"; loaded: number; total: number }
+  | { status: "ready"; loaded: number; total: number }
+  | { status: "error"; loaded: number; total: number; failed: string[] };
+
+const requiredAssetPaths = () => Array.from(new Set([
+  ...allPeople.map((person) => portraitPath(person)),
+  ...scripts.map((script) => assetPath(`/script-heroes-scene/${script.id}.webp`)),
+  ...(musicEnabled ? [mainTheme, ...reignMusic].map((track) => track.src) : []),
+]));
+
+async function downloadRequiredAssets(
+  paths: string[],
+  signal: AbortSignal,
+  onProgress: (loaded: number) => void,
+) {
+  let cursor = 0;
+  let loaded = 0;
+  const failed: string[] = [];
+  const workerCount = Math.min(6, paths.length);
+  const worker = async () => {
+    while (!signal.aborted) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= paths.length) return;
+      const path = paths[index];
+      try {
+        const response = await fetch(path, { cache: "force-cache", signal });
+        if (!response.ok) throw new Error(`${response.status}`);
+        await response.blob();
+      } catch {
+        if (signal.aborted) return;
+        failed.push(path);
+      } finally {
+        if (!signal.aborted) {
+          loaded += 1;
+          onProgress(loaded);
+        }
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: workerCount }, worker));
+  return failed;
+}
+
 const randomEvents: EventTemplate[] = [
   { id: "spring-plough", title: "劝课农桑", category: "民生", text: "春耕将启，地方上奏：水渠年久失修，若不整治恐误农时；但国库也等着发军饷。", options: [
     { label: "发帑兴修水利", detail: "以眼前钱粮换来长期生计。", effects: { grain: -8, population: 4, sentiment: 8 }, tag: "民生" },
@@ -2230,6 +2283,18 @@ const randomEvents: EventTemplate[] = [
   { id: "rebellion", title: "农民起义", category: "民变", special: "peasant-rebellion", text: "饥民攻破县城，推举首领，义军转眼席卷数郡。无论朝廷能否平定，战火都将损伤户口、府库与军伍；只有取胜才可能俘获贼首。", options: [
     { label: "调集官军平乱", detail: "正面击溃义军。胜则皇权重振并追捕首领，败则国土分裂。", chance: 58, tag: "军事", specialAction: "fight-peasants", successEffects: { population: -6, grain: -10, army: -9, sentiment: -5, authority: 14 }, failEffects: { population: -16, grain: -22, army: -20, sentiment: -14, integrity: -8, authority: -28 } },
     { label: "赈济饥民，分化义军", detail: "先断其裹挟之势再进兵。成功仍有兵火损失，失败则割据蔓延。", chance: 54, tag: "民生", specialAction: "fight-peasants", successEffects: { population: -4, grain: -14, army: -6, sentiment: 8, integrity: 5, authority: 10 }, failEffects: { population: -13, grain: -20, army: -15, sentiment: -10, authority: -24 } },
+  ]},
+  { id: "corruption-office-sale", title: "卖官鬻爵案", category: "吏治", punitive: true, text: "御史查出近幸仿效淳于长旧事，暗中收受金帛、许人官职；牵出的州郡官员已开始毁券灭证。无论如何处置，朝廷威信与钱粮都已受损。", options: [
+    { label: "下诏彻查，罢黜涉案者", detail: "清查能止住交易，却会令官署停摆、赃款难以尽数追回。", chance: 58, tag: "吏治", successEffects: { grain: -8, integrity: -4, sentiment: -3, authority: -2 }, failEffects: { grain: -14, integrity: -10, sentiment: -8, authority: -5 } },
+    { label: "限期自首，逐级追赃", detail: "以较缓的手段保住官署运转，但容易让主犯乘机转移财货。", chance: 54, tag: "财政", successEffects: { grain: -6, integrity: -6, sentiment: -2, authority: -3 }, failEffects: { grain: -12, integrity: -12, sentiment: -6, authority: -6 } },
+  ]},
+  { id: "corruption-salt-account", title: "盐铁亏空案", category: "吏治", punitive: true, text: "转运使的账册仿佛元载受赃旧案：盐铁专卖所得被层层侵吞，仓场只剩空印与伪券。若不补上缺口，军饷与赈济都将受阻。", options: [
+    { label: "封库核账，追缴亏额", detail: "停运核账可截住亏空，却会使眼前转运与军需一并受阻。", chance: 56, tag: "财政", successEffects: { grain: -9, army: -3, integrity: -4, authority: -2 }, failEffects: { grain: -17, army: -6, integrity: -9, sentiment: -5, authority: -5 } },
+    { label: "更换主官，先通漕运", detail: "先让漕船与盐引动起来，代价是旧账难免留下空白。", chance: 55, tag: "吏治", successEffects: { grain: -7, integrity: -6, sentiment: -2, authority: -3 }, failEffects: { grain: -14, integrity: -11, sentiment: -6, authority: -6 } },
+  ]},
+  { id: "corruption-granary", title: "官仓侵盗案", category: "吏治", punitive: true, text: "各地仓吏侵盗官粮，案情与郭桓案相似，牵连账房、富户与地方胥役。追赃过急恐成罗织，放任不问则饥民先受其害。", options: [
+    { label: "派廷尉复核，只办实证", detail: "守住证据边界能少伤无辜，但被侵吞的粮食已难全数归仓。", chance: 57, tag: "吏治", successEffects: { grain: -10, population: -2, integrity: -4, sentiment: -3, authority: -2 }, failEffects: { grain: -16, population: -4, integrity: -9, sentiment: -8, authority: -5 } },
+    { label: "严刑追赃，连坐胥役", detail: "重刑或能迅速震慑，却会使诬告与摊派一起蔓延。", chance: 52, tag: "谋略", successEffects: { grain: -8, population: -2, integrity: -8, sentiment: -6, authority: -3 }, failEffects: { grain: -15, population: -5, integrity: -14, sentiment: -11, authority: -7 } },
   ]},
   { id: "invasion", title: "烽火入塞", category: "边患", text: "敌骑越塞，三郡告急。多年的武备松弛在这一刻都写进了战报。", options: [
     { label: "亲征迎敌", detail: "武力不足则国门洞开。", requirements: { army: 70 }, failOnUnmet: true, effects: { army: -10, grain: -10, sentiment: 8 } },
@@ -3249,6 +3314,8 @@ function reviewEventAuthority(event: EventTemplate): EventTemplate {
 const reviewedHistoricalEvents = historicalEvents.filter(() => true).map(reviewEventAuthority);
 const reviewedRandomEvents = randomEvents.map(reviewEventAuthority);
 const allEventTemplates = [...reviewedHistoricalEvents, ...reviewedRandomEvents];
+const corruptionCaseIds = ["corruption-office-sale", "corruption-salt-account", "corruption-granary"];
+const conditionalEventIds = ["invasion", "rebellion", ...corruptionCaseIds];
 
 const addEffects = (stats: Stats, effects: Partial<Stats>): Stats => ({
   population: clamp(stats.population + (effects.population || 0), 0),
@@ -3279,14 +3346,15 @@ function liveState(stats: Stats) {
   const shortageRatio = grainNeed > 0 ? Math.max(0, grainNeed - stats.grain) / grainNeed : 0;
   const supply = shortageRatio > 0 ? -Math.max(1, Math.round(shortageRatio * 24)) : 0;
   const governance = Math.sign(stats.integrity) * Math.round(Math.abs(stats.integrity) / 16);
+  const militaryGovernance = stats.integrity < 0 ? -Math.ceil(Math.abs(stats.integrity) / 20) : 0;
   const sentiment = supply + governance;
   return {
     effective: {
       ...stats,
-      army: clamp(stats.army + army + supply, 0, 260),
+      army: clamp(stats.army + army + supply + militaryGovernance, 0, 260),
       sentiment: clamp(stats.sentiment + sentiment, -100, 100),
     },
-    modifiers: { army, grainNeed, supply, governance, sentiment },
+    modifiers: { army, grainNeed, supply, governance, militaryGovernance, sentiment },
   };
 }
 
@@ -3449,6 +3517,16 @@ function ministerRebellionChance(stats: Stats, loyalty: number) {
   return clamp((authorityPressure + loyaltyPressure) * foundationMultiplier, 0, 70);
 }
 
+function annualMerit(game: GameState) {
+  const materialScore = clamp((game.stats.population - game.yearStartMaterial.population) / 4, -3, 3)
+    + clamp((game.stats.grain - game.yearStartMaterial.grain) / 8, -3, 3)
+    + clamp((game.stats.army - game.yearStartMaterial.army) / 6, -3, 3);
+  const score = game.annualSuccesses * 3 - game.annualFailures * 2 + materialScore;
+  const rule = difficultyRule(game.difficulty);
+  const achieved = score >= rule.meritThreshold;
+  return { achieved, authorityDecay: achieved ? 0 : rule.authorityDecay };
+}
+
 function hasMinisterRebellionRisk(stats: Stats, seats: SeatAssignments) {
   return roles.slice(1).some((role) => {
     const person = allPeople.find((item) => item.id === seats[role]);
@@ -3465,6 +3543,12 @@ function peasantUprisingChance(sentiment: number, unrestYears: number, difficult
   if (sentiment <= -60) return 100;
   const rule = difficultyRule(difficulty);
   return clamp((-sentiment - 30) * 1.2 + (unrestYears - 1) * 10 + rule.uprisingChanceBonus, 5, 80);
+}
+
+function corruptionCaseChance(integrity: number, corruptionYears: number) {
+  if (integrity > -30 || corruptionYears < 1) return 0;
+  if (integrity <= -60) return 100;
+  return clamp((-integrity - 30) * 1.2 + (corruptionYears - 1) * 10, 5, 80);
 }
 
 function makeMinisterRebellionEvent(person: Person, role: Role, year: number): EventTemplate {
@@ -3515,22 +3599,26 @@ function makeCapturedPeasantEvent(person: Person): EventTemplate {
   };
 }
 
-function rollMinisterRebellion(stats: Stats, seats: SeatAssignments, randomSeed: number, randomCount: number, year: number) {
+function rollMinisterRebellions(stats: Stats, seats: SeatAssignments, randomSeed: number, randomCount: number, year: number, excludedActorIds: Set<string> = new Set<string>()) {
   const candidates = roles.slice(1).map((role) => {
     const person = allPeople.find((item) => item.id === seats[role]);
     const chance = person?.loyalty === undefined ? 0 : ministerRebellionChance(stats, person.loyalty);
     return person ? { person, role, chance } : null;
-  }).filter(Boolean).sort((a, b) => b!.chance - a!.chance) as { person: Person; role: Role; chance: number }[];
-  const candidate = candidates[0];
-  if (!candidate || candidate.chance <= 0) return { event: null as EventTemplate | null, randomCount };
-  const triggered = seededRandom(randomSeed, randomCount) * 100 < candidate.chance;
-  return { event: triggered ? makeMinisterRebellionEvent(candidate.person, candidate.role, year) : null, randomCount: randomCount + 1 };
+  }).filter(Boolean) as { person: Person; role: Role; chance: number }[];
+  const events: EventTemplate[] = [];
+  let count = randomCount;
+  candidates.forEach(({ person, role, chance }) => {
+    if (chance <= 0 || excludedActorIds.has(person.id)) return;
+    if (seededRandom(randomSeed, count) * 100 < chance) events.push(makeMinisterRebellionEvent(person, role, year));
+    count += 1;
+  });
+  return { events, randomCount: count };
 }
 
 function suppressLaterHistoricalEvents(events: EventTemplate[], seasonIndex: number, randomSeed: number, randomCount: number) {
   if (!events.some((event, index) => index > seasonIndex && event.historical)) return { events, randomCount };
   const used = new Set(events.filter((event, index) => index <= seasonIndex || !event.historical).map((event) => event.id));
-  const pool = reviewedRandomEvents.filter((event) => !["invasion", "rebellion"].includes(event.id) && !used.has(event.id));
+  const pool = reviewedRandomEvents.filter((event) => !conditionalEventIds.includes(event.id) && !used.has(event.id));
   const picked = seededShuffle(pool, randomSeed, randomCount);
   let cursor = 0;
   const replacements = events.map((event, index) => {
@@ -3542,7 +3630,7 @@ function suppressLaterHistoricalEvents(events: EventTemplate[], seasonIndex: num
   return { events: replacements, randomCount: picked.randomCount };
 }
 
-function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYears: number, unrestYears: number, difficulty: DifficultyId, randomSeed: number, randomCount: number, historyFlags: string[], progress: HistoricalProgress, seats: SeatAssignments, pendingEvents: EventTemplate[] = []) {
+function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYears: number, unrestYears: number, corruptionYears: number, difficulty: DifficultyId, randomSeed: number, randomCount: number, historyFlags: string[], progress: HistoricalProgress, seats: SeatAssignments, pendingEvents: EventTemplate[] = []) {
   const effective = liveState(stats).effective;
   const required = reviewedHistoricalEvents
     .filter((event) => historyEventScheduled(event, scriptId, year, historyFlags, progress))
@@ -3551,9 +3639,10 @@ function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYe
     .slice(0, 4);
   const conditional: EventTemplate[] = [];
   let count = randomCount;
-  const rebellionRoll = rollMinisterRebellion(stats, seats, randomSeed, count, year);
+  const pendingRebellionActors = new Set(pendingEvents.filter((event) => event.special === "minister-rebellion").map((event) => event.actorId).filter(Boolean) as string[]);
+  const rebellionRoll = rollMinisterRebellions(stats, seats, randomSeed, count, year, pendingRebellionActors);
   count = rebellionRoll.randomCount;
-  if (rebellionRoll.event) conditional.push(rebellionRoll.event);
+  conditional.push(...rebellionRoll.events);
   const frontierNeed = frontierArmyRequirement(stats.population);
   if (effective.army < frontierNeed && lowArmyYears >= 1) conditional.push(reviewedRandomEvents.find((event) => event.id === "invasion")!);
   const uprisingChance = peasantUprisingChance(effective.sentiment, unrestYears, difficulty);
@@ -3561,17 +3650,26 @@ function buildYearEvents(scriptId: string, year: number, stats: Stats, lowArmyYe
     if (seededRandom(randomSeed, count) * 100 < uprisingChance) conditional.push(reviewedRandomEvents.find((event) => event.id === "rebellion")!);
     count += 1;
   }
+  const corruptionChance = corruptionCaseChance(effective.integrity, corruptionYears);
+  if (corruptionChance > 0) {
+    if (seededRandom(randomSeed, count) * 100 < corruptionChance) {
+      const cases = seededShuffle(reviewedRandomEvents.filter((event) => corruptionCaseIds.includes(event.id)), randomSeed, count + 1);
+      conditional.push(cases.items[0]);
+      count = cases.randomCount;
+    } else count += 1;
+  }
   const excluded = new Set(conditional.map((event) => event.id));
-  const base = reviewedRandomEvents.filter((event) => !["invasion", "rebellion"].includes(event.id) && !excluded.has(event.id));
+  const base = reviewedRandomEvents.filter((event) => !conditionalEventIds.includes(event.id) && !excluded.has(event.id));
   const picked = seededShuffle(base, randomSeed, count);
   const queued = pendingEvents.slice(0, 4);
   const events = [...queued, ...required, ...conditional].slice(0, 4);
+  const deferredRebellions = rebellionRoll.events.filter((event) => !events.some((selected) => selected.id === event.id));
   for (const event of picked.items) {
     if (events.length === 4) break;
     events.push(event);
   }
   const ordered = seededShuffle(events, randomSeed, picked.randomCount);
-  return { events: ordered.items, randomCount: ordered.randomCount, pendingEvents: pendingEvents.slice(queued.length) };
+  return { events: ordered.items, randomCount: ordered.randomCount, pendingEvents: [...pendingEvents.slice(queued.length), ...deferredRebellions] };
 }
 
 function buildHistoricalOnlyEvents(scriptId: string, year: number, historyFlags: string[], progress: HistoricalProgress) {
@@ -3754,6 +3852,7 @@ function normalizeSave(raw: unknown): GameState | null {
   const qinConquestRetries = Number.isInteger(saved.qinConquestRetries) && saved.qinConquestRetries! >= 0 ? Math.floor(saved.qinConquestRetries!) : 0;
   const qinConquestRequirementRelief = Number.isInteger(saved.qinConquestRequirementRelief) && saved.qinConquestRequirementRelief! >= 0 ? Math.floor(saved.qinConquestRequirementRelief!) : 0;
   const liubangThreeQinRetries = Number.isInteger(saved.liubangThreeQinRetries) && saved.liubangThreeQinRetries! >= 0 ? Math.floor(saved.liubangThreeQinRetries!) : 0;
+  const corruptionYears = Number.isInteger(saved.corruptionYears) && saved.corruptionYears! >= 0 ? Math.floor(saved.corruptionYears!) : stats.integrity <= -30 ? 1 : 0;
   const difficulty: DifficultyId = difficulties.some((item) => item.id === saved.difficulty) ? saved.difficulty! : "easy";
   const events = saved.events.map((event) => {
     const template = allEventTemplates.find((item) => item.id === event.id);
@@ -3763,7 +3862,10 @@ function normalizeSave(raw: unknown): GameState | null {
   const unavailablePersonIds = Array.isArray(saved.unavailablePersonIds) ? saved.unavailablePersonIds : [];
   const savedScript = scripts.find((item) => item.id === saved.scriptId)!;
   const keyYears = Array.isArray(saved.keyYears) ? saved.keyYears : initialKeyYears(savedScript);
-  return { ...saved, version: 12, stats, difficulty, seatAssignments, rosterIds, randomSeed, randomCount, historyFlags, events, qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief, liubangThreeQinRetries, pendingEvents, unavailablePersonIds, keyYears } as GameState;
+  const yearStartMaterial = saved.yearStartMaterial || { population: stats.population, grain: stats.grain, army: stats.army };
+  const annualSuccesses = Number.isInteger(saved.annualSuccesses) && saved.annualSuccesses! >= 0 ? saved.annualSuccesses! : 0;
+  const annualFailures = Number.isInteger(saved.annualFailures) && saved.annualFailures! >= 0 ? saved.annualFailures! : 0;
+  return { ...saved, version: 14, stats, difficulty, seatAssignments, rosterIds, randomSeed, randomCount, historyFlags, events, qinConquestIndex, qinConquestDelay, qinConquestRetries, qinConquestRequirementRelief, liubangThreeQinRetries, corruptionYears, pendingEvents, unavailablePersonIds, keyYears, yearStartMaterial, annualSuccesses, annualFailures } as GameState;
 }
 
 function drawRosterCandidates(seats: SeatAssignments, selectedIds: string[]) {
@@ -3786,6 +3888,13 @@ function drawRosterCandidates(seats: SeatAssignments, selectedIds: string[]) {
 }
 
 function App() {
+  const [viewportFrame, setViewportFrame] = useState({ scale: 1, width: 0, height: 0 });
+  const appRef = useRef<HTMLElement | null>(null);
+  const [preloadAttempt, setPreloadAttempt] = useState(0);
+  const [preload, setPreload] = useState<PreloadState>(() => {
+    const total = requiredAssetPaths().length;
+    return { status: "loading", loaded: 0, total };
+  });
   const [phase, setPhase] = useState<Phase>("landing");
   const [difficulty, setDifficulty] = useState<DifficultyId>("easy");
   const [scriptId, setScriptId] = useState("qin");
@@ -3810,6 +3919,41 @@ function App() {
     });
   });
 
+  useEffect(() => {
+    const controller = new AbortController();
+    const paths = requiredAssetPaths();
+    void downloadRequiredAssets(paths, controller.signal, (loaded) => {
+      setPreload({ status: "loading", loaded, total: paths.length });
+    }).then((failed) => {
+      if (controller.signal.aborted) return;
+      setPreload(failed.length
+        ? { status: "error", loaded: paths.length - failed.length, total: paths.length, failed }
+        : { status: "ready", loaded: paths.length, total: paths.length });
+    });
+    return () => controller.abort();
+  }, [preloadAttempt]);
+
+  useEffect(() => {
+    const updateViewportFrame = () => {
+      const viewport = window.visualViewport;
+      const width = viewport?.width || window.innerWidth;
+      const height = viewport?.height || window.innerHeight;
+      const landscape = width > height;
+      const targetWidth = landscape ? 1180 : 430;
+      const targetHeight = 760;
+      const minimumScale = landscape ? .5 : .78;
+      const scale = Math.min(1, Math.max(minimumScale, Math.min(width / targetWidth, height / targetHeight)));
+      setViewportFrame({ scale, width: width / scale, height: height / scale });
+    };
+    updateViewportFrame();
+    window.addEventListener("resize", updateViewportFrame);
+    window.visualViewport?.addEventListener("resize", updateViewportFrame);
+    return () => {
+      window.removeEventListener("resize", updateViewportFrame);
+      window.visualViewport?.removeEventListener("resize", updateViewportFrame);
+    };
+  }, []);
+
   const script = scripts.find((item) => item.id === scriptId) || scripts[0];
   const policy = policies.find((item) => item.id === policyId) || policies[0];
   const activeSeats = game ? game.seatAssignments : rosterSeats;
@@ -3817,6 +3961,29 @@ function App() {
   const roster = rosterIds.map((id) => allPeople.find((person) => person.id === id)).filter(Boolean) as Person[];
 
   const displayPhase: Phase = game?.phase === "ending" || game?.phase === "summary" ? game.phase : phase;
+
+  useEffect(() => {
+    appRef.current?.scrollTo({ top: 0, left: 0 });
+  }, [displayPhase]);
+
+  useEffect(() => {
+    if (viewportFrame.scale >= .995) return;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [viewportFrame.scale]);
+
+  if (preload.status !== "ready") {
+    return <PreloadScreen state={preload} onRetry={() => {
+      setPreload({ status: "loading", loaded: 0, total: requiredAssetPaths().length });
+      setPreloadAttempt((attempt) => attempt + 1);
+    }} />;
+  }
 
   const beginRoster = () => {
     const seats = emptySeats();
@@ -3875,14 +4042,14 @@ function App() {
     stats = addEffects(stats, growth.effects);
     const effective = liveState(stats).effective;
     const progress = emptyHistoricalProgress();
-    const yearEvents = buildYearEvents(scriptId, script.startYear, stats, 0, 0, difficulty, randomSeed, randomCount, [], progress, rosterSeats, []);
+    const yearEvents = buildYearEvents(scriptId, script.startYear, stats, 0, 0, 0, difficulty, randomSeed, randomCount, [], progress, rosterSeats, []);
     randomCount = yearEvents.randomCount;
     const initial: GameState = {
-      version: 12, phase: "reign", difficulty, scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
+      version: 14, phase: "reign", difficulty, scriptId, policyId, rosterIds, seatAssignments: rosterSeats, year: script.startYear, elapsed: 1, seasonIndex: 0,
       stats, events: yearEvents.events, outcome: null,
       chronicle: [{ year: script.startYear, season: "春", title: "开国建元", note: `${people.find((person) => person.id === rosterSeats.皇帝)?.name || "新君"}与开国班底共治天下。${growth.note}` }],
-      lowArmyYears: effective.army < frontierArmyRequirement(stats.population) ? 1 : 0, unrestYears: effective.sentiment <= -30 ? 1 : 0, alteredHistory: false,
-      annualNote: growth.note, endingReason: "", endingVictory: false, randomSeed, randomCount: yearEvents.randomCount, historyFlags: [], pendingEvents: yearEvents.pendingEvents, unavailablePersonIds: [], keyYears: initialKeyYears(script), ...progress,
+      lowArmyYears: effective.army < frontierArmyRequirement(stats.population) ? 1 : 0, unrestYears: effective.sentiment <= -30 ? 1 : 0, corruptionYears: effective.integrity <= -30 ? 1 : 0, alteredHistory: false,
+      annualNote: growth.note, endingReason: "", endingVictory: false, randomSeed, randomCount: yearEvents.randomCount, historyFlags: [], pendingEvents: yearEvents.pendingEvents, unavailablePersonIds: [], keyYears: initialKeyYears(script), yearStartMaterial: { population: stats.population, grain: stats.grain, army: stats.army }, annualSuccesses: 0, annualFailures: 0, ...progress,
     };
     setGame(activateCurrentEvent(initial)); setPhase("reign"); window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -3893,11 +4060,11 @@ function App() {
     if (!first) return;
     const debugPolicyId = policies[0].id;
     const initial: GameState = {
-      version: 12, phase: "reign", difficulty: "easy", scriptId, policyId: debugPolicyId, rosterIds: [], seatAssignments: emptySeats(),
+      version: 14, phase: "reign", difficulty: "easy", scriptId, policyId: debugPolicyId, rosterIds: [], seatAssignments: emptySeats(),
       year: first.year, elapsed: 1, seasonIndex: 0, stats: { ...script.base }, events: first.events, outcome: null,
       chronicle: [{ year: first.year, season: "春", title: "历史分支模拟", note: "已跳过国策、班底与无历史事件年份，只保留本剧本的历史节点。" }],
-      lowArmyYears: 0, unrestYears: 0, alteredHistory: false, annualNote: "Debug 模式不因国势变化覆亡。", endingReason: "", endingVictory: false,
-      randomSeed: createGameSeed(), randomCount: 0, historyFlags: [], pendingEvents: [], unavailablePersonIds: [], keyYears: initialKeyYears(script), ...progress, debugHistory: true,
+      lowArmyYears: 0, unrestYears: 0, corruptionYears: 0, alteredHistory: false, annualNote: "Debug 模式不因国势变化覆亡。", endingReason: "", endingVictory: false,
+      randomSeed: createGameSeed(), randomCount: 0, historyFlags: [], pendingEvents: [], unavailablePersonIds: [], keyYears: initialKeyYears(script), yearStartMaterial: { population: script.base.population, grain: script.base.grain, army: script.base.army }, annualSuccesses: 0, annualFailures: 0, ...progress, debugHistory: true,
     };
     setDifficulty("easy"); setPolicyId(debugPolicyId); setRosterSeats(emptySeats()); setRosterRound(0);
     setGame(initial); setPhase("reign"); window.scrollTo({ top: 0, behavior: "smooth" });
@@ -4074,7 +4241,9 @@ function App() {
         const cause = stats.population < 18 ? "人口跌破王朝存续底线" : "国库钱粮耗尽";
         return { ...current, stats, events, pendingEvents, unavailablePersonIds, seatAssignments, rosterIds: nextRosterIds, randomCount, historyFlags: nextHistoryFlags, keyYears, ...progress, phase: "ending", endingVictory: false, endingReason: `${cause}。地方失去供养与秩序，国祚就此断绝。`, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: "山河易色", note: `${event.title}之后，${cause}。` }] };
       }
-      return { ...current, stats, events, pendingEvents, unavailablePersonIds, seatAssignments, rosterIds: nextRosterIds, randomCount, historyFlags: nextHistoryFlags, keyYears, ...progress, alteredHistory: current.alteredHistory || alternate || liubangThreeQinRetries > 0, outcome: { title: outcomeTitle, text: resultText, effects, success, alternate }, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: event.title, note: `${option.label}。${resultText}` }].slice(-30) };
+      const annualSuccesses = current.annualSuccesses + (success === true ? 1 : 0);
+      const annualFailures = current.annualFailures + (success === false ? 1 : 0);
+      return { ...current, stats, events, pendingEvents, unavailablePersonIds, seatAssignments, rosterIds: nextRosterIds, randomCount, historyFlags: nextHistoryFlags, keyYears, annualSuccesses, annualFailures, ...progress, alteredHistory: current.alteredHistory || alternate || liubangThreeQinRetries > 0, outcome: { title: outcomeTitle, text: resultText, effects, success, alternate }, chronicle: [...current.chronicle, { year: current.year, season: seasons[current.seasonIndex], title: event.title, note: `${option.label}。${resultText}` }].slice(-30) };
     });
   };
 
@@ -4108,13 +4277,16 @@ function App() {
       if (current.elapsed >= 500) return { ...current, phase: "ending", endingVictory: true, endingReason: "五百年间国祚不断，制度与民生经受住一代代风雨。你的王朝已成真正的千古一朝。" };
       const year = nextCalendarYear(current.year);
       const growth = annualGrowth(current.stats, current.policyId, current.difficulty, current.scriptId, current.qinConquestIndex);
-      const stats = addEffects(current.stats, growth.effects);
+      const merit = annualMerit(current);
+      const stats = addEffects(current.stats, { ...growth.effects, authority: -merit.authorityDecay });
+      const meritNote = merit.achieved ? "本年内外有功，朝野咸服，皇威未衰。" : "本年无足以服众之功，旧日威望随新岁消磨。";
       if (stats.population < 18 || stats.grain <= 0) return { ...current, year, stats, phase: "ending", endingVictory: false, endingReason: stats.grain <= 0 ? "岁首核账，国库已经无粮可支，天下由此土崩瓦解。" : "连年凋敝后，编户不足以支撑国家，王朝悄然终结。" };
       const effective = liveState(stats).effective;
       const lowArmyYears = effective.army < frontierArmyRequirement(stats.population) ? current.lowArmyYears + 1 : 0;
       const unrestYears = effective.sentiment <= -30 ? current.unrestYears + 1 : 0;
-      const yearEvents = buildYearEvents(current.scriptId, year, stats, lowArmyYears, unrestYears, current.difficulty, current.randomSeed, current.randomCount, current.historyFlags, current, current.seatAssignments, current.pendingEvents);
-      return activateCurrentEvent({ ...current, year, elapsed: current.elapsed + 1, stats, seasonIndex: 0, outcome: null, annualNote: growth.note, lowArmyYears, unrestYears, events: yearEvents.events, pendingEvents: yearEvents.pendingEvents, randomCount: yearEvents.randomCount, chronicle: [...current.chronicle, { year, season: "春", title: "岁首国计", note: growth.note }].slice(-30) });
+      const corruptionYears = effective.integrity <= -30 ? (current.corruptionYears || 0) + 1 : 0;
+      const yearEvents = buildYearEvents(current.scriptId, year, stats, lowArmyYears, unrestYears, corruptionYears, current.difficulty, current.randomSeed, current.randomCount, current.historyFlags, current, current.seatAssignments, current.pendingEvents);
+      return activateCurrentEvent({ ...current, year, elapsed: current.elapsed + 1, stats, seasonIndex: 0, outcome: null, annualNote: `${growth.note}${meritNote}`, lowArmyYears, unrestYears, corruptionYears, events: yearEvents.events, pendingEvents: yearEvents.pendingEvents, randomCount: yearEvents.randomCount, yearStartMaterial: { population: current.stats.population, grain: current.stats.grain, army: current.stats.army }, annualSuccesses: 0, annualFailures: 0, chronicle: [...current.chronicle, { year, season: "春", title: "岁首国计", note: `${growth.note}${meritNote}` }].slice(-30) });
     });
   };
 
@@ -4152,7 +4324,15 @@ function App() {
   const restart = () => { setGame(null); setDifficulty("easy"); setPhase("landing"); setRosterSeats(emptySeats()); setRosterRound(0); setRedrawsLeft(3); setCandidateIds([]); setActivePersonId(null); setSavesOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
 
   return (
-    <main className={`app phase-${displayPhase}`}>
+    <main
+      ref={appRef}
+      className={`app phase-${displayPhase} ${viewportFrame.scale < .995 ? "viewport-scaled" : ""}`}
+      style={viewportFrame.scale < .995 ? {
+        "--ui-scale": viewportFrame.scale,
+        "--ui-layout-width": `${viewportFrame.width}px`,
+        "--ui-layout-height": `${viewportFrame.height}px`,
+      } as React.CSSProperties : undefined}
+    >
       <div className="grain-overlay" />
       <BackgroundMusic phase={displayPhase} scriptId={scriptId} />
       {displayPhase !== "landing" && <TopBar setPhase={setPhase} openSaves={() => setSavesOpen(true)} game={game} canSave={displayPhase === "reign" && !game?.debugHistory} />}
@@ -4167,6 +4347,31 @@ function App() {
 
       {savesOpen && <SaveDrawer saves={saveMeta} current={displayPhase === "reign" && !game?.debugHistory ? game : null} onClose={() => setSavesOpen(false)} onSave={saveGame} onLoad={loadGame} onDelete={deleteSave} />}
       {saveNotice && <div className="save-toast" role="status" aria-live="polite">{saveNotice}</div>}
+    </main>
+  );
+}
+
+function PreloadScreen({ state, onRetry }: { state: Exclude<PreloadState, { status: "ready" }>; onRetry: () => void }) {
+  const progress = state.total ? Math.round(state.loaded / state.total * 100) : 100;
+  return (
+    <main className="preload-screen" aria-busy={state.status === "loading"}>
+      <div className="preload-card">
+        <span className="preload-kicker">五百年王朝 · 四时治世</span>
+        <div className="preload-seal" aria-hidden="true">国<br />祚</div>
+        <h1>整备山河</h1>
+        {state.status === "loading" ? <>
+          <p>正在下载开国所需的图像与音律，请稍候。</p>
+          <div className="preload-track" role="progressbar" aria-label="资源下载进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+            <span style={{ width: `${progress}%` }} />
+          </div>
+          <strong>{progress}%</strong>
+          <small>{state.loaded} / {state.total} 项资源</small>
+          <span className="sr-only">资源就绪后，“开国治世”按钮即可使用。</span>
+        </> : <>
+          <p role="alert">有 {state.failed.length} 项必要资源未能下载，主界面尚未开启。</p>
+          <button className="primary" type="button" onClick={onRetry}>重试下载</button>
+        </>}
+      </div>
     </main>
   );
 }
@@ -4226,7 +4431,7 @@ function Landing({ debugAvailable, debugEnabled, onDebugChange, onStart, onLoad 
       <div className="seal">国<br />祚</div>
       <h1>五百年<br /><em>王朝</em></h1>
       <p className="hero-copy">择一段历史为局，定一条治国之道，携四位股肱之臣走过每个春夏秋冬。<br />这一次，结局不由一次随机判词决定。</p>
-      <div className="hero-actions"><div className="start-menu"><button className="primary xl" aria-haspopup="menu" aria-expanded={difficultyOpen} onClick={() => setDifficultyOpen((open) => !open)}>开国治世 <span>▾</span></button>{difficultyOpen && <div className="difficulty-menu" role="menu" aria-label="选择治世难度">{difficulties.map((item) => <button role="menuitem" key={item.id} onClick={() => onStart(item.id)}><i>{item.seal}</i><span><b>{item.name}</b><small>吏治每年 {formatDelta(-6 - item.integrityDecayPenalty)} · {item.chancePenalty ? `成功率 -${item.chancePenalty}%` : "成功率不变"}</small></span></button>)}</div>}</div><button className="ghost" onClick={onLoad}>读取存档</button></div>
+      <div className="hero-actions"><div className="start-menu"><button className="primary xl" aria-haspopup="menu" aria-expanded={difficultyOpen} onClick={() => setDifficultyOpen((open) => !open)}>开国治世 <span>▾</span></button>{difficultyOpen && <div className="difficulty-menu" role="menu" aria-label="选择治世难度">{difficulties.map((item) => <button role="menuitem" key={item.id} onClick={() => onStart(item.id)}><i>{item.seal}</i><span><b>{item.name}</b><small>{item.desc}</small></span></button>)}</div>}</div><button className="ghost" onClick={onLoad}>读取存档</button></div>
       {debugAvailable && <label className="debug-toggle"><input type="checkbox" checked={debugEnabled} onChange={(event) => onDebugChange(event.target.checked)} /><span>DEBUG</span><b>历史事件分支模拟</b><small>跳过班底、通用事件与空白年份，国势不会导致覆亡</small></label>}
       <div className="hero-rules"><span>六项国势彼此牵引</span><i>◆</i><span>皇权衰微则权臣思变</span><i>◆</i><span>五百年方成千古一朝</span></div>
     </div>
@@ -4242,7 +4447,9 @@ function ScriptSelect({ selected, debugEnabled, onDebugStart, onSelect, onBack, 
   const chosenAvailable = availableScriptIds.has(chosen.id);
   return <section className="setup-page"><Progress active={0} /><header className="setup-heading"><span>第一诏</span><h2>选择历史剧本</h2><p>历史给你一道开局，但不会替你写下结局。</p></header>
     <div className="script-layout"><div className="script-grid">{scripts.map((item) => { const available = availableScriptIds.has(item.id); return <button key={item.id} type="button" disabled={!available} aria-label={available ? item.title : `${item.title}，敬请期待`} className={`script-card ${selected === item.id ? "selected" : ""} ${available ? "" : "upcoming"}`} onClick={() => onSelect(item.id)} style={{ "--accent": item.color } as React.CSSProperties}><span className="dynasty">{item.dynasty}</span>{!available && <span className="upcoming-label">敬请期待</span>}<h3>{item.title}</h3><p>{item.motto}</p><small>{item.startLabel}</small></button> })}</div>
-      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><img className="script-hero-backdrop" src={assetPath(`/script-heroes-scene/${chosen.id}.webp`)} alt="" aria-hidden="true" /><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">{chosenAvailable ? "历史原型" : "敬请期待"}</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span><span>皇权 {chosen.base.authority}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回首页</button><div className="script-start-actions"><button className="primary" disabled={!chosenAvailable} onClick={onNext}>{chosenAvailable ? "以此纪开局" : "剧本尚在打磨"}</button>{debugEnabled && chosenAvailable && <button className="debug-start" onClick={onDebugStart}>DEBUG · 仅推演历史事件</button>}</div></div></aside>
+      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- 本地预加载 WebP，需兼容静态导出与 Electron。 */}
+        <img className="script-hero-backdrop" src={assetPath(`/script-heroes-scene/${chosen.id}.webp`)} alt="" aria-hidden="true" /><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">{chosenAvailable ? "历史原型" : "敬请期待"}</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span><span>皇权 {chosen.base.authority}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回首页</button><div className="script-start-actions"><button className="primary" disabled={!chosenAvailable} onClick={onNext}>{chosenAvailable ? "以此纪开局" : "剧本尚在打磨"}</button>{debugEnabled && chosenAvailable && <button className="debug-start" onClick={onDebugStart}>DEBUG · 仅推演历史事件</button>}</div></div></aside>
     </div></section>;
 }
 
@@ -4263,6 +4470,7 @@ function CharacterPortrait({ person, className = "" }: { person: Person; classNa
       data-initial={person.name.slice(-1)}
       style={{ "--rarity": rarityRules[rarity].color } as React.CSSProperties}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element -- 本地预加载头像，保留原生 onError 降级处理。 */}
       <img
         src={portraitPath(person)}
         alt={`${person.name}头像`}
@@ -4287,20 +4495,23 @@ function RosterSelect({ seats, round, redrawsLeft, candidates, activePersonId, o
   </section>;
 }
 
-function BackgroundMusic({ phase, scriptId }: { phase: Phase; scriptId: string }) {
+function BackgroundMusic(props: { phase: Phase; scriptId: string }) {
+  return musicEnabled ? <BackgroundMusicPlayer {...props} /> : null;
+}
+
+function BackgroundMusicPlayer({ phase, scriptId }: { phase: Phase; scriptId: string }) {
   const isReign = phase === "reign";
-  const pool = reignMusic.filter((track) => !track.scripts || track.scripts.includes(scriptId));
-  const [queue, setQueue] = useState(() => ({ order: shuffleMusicOrder(pool.length), position: 0 }));
+  const pool = musicPoolForScript(scriptId);
+  const [queues, setQueues] = useState<Record<string, MusicQueue>>(() => Object.fromEntries(
+    scripts.map((script) => [script.id, { order: shuffleMusicOrder(musicPoolForScript(script.id).length), position: 0 }]),
+  ));
+  const queue = queues[scriptId] || { order: shuffleMusicOrder(pool.length), position: 0 };
   const [muted, setMuted] = useState(false);
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const activatedRef = useRef(false);
   const trackIndex = queue.order[queue.position] ?? 0;
   const current = isReign ? pool[trackIndex] : mainTheme;
-
-  useEffect(() => {
-    setQueue({ order: shuffleMusicOrder(pool.length), position: 0 });
-  }, [scriptId, pool.length]);
 
   const play = () => {
     const audio = audioRef.current;
@@ -4332,16 +4543,21 @@ function BackgroundMusic({ phase, scriptId }: { phase: Phase; scriptId: string }
     audio.src = current.src;
     audio.loop = !isReign;
     audio.volume = isReign ? .42 : .34;
-    audio.onended = isReign ? () => setQueue((currentQueue) => {
-      if (currentQueue.position + 1 < currentQueue.order.length) return { ...currentQueue, position: currentQueue.position + 1 };
-      const previousIndex = currentQueue.order[currentQueue.position];
-      return { order: shuffleMusicOrder(pool.length, previousIndex), position: 0 };
+    audio.onended = isReign ? () => setQueues((currentQueues) => {
+      const currentQueue = currentQueues[scriptId] || { order: shuffleMusicOrder(pool.length), position: 0 };
+      const nextQueue = currentQueue.position + 1 < currentQueue.order.length
+        ? { ...currentQueue, position: currentQueue.position + 1 }
+        : {
+            order: shuffleMusicOrder(pool.length, currentQueue.order[currentQueue.position]),
+            position: 0,
+          };
+      return { ...currentQueues, [scriptId]: nextQueue };
     }) : null;
     audio.load();
     if (activatedRef.current && !audio.muted) play();
     else setPlaying(false);
     return () => { audio.onended = null; };
-  }, [current.src, isReign]);
+  }, [current.src, isReign, pool.length, scriptId]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.muted = muted;
@@ -4375,6 +4591,7 @@ function StatPanel({ stats, policyId, difficulty, scriptId, qinConquestIndex }: 
   const armyBuffs: ModifierView[] = [
     { label: `人口 +${live.modifiers.army}`, value: live.modifiers.army, detail: `基础人口 ${stats.population} × 0.18 并四舍五入，为当前武备 +${live.modifiers.army}；人口变化后立即重算。` },
     ...(live.modifiers.supply ? [{ label: `供养不足 ${live.modifiers.supply}`, value: live.modifiers.supply, detail: `人口需要钱粮 ${formatDelta(live.modifiers.grainNeed).slice(1)}（人口 ${stats.population} × 0.8）。当前钱粮低于需求线，缺口占需求的比例 × 24 并四舍五入，武备 ${live.modifiers.supply}；钱粮达到需求线后立即消失。` }] : []),
+    ...(live.modifiers.militaryGovernance ? [{ label: `朝堂掣肘 ${live.modifiers.militaryGovernance}`, value: live.modifiers.militaryGovernance, detail: `当前吏治为 ${stats.integrity}，负吏治每满 20 点使有效武备 -1；军中吃空饷、器械失修与号令不行会持续削弱战力。吏治恢复至非负后立即消失。` }] : []),
   ];
   const integrityBuffs: ModifierView[] = [];
   return <div className="stats-panel">
@@ -4412,13 +4629,16 @@ function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear 
 function YearEnd({ game, onNext }: { game: GameState; onNext: () => void }) {
   const effective = liveState(game.stats).effective;
   const growth = annualGrowth(game.stats, game.policyId, game.difficulty, game.scriptId, game.qinConquestIndex).effects;
-  const projectedStats = addEffects(game.stats, growth);
+  const merit = annualMerit(game);
+  const projectedStats = addEffects(game.stats, { ...growth, authority: -merit.authorityDecay });
   const frontierNeed = frontierArmyRequirement(game.stats.population);
   const projectedUnrestYears = effective.sentiment <= -30 ? game.unrestYears + 1 : 0;
   const projectedUprisingChance = peasantUprisingChance(effective.sentiment, projectedUnrestYears, game.difficulty);
+  const projectedCorruptionYears = effective.integrity <= -30 ? (game.corruptionYears || 0) + 1 : 0;
+  const projectedCorruptionChance = corruptionCaseChance(effective.integrity, projectedCorruptionYears);
   const projectedMinisterRebellionRisk = hasMinisterRebellionRisk(projectedStats, game.seatAssignments);
   if (game.debugHistory) return <div className="year-end debug-year-end"><span>本年史事已毕</span><h2>{yearLabel(game.year)} · 分支已记录</h2><p>继续后将自动跳过空白年份，前往当前选择所导向的下一个历史节点。</p><button className="primary xl" onClick={onNext}>推演下一历史年份</button></div>;
-  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁结算人口、钱粮、民情回落与吏治自然损耗。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {formatDelta(growth.population)}　钱粮 {formatDelta(growth.grain)}　民情 {formatDelta(growth.sentiment)}　吏治 {formatDelta(growth.integrity)}</strong></div><div className="warning-row">{effective.army < frontierNeed && <span>⚑ 有效武备 {effective.army} 低于当前人口所需的边防线 {frontierNeed}，来年可能出现烽火入塞</span>}{projectedUprisingChance > 0 && <span>⚠ 若来岁仍维持当前低民情，农民起义概率为 {projectedUprisingChance}%</span>}{projectedMinisterRebellionRisk && <span>♜ 三项根基已足以支撑割据，皇权衰微时班底中忠诚不足者可能叛变</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情与武备正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
+  return <div className="year-end"><span>年终奏报</span><h2>{yearLabel(game.year)} · 四时已毕</h2><p>四道决断已写入起居注。常驻修正会随国势即时出现或消失；新岁结算人口、钱粮、民情回落与吏治自然损耗。</p><div className="annual-note"><i>来岁预估</i><strong>人口 {formatDelta(growth.population)}　钱粮 {formatDelta(growth.grain)}　民情 {formatDelta(growth.sentiment)}　吏治 {formatDelta(growth.integrity)}</strong></div><div className="warning-row">{merit.achieved ? <span>◆ 本年内外有功，朝野咸服，来岁皇威不衰</span> : <span>♜ 本年无足以服众之功，来岁皇权将随旧日威望一同消磨</span>}{effective.army < frontierNeed && <span>⚑ 有效武备 {effective.army} 低于当前人口所需的边防线 {frontierNeed}，来年可能出现烽火入塞</span>}{projectedUprisingChance > 0 && <span>⚠ 若来岁仍维持当前低民情，农民起义概率为 {projectedUprisingChance}%</span>}{projectedCorruptionChance > 0 && <span>◇ 若来岁仍维持当前低吏治，贪腐案发概率为 {projectedCorruptionChance}%</span>}{projectedMinisterRebellionRisk && <span>♜ 三项根基已足以支撑割据，皇权衰微时班底中忠诚不足者可能叛变</span>}{liveState(game.stats).modifiers.supply < 0 && <span>▱ 钱粮不足以供养人口，民情与武备正受拖累</span>}{game.stats.integrity < -30 && <span>◇ 贪腐正在侵蚀增长与民情</span>}</div><button className="primary xl" onClick={onNext}>{game.elapsed >= 500 ? "验看五百年国运" : "颁新历 · 进入下一年"}</button></div>;
 }
 
 function Chronicle({ entries }: { entries: Chronicle[] }) {
@@ -4446,7 +4666,9 @@ function HistoricalSummary({ game, script, onHome, onContinue }: { game: GameSta
     ["民情", effective.sentiment], ["吏治", effective.integrity], ["皇权", game.stats.authority],
   ];
   const highestSummaryStat = Math.max(1, ...summaryStats.map(([, value]) => value));
-  return <section className="ending history-summary"><div className="ending-card summary-card"><img className="script-hero-backdrop summary-hero-backdrop" src={assetPath(`/script-heroes-scene/${script.id}.webp`)} alt="" aria-hidden="true" />
+  return <section className="ending history-summary"><div className="ending-card summary-card">
+    {/* eslint-disable-next-line @next/next/no-img-element -- 本地预加载 WebP，需兼容静态导出与 Electron。 */}
+    <img className="script-hero-backdrop summary-hero-backdrop" src={assetPath(`/script-heroes-scene/${script.id}.webp`)} alt="" aria-hidden="true" />
     <span className="ending-kicker summary-step step-1">{game.debugHistory ? "史线推演封卷" : "本纪大事已定"}</span>
     <h1 className="summary-step step-2">{script.title} · 历史篇章完成</h1>
     <p className="summary-step step-3">{game.debugHistory ? "当前选择导向的历史节点已全部推演完毕，关键年份与国势结存如下。" : "既定历史大事已经走到尽头。你可以就此封存本纪，也可以让王朝越过史书边界，继续面对只有通用事件的漫长岁月。"}</p>

@@ -2,6 +2,7 @@
   "name": "rise-of-dynasty",
   "version": "0.1.0",
   "private": true,
+  "main": "electron/main.mjs",
   "engines": {
     "node": ">=22.13.0"
   },
@@ -9,6 +10,10 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "build:pages": "next build",
+    "build:h5:local": "next build",
+    "package:taptap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-taptap-h5.ps1",
+    "desktop": "electron .",
+    "build:desktop": "node scripts/build-desktop.mjs",
     "start": "vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
@@ -29,6 +34,8 @@
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
     "drizzle-kit": "0.31.10",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.6",
     "react-server-dom-webpack": "19.2.6",
@@ -37,6 +44,39 @@
     "vinext": "0.0.50",
     "vite": "8.0.13",
     "wrangler": "4.92.0"
+  },
+  "build": {
+    "appId": "com.riseofdynasty.game",
+    "productName": "五百年王朝",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "out/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asar": true,
+    "compression": "normal",
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "artifactName": "RiseOfDynasty-${version}-${arch}-Installer.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "五百年王朝"
+    },
+    "portable": {
+      "artifactName": "RiseOfDynasty-${version}-${arch}-Portable.${ext}"
+    }
   },
   "type": "module"
 }

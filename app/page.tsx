@@ -202,6 +202,8 @@ const scripts: Script[] = [
   { id: "ming", title: "明太祖纪", ruler: "朱元璋", dynasty: "明", startYear: 1352, startLabel: "至正十二年 · 濠州投军", color: "#8c302d", motto: "驱逐胡虏，重整山河", description: "从濠州投军开始。最懂百姓饥寒，也最警惕功臣与贪官。", base: { population: 52, grain: 56, army: 68, sentiment: 24, integrity: 18, authority: 0 } },
 ];
 
+const availableScriptIds = new Set(["qin", "liubang"]);
+
 const openingKeyYears: Record<string, Omit<KeyYearRecord, "year">> = {
   qin: { id: "opening-qin", label: "秦王即位", historicalYear: -246 },
   liubang: { id: "opening-liubang", label: "沛县起兵", historicalYear: -209 },
@@ -4236,9 +4238,10 @@ function Progress({ active }: { active: number }) {
 
 function ScriptSelect({ selected, debugEnabled, onDebugStart, onSelect, onBack, onNext }: { selected: string; debugEnabled: boolean; onDebugStart: () => void; onSelect: (id: string) => void; onBack: () => void; onNext: () => void }) {
   const chosen = scripts.find((item) => item.id === selected)!;
+  const chosenAvailable = availableScriptIds.has(chosen.id);
   return <section className="setup-page"><Progress active={0} /><header className="setup-heading"><span>第一诏</span><h2>选择历史剧本</h2><p>历史给你一道开局，但不会替你写下结局。</p></header>
-    <div className="script-layout"><div className="script-grid">{scripts.map((item) => <button key={item.id} className={`script-card ${selected === item.id ? "selected" : ""}`} onClick={() => onSelect(item.id)} style={{ "--accent": item.color } as React.CSSProperties}><span className="dynasty">{item.dynasty}</span><h3>{item.title}</h3><p>{item.motto}</p><small>{item.startLabel}</small></button>)}</div>
-      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><img className="script-hero-backdrop" src={`/script-heroes-scene/${chosen.id}.webp`} alt="" aria-hidden="true" /><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">历史原型</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span><span>皇权 {chosen.base.authority}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回首页</button><div className="script-start-actions"><button className="primary" onClick={onNext}>以此纪开局</button>{debugEnabled && <button className="debug-start" onClick={onDebugStart}>DEBUG · 仅推演历史事件</button>}</div></div></aside>
+    <div className="script-layout"><div className="script-grid">{scripts.map((item) => { const available = availableScriptIds.has(item.id); return <button key={item.id} type="button" disabled={!available} aria-label={available ? item.title : `${item.title}，敬请期待`} className={`script-card ${selected === item.id ? "selected" : ""} ${available ? "" : "upcoming"}`} onClick={() => onSelect(item.id)} style={{ "--accent": item.color } as React.CSSProperties}><span className="dynasty">{item.dynasty}</span>{!available && <span className="upcoming-label">敬请期待</span>}<h3>{item.title}</h3><p>{item.motto}</p><small>{item.startLabel}</small></button> })}</div>
+      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><img className="script-hero-backdrop" src={`/script-heroes-scene/${chosen.id}.webp`} alt="" aria-hidden="true" /><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">{chosenAvailable ? "历史原型" : "敬请期待"}</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span><span>皇权 {chosen.base.authority}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回首页</button><div className="script-start-actions"><button className="primary" disabled={!chosenAvailable} onClick={onNext}>{chosenAvailable ? "以此纪开局" : "剧本尚在打磨"}</button>{debugEnabled && chosenAvailable && <button className="debug-start" onClick={onDebugStart}>DEBUG · 仅推演历史事件</button>}</div></div></aside>
     </div></section>;
 }
 

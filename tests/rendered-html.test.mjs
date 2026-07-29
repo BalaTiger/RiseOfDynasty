@@ -31,6 +31,10 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /shuffleMusicOrder\(pool\.length, previousIndex\)/);
   assert.doesNotMatch(`${page}\n${layout}`, /官场风气|官风/);
   for (const title of ["秦始皇纪", "汉高祖纪", "汉武帝纪", "曹操传", "刘备传", "孙策传", "刘裕传", "唐太宗纪", "宋太祖纪", "成吉思汗纪", "明太祖纪"]) assert.match(page, new RegExp(title));
+  assert.match(page, /const availableScriptIds = new Set\(\["qin", "liubang"\]\)/);
+  assert.match(page, /disabled=\{!available\}/);
+  assert.match(page, /敬请期待/);
+  assert.match(page, /disabled=\{!chosenAvailable\}/);
   assert.match(page, /剧本只决定时代与历史事件/);
   assert.match(page, /role: "皇帝"/);
   assert.match(page, /secondaryRoles: \["名将"\]/);

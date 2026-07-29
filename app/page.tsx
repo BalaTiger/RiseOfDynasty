@@ -158,21 +158,22 @@ const difficultyRule = (id: DifficultyId) => difficulties.find((item) => item.id
 
 type MusicTrack = { src: string; title: string; artist: string; denoised?: boolean; scripts?: string[] };
 
-const mainTheme: MusicTrack = { src: "/music/main-theme.mp3", title: "Main Theme", artist: "" };
+const assetPath = (path: string) => `${process.env.NEXT_PUBLIC_BASE_PATH || ""}${path}`;
+const mainTheme: MusicTrack = { src: assetPath("/music/main-theme.mp3"), title: "Main Theme", artist: "" };
 const reignMusic: MusicTrack[] = [
-  { src: "/music/erquan-yingyue-a-bing.mp3", title: "二泉映月", artist: "阿炳", denoised: true },
-  { src: "/music/dalang-taosha-a-bing.mp3", title: "大浪淘沙", artist: "阿炳", denoised: true },
-  { src: "/music/hanchun-fengqu-a-bing.mp3", title: "寒春风曲", artist: "阿炳", denoised: true },
-  { src: "/music/tingquan-yin-zhan-chengqiu.mp3", title: "听泉引", artist: "詹澄秋" },
-  { src: "/music/yi-guren-wu-jinglue.mp3", title: "忆故人", artist: "吴景略" },
-  { src: "/music/yuqiao-wenda-guan-zhonghang.mp3", title: "渔樵问答", artist: "関仲航" },
-  { src: "/music/zuiyu-changwan-wei-zhongle.mp3", title: "醉渔唱晚", artist: "卫仲乐" },
-  { src: "/music/liezi-yufeng-yue-ying.mp3", title: "列子御风", artist: "乐瑛", scripts: ["qin"] },
-  { src: "/music/liushui-guan-pinghu.mp3", title: "流水", artist: "管平湖", scripts: ["qin"] },
-  { src: "/music/hujia-shibapai-guan-pinghu.mp3", title: "胡笳十八拍", artist: "管平湖", scripts: ["hanwu"] },
-  { src: "/music/longxiang-cao-zhang-ziqian.mp3", title: "龙翔操（昭君怨）", artist: "张子谦", scripts: ["hanwu"] },
-  { src: "/music/qiujiang-yebo-cheng-wujia.mp3", title: "秋江夜泊", artist: "程午加", scripts: ["taizong"] },
-  { src: "/music/yueyang-sanzui-yue-ying.mp3", title: "岳阳三醉", artist: "乐瑛", scripts: ["taizong"] },
+  { src: assetPath("/music/erquan-yingyue-a-bing.mp3"), title: "二泉映月", artist: "阿炳", denoised: true },
+  { src: assetPath("/music/dalang-taosha-a-bing.mp3"), title: "大浪淘沙", artist: "阿炳", denoised: true },
+  { src: assetPath("/music/hanchun-fengqu-a-bing.mp3"), title: "寒春风曲", artist: "阿炳", denoised: true },
+  { src: assetPath("/music/tingquan-yin-zhan-chengqiu.mp3"), title: "听泉引", artist: "詹澄秋" },
+  { src: assetPath("/music/yi-guren-wu-jinglue.mp3"), title: "忆故人", artist: "吴景略" },
+  { src: assetPath("/music/yuqiao-wenda-guan-zhonghang.mp3"), title: "渔樵问答", artist: "関仲航" },
+  { src: assetPath("/music/zuiyu-changwan-wei-zhongle.mp3"), title: "醉渔唱晚", artist: "卫仲乐" },
+  { src: assetPath("/music/liezi-yufeng-yue-ying.mp3"), title: "列子御风", artist: "乐瑛", scripts: ["qin"] },
+  { src: assetPath("/music/liushui-guan-pinghu.mp3"), title: "流水", artist: "管平湖", scripts: ["qin"] },
+  { src: assetPath("/music/hujia-shibapai-guan-pinghu.mp3"), title: "胡笳十八拍", artist: "管平湖", scripts: ["hanwu"] },
+  { src: assetPath("/music/longxiang-cao-zhang-ziqian.mp3"), title: "龙翔操（昭君怨）", artist: "张子谦", scripts: ["hanwu"] },
+  { src: assetPath("/music/qiujiang-yebo-cheng-wujia.mp3"), title: "秋江夜泊", artist: "程午加", scripts: ["taizong"] },
+  { src: assetPath("/music/yueyang-sanzui-yue-ying.mp3"), title: "岳阳三醉", artist: "乐瑛", scripts: ["taizong"] },
 ];
 
 function shuffleMusicOrder(length: number, previousIndex?: number) {
@@ -272,7 +273,7 @@ const silverPeople = new Set([
 
 const rarityFor = (person: Pick<Person, "name" | "specialRecruit">): Rarity => person.specialRecruit ? "铁" : goldPeople.has(person.name) ? "金" : silverPeople.has(person.name) ? "银" : "铜";
 const personRarity = (person: Person): Rarity => person.rarity || rarityFor(person);
-const portraitPath = (person: Person) => `/character-portraits/${person.id}.webp`;
+const portraitPath = (person: Person) => assetPath(`/character-portraits/${person.id}.webp`);
 
 const corePeople: Person[] = [
   { id: "qinshihuang", name: "秦始皇", role: "皇帝", secondaryRoles: ["监察"], dynasty: "秦", quote: "制度开创极猛，民力也真扛不住。", tags: ["吏治", "军事"], bonuses: { army: 12, integrity: 8, sentiment: -8 } },
@@ -2161,7 +2162,7 @@ const specialRecruits: Person[] = [
   { id: "recruit-chengxueqi", name: "程学启", role: "名将", secondaryRoles: ["宰相"], dynasty: "清", quote: "由太平军率部出降，编入湘淮军后成为攻坚主将，转战江南屡立战功。", tags: ["军事", "吏治"], bonuses: { army: 14, integrity: 3 }, loyalty: 76, specialRecruit: true },
   { id: "recruit-dingruchang", name: "丁汝昌", role: "名将", secondaryRoles: ["财政"], dynasty: "清", quote: "随程学启从太平军出降，后来统领北洋海军，威海危局中以死守节。", tags: ["军事", "外交"], bonuses: { army: 12, sentiment: 6 }, loyalty: 96, specialRecruit: true },
   { id: "recruit-weijun", name: "韦俊", role: "名将", secondaryRoles: ["宰相"], dynasty: "清", quote: "曾为太平军一方主将，内争失势后献池州降清，余生未再起兵反复。", tags: ["军事", "谋略"], bonuses: { army: 11, population: 4 }, loyalty: 73, specialRecruit: true },
-].map((person) => ({ ...person, rarity: "铁" as Rarity }));
+].map((person) => ({ ...person, rarity: "铁" as Rarity })) as Person[];
 
 const allPeople: Person[] = [...people, ...specialRecruits];
 
@@ -4156,7 +4157,7 @@ function App() {
       <BackgroundMusic phase={displayPhase} scriptId={scriptId} />
       {displayPhase !== "landing" && <TopBar setPhase={setPhase} openSaves={() => setSavesOpen(true)} game={game} canSave={displayPhase === "reign" && !game?.debugHistory} />}
 
-      {displayPhase === "landing" && <Landing debugAvailable={import.meta.env.DEV} debugEnabled={debugEnabled} onDebugChange={setDebugEnabled} onStart={(selectedDifficulty) => { setDifficulty(selectedDifficulty); setPhase("script"); }} onLoad={() => setSavesOpen(true)} />}
+      {displayPhase === "landing" && <Landing debugAvailable={process.env.NODE_ENV === "development"} debugEnabled={debugEnabled} onDebugChange={setDebugEnabled} onStart={(selectedDifficulty) => { setDifficulty(selectedDifficulty); setPhase("script"); }} onLoad={() => setSavesOpen(true)} />}
       {displayPhase === "script" && <ScriptSelect selected={scriptId} debugEnabled={debugEnabled} onDebugStart={startHistoryDebug} onSelect={setScriptId} onBack={() => setPhase("landing")} onNext={() => setPhase("policy")} />}
       {displayPhase === "policy" && <PolicySelect selected={policyId} onSelect={setPolicyId} onBack={() => setPhase("script")} onNext={beginRoster} />}
       {displayPhase === "roster" && <RosterSelect seats={rosterSeats} round={rosterRound} redrawsLeft={redrawsLeft} candidates={candidateIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[]} activePersonId={activePersonId} onActivate={setActivePersonId} onCanMove={canMovePerson} onMove={movePerson} onRedraw={redrawCandidates} onSelect={selectPerson} onBack={() => setPhase("policy")} onStart={startReign} />}
@@ -4241,7 +4242,7 @@ function ScriptSelect({ selected, debugEnabled, onDebugStart, onSelect, onBack, 
   const chosenAvailable = availableScriptIds.has(chosen.id);
   return <section className="setup-page"><Progress active={0} /><header className="setup-heading"><span>第一诏</span><h2>选择历史剧本</h2><p>历史给你一道开局，但不会替你写下结局。</p></header>
     <div className="script-layout"><div className="script-grid">{scripts.map((item) => { const available = availableScriptIds.has(item.id); return <button key={item.id} type="button" disabled={!available} aria-label={available ? item.title : `${item.title}，敬请期待`} className={`script-card ${selected === item.id ? "selected" : ""} ${available ? "" : "upcoming"}`} onClick={() => onSelect(item.id)} style={{ "--accent": item.color } as React.CSSProperties}><span className="dynasty">{item.dynasty}</span>{!available && <span className="upcoming-label">敬请期待</span>}<h3>{item.title}</h3><p>{item.motto}</p><small>{item.startLabel}</small></button> })}</div>
-      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><img className="script-hero-backdrop" src={`/script-heroes-scene/${chosen.id}.webp`} alt="" aria-hidden="true" /><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">{chosenAvailable ? "历史原型" : "敬请期待"}</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span><span>皇权 {chosen.base.authority}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回首页</button><div className="script-start-actions"><button className="primary" disabled={!chosenAvailable} onClick={onNext}>{chosenAvailable ? "以此纪开局" : "剧本尚在打磨"}</button>{debugEnabled && chosenAvailable && <button className="debug-start" onClick={onDebugStart}>DEBUG · 仅推演历史事件</button>}</div></div></aside>
+      <aside className="script-detail" style={{ "--accent": chosen.color } as React.CSSProperties}><img className="script-hero-backdrop" src={assetPath(`/script-heroes-scene/${chosen.id}.webp`)} alt="" aria-hidden="true" /><div className="big-seal">{chosen.dynasty.slice(0, 2)}</div><span className="kicker">{chosenAvailable ? "历史原型" : "敬请期待"}</span><h3>{chosen.ruler}</h3><strong>{yearLabel(chosen.startYear)}</strong><p>{chosen.description} 剧本只决定时代与历史事件，稍后仍可选择任意皇帝入席。</p><div className="initial-stats"><span>人口 {chosen.base.population}</span><span>钱粮 {chosen.base.grain}</span><span>武备 {chosen.base.army}</span><span>皇权 {chosen.base.authority}</span></div><div className="setup-actions"><button className="ghost" onClick={onBack}>返回首页</button><div className="script-start-actions"><button className="primary" disabled={!chosenAvailable} onClick={onNext}>{chosenAvailable ? "以此纪开局" : "剧本尚在打磨"}</button>{debugEnabled && chosenAvailable && <button className="debug-start" onClick={onDebugStart}>DEBUG · 仅推演历史事件</button>}</div></div></aside>
     </div></section>;
 }
 
@@ -4445,7 +4446,7 @@ function HistoricalSummary({ game, script, onHome, onContinue }: { game: GameSta
     ["民情", effective.sentiment], ["吏治", effective.integrity], ["皇权", game.stats.authority],
   ];
   const highestSummaryStat = Math.max(1, ...summaryStats.map(([, value]) => value));
-  return <section className="ending history-summary"><div className="ending-card summary-card"><img className="script-hero-backdrop summary-hero-backdrop" src={`/script-heroes-scene/${script.id}.webp`} alt="" aria-hidden="true" />
+  return <section className="ending history-summary"><div className="ending-card summary-card"><img className="script-hero-backdrop summary-hero-backdrop" src={assetPath(`/script-heroes-scene/${script.id}.webp`)} alt="" aria-hidden="true" />
     <span className="ending-kicker summary-step step-1">{game.debugHistory ? "史线推演封卷" : "本纪大事已定"}</span>
     <h1 className="summary-step step-2">{script.title} · 历史篇章完成</h1>
     <p className="summary-step step-3">{game.debugHistory ? "当前选择导向的历史节点已全部推演完毕，关键年份与国势结存如下。" : "既定历史大事已经走到尽头。你可以就此封存本纪，也可以让王朝越过史书边界，继续面对只有通用事件的漫长岁月。"}</p>

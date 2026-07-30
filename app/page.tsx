@@ -35,6 +35,13 @@ type Bond = {
   chanceModifier?: number;
 };
 
+type BondOpportunity = {
+  level: "lead" | "complete";
+  bond: Bond;
+  missingNames: string[];
+  relatedCount: number;
+};
+
 type Script = {
   id: string;
   title: string;
@@ -3893,6 +3900,34 @@ const serviceRoles = (person: Person) => {
 
 const openSeatFor = (person: Person, seats: SeatAssignments) => serviceRoles(person).find((role) => !seats[role]) || null;
 
+function canSeatTogether(members: Person[], index = 0, usedRoles = new Set<Role>()): boolean {
+  if (index >= members.length) return true;
+  const member = members[index];
+  return roles.some((role) => !usedRoles.has(role)
+    && canServe(member, role)
+    && canSeatTogether(members, index + 1, new Set([...usedRoles, role])));
+}
+
+function bondOpportunityFor(candidate: Person, selectedIds: string[], remainingAfterSelection: number): BondOpportunity | null {
+  const selectedPeople = selectedIds.map((id) => people.find((person) => person.id === id)).filter(Boolean) as Person[];
+  const selectedNames = new Set(selectedPeople.map((person) => person.name));
+  const afterNames = new Set([...selectedNames, candidate.name]);
+  const opportunities = bonds.flatMap((bond) => {
+    if (!bond.memberNames.includes(candidate.name)) return [];
+    const connectedMembers = bond.memberNames.filter((name) => name !== candidate.name && selectedNames.has(name));
+    if (connectedMembers.length === 0) return [];
+    const missingNames = bond.memberNames.filter((name) => !afterNames.has(name));
+    if (missingNames.length > remainingAfterSelection) return [];
+    const missingPeople = missingNames.map((name) => people.find((person) => person.name === name)).filter(Boolean) as Person[];
+    const requiredPeople = [...new Map([...selectedPeople, candidate, ...missingPeople].map((person) => [person.id, person])).values()];
+    if (requiredPeople.length > rosterSize || missingPeople.length !== missingNames.length || !canSeatTogether(requiredPeople)) return [];
+    return [{ level: missingNames.length === 0 ? "complete" as const : "lead" as const, bond, missingNames }];
+  });
+  if (opportunities.length === 0) return null;
+  opportunities.sort((a, b) => Number(b.level === "complete") - Number(a.level === "complete") || a.missingNames.length - b.missingNames.length);
+  return { ...opportunities[0], relatedCount: opportunities.length };
+}
+
 function legacyQinConquestIndex(saved: Partial<GameState>) {
   if (saved.scriptId !== "qin") return 0;
   const recordedTitles = new Set((saved.chronicle || []).map((entry) => entry.title));
@@ -4587,10 +4622,34 @@ function CharacterPortrait({ person, className = "" }: { person: Person; classNa
 
 function RosterSelect({ seats, round, redrawsLeft, candidates, activePersonId, onActivate, onCanMove, onMove, onRedraw, onSelect, onBack, onStart }: { seats: SeatAssignments; round: number; redrawsLeft: number; candidates: Person[]; activePersonId: string | null; onActivate: (id: string | null) => void; onCanMove: (id: string, role: Role) => boolean; onMove: (id: string, role: Role) => void; onRedraw: () => void; onSelect: (person: Person) => void; onBack: () => void; onStart: () => void }) {
   const serviceText = (person: Person) => serviceRoles(person).map((role) => roleNames[role]).join("/");
+  const selectedIds = roles.map((role) => seats[role]).filter((id): id is string => !!id);
+  const activeRosterBonds = activeBondsFor(selectedIds);
+  const remainingAfterSelection = rosterSize - round - 1;
   return <section className="setup-page roster-page"><Progress active={2} /><header className="setup-heading"><span>第三诏</span><h2>六轮抽签 · 组建班底</h2><p>每轮从随机名册中择一人。武将可分任主将、副将，其余人物按主副职入席。</p></header>
     <div className="seats roster-seats">{roles.map((role) => { const person = people.find((item) => item.id === seats[role]); const isActive = !!person && activePersonId === person.id; const valid = !!activePersonId && onCanMove(activePersonId, role); return <button type="button" draggable={!!person} className={`seat ${person ? "filled" : ""} ${isActive ? "dragging" : ""} ${valid ? "valid-drop" : ""}`} key={role} onClick={() => activePersonId && activePersonId !== person?.id ? onMove(activePersonId, role) : onActivate(person ? (isActive ? null : person.id) : null)} onDragStart={(event) => { if (!person) return; event.dataTransfer.setData("text/plain", person.id); onActivate(person.id); }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const personId = event.dataTransfer.getData("text/plain") || activePersonId; if (personId) onMove(personId, role); }}>{person && <CharacterPortrait person={person} className="seat-portrait" />}<span>{roleNames[role]}</span><b>{person?.name || "待定"}</b>{person && <RarityBadge person={person} />}<small>{person ? `可任·${serviceText(person)}` : "等待抽签入席"}</small>{person && <em>拖拽或点击换位</em>}</button> })}</div>
+    <section className={`roster-bonds ${activeRosterBonds.length ? "has-active" : ""}`} aria-live="polite" aria-label="当前班底羁绊">
+      <header><span>班底羁绊</span><small>{activeRosterBonds.length ? `已激活 ${activeRosterBonds.length} 组 · 开局即享全部加成` : "集齐全部成员后自动激活"}</small></header>
+      {activeRosterBonds.length ? <div className="roster-bond-list">{activeRosterBonds.map((bond) => <article key={bond.id}>
+        <i>已激活</i><div><b>「{bond.name}」</b><small>{bond.memberNames.join(" · ")}</small></div><em>{bondEffectText(bond)}</em>
+        <div className="bond-member-portraits" aria-label={`羁绊成员：${bond.memberNames.join("、")}`}>{bond.memberNames.map((name) => {
+          const member = people.find((person) => person.name === name);
+          return member ? <CharacterPortrait key={member.id} person={member} className="bond-member-portrait" /> : null;
+        })}</div>
+      </article>)}</div> : <p>当前尚无完整羁绊。候选牌出现羁绊光效时，可查看所需成员。</p>}
+    </section>
     <div className="roster-hint"><span>调位规则</span><p>拖动已选人物到高亮席位；若目标已有角色，只有对方也能胜任原席位时才会交换。触屏设备可先点人物，再点高亮席位。</p></div>
-    {round < rosterSize ? <section className="roster-draw"><header><div><span>抽签进度 · {round + 1} / {rosterSize}</span><h3>本轮随机候选</h3></div><button className="ghost" onClick={onRedraw} disabled={redrawsLeft <= 0}>换一批人才 · 剩 {redrawsLeft} 次</button></header><div className="random-candidates">{candidates.map((person) => <button className="person-card draw-card" onClick={() => onSelect(person)} key={person.id}><div className="person-card-heading"><CharacterPortrait person={person} /><div><h3>{person.name}</h3><span>{person.dynasty}</span></div><RarityBadge person={person} /></div><p>{person.quote}</p><div className="role-directions"><i>可任 · {serviceText(person)}</i></div><small>{person.tags.map((tag) => <i key={tag}>{tag}</i>)}</small></button>)}</div></section> : <div className="roster-complete"><span>六轮抽签已毕</span><h3>开国六席俱全</h3><p>仍可拖拽或点击上方人物调整任职方向；确认无误后开始治国。</p></div>}
+    {round < rosterSize ? <section className="roster-draw"><header><div><span>抽签进度 · {round + 1} / {rosterSize}</span><h3>本轮随机候选</h3></div><button className="ghost" onClick={onRedraw} disabled={redrawsLeft <= 0}>换一批人才 · 剩 {redrawsLeft} 次</button></header><div className="random-candidates">{candidates.map((person) => {
+      const opportunity = bondOpportunityFor(person, selectedIds, remainingAfterSelection);
+      const hintLabel = opportunity?.level === "complete" ? "羁绊将成" : "羁绊线索";
+      return <button className={`person-card draw-card ${opportunity ? `bond-${opportunity.level}` : ""}`} onClick={() => onSelect(person)} key={person.id}>
+        <div className="person-card-heading"><CharacterPortrait person={person} /><div><h3>{person.name}</h3><span>{person.dynasty}</span></div><RarityBadge person={person} /></div>
+        {opportunity && <div className={`bond-hint bond-hint-${opportunity.level}`} aria-label={`${hintLabel}：${opportunity.bond.name}`}>
+          <span>{hintLabel}</span><b>「{opportunity.bond.name}」</b>
+          <em>{opportunity.level === "complete" ? "选取后立即激活" : `尚缺 · ${opportunity.missingNames.join("、")}`}{opportunity.relatedCount > 1 ? ` · 另有 ${opportunity.relatedCount - 1} 组` : ""}</em>
+        </div>}
+        <p>{person.quote}</p><div className="role-directions"><i>可任 · {serviceText(person)}</i></div><small>{person.tags.map((tag) => <i key={tag}>{tag}</i>)}</small>
+      </button>;
+    })}</div></section> : <div className="roster-complete"><span>六轮抽签已毕</span><h3>开国六席俱全</h3><p>仍可拖拽或点击上方人物调整任职方向；确认无误后开始治国。</p></div>}
     <div className="setup-actions sticky-actions"><button className="ghost" onClick={onBack}>返回改策</button><button className="primary" disabled={round !== rosterSize || roles.some((role) => !seats[role])} onClick={onStart}>班底已定 · 开始治国</button></div>
   </section>;
 }

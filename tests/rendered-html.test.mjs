@@ -22,13 +22,13 @@ test("server renders the dynasty game landing page", async () => {
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/);
 });
 
-test("includes the expanded five-round roster, history events, and reign-only saves", async () => {
+test("includes the expanded six-round roster, history events, and reign-only saves", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
   assert.match(page, /function shuffleMusicOrder\(length: number, previousIndex\?: number\)/);
   assert.match(page, /order\[0\] === previousIndex/);
   assert.match(page, /currentQueue\.position \+ 1 < currentQueue\.order\.length/);
-  assert.match(page, /shuffleMusicOrder\(pool\.length, previousIndex\)/);
+  assert.match(page, /shuffleMusicOrder\(pool\.length, currentQueue\.order\[currentQueue\.position\]\)/);
   assert.doesNotMatch(`${page}\n${layout}`, /官场风气|官风/);
   for (const title of ["秦始皇纪", "汉高祖纪", "汉武帝纪", "曹操传", "刘备传", "孙策传", "刘裕传", "唐太宗纪", "宋太祖纪", "成吉思汗纪", "明太祖纪"]) assert.match(page, new RegExp(title));
   assert.match(page, /const availableScriptIds = new Set\(\["qin", "liubang"\]\)/);
@@ -38,24 +38,24 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /剧本只决定时代与历史事件/);
   assert.match(page, /role: "皇帝"/);
   assert.match(page, /secondaryRoles: \["名将"\]/);
-  assert.match(page, /person\.secondaryRoles\.find\(\(role\) => !rosterSeats\[role\]\)/);
-  assert.match(page, /eligible\.filter\(\(person\) => person\.role === role\)/);
+  assert.match(page, /const target = openSeatFor\(person, rosterSeats\)/);
+  assert.match(page, /eligible\.filter\(\(person\) => canServe\(person, role\)\)/);
+  assert.match(page, /type Role = "皇帝" \| "宰相" \| "名将" \| "副将" \| "财政" \| "监察"/);
+  assert.match(page, /role === "副将"/);
   for (const name of ["汉文帝", "刘秀", "武则天", "忽必烈", "雍正", "张良", "司马懿", "范仲淹", "卫青", "霍去病", "戚继光", "赵过", "汲黯", "狄仁杰", "林则徐"]) assert.match(page, new RegExp(name));
   assert.match(page, /historicalRosterQuotes: Record<string, string>/);
   assert.match(page, /黄忠: "定军山阵斩夏侯渊/);
   assert.match(page, /许褚: "裸衣战马超/);
-  assert.match(page, /quote: rosterQuote\(\{ \.\.\.seed, role \}\)/);
-  assert.match(page, /primaryRoleOverrides: Partial<Record<string, Role>>/);
-  assert.match(page, /商鞅: "财政"/);
-  assert.match(page, /张良: "监察"/);
-  assert.match(page, /第 \{round \+ 1\} 轮 \/ 共 5 轮/);
+  assert.match(page, /quote: rosterQuote\(\{ \.\.\.seed, \.\.\.roleProfile \}\)/);
+  assert.match(page, /historicalRoleOverrides: Partial<Record<string, HistoricalRoleProfile>>/);
+  assert.match(page, /抽签进度 · \{round \+ 1\} \/ \{rosterSize\}/);
   assert.match(page, /const \[redrawsLeft, setRedrawsLeft\] = useState\(3\)/);
   assert.match(page, /换一批人才 · 剩 \{redrawsLeft\} 次/);
   assert.match(page, /disabled=\{redrawsLeft <= 0\}/);
   assert.match(page, /draggable=\{!!person\}/);
   assert.match(page, /displayPhase !== "reign"/);
   assert.match(page, /current=\{displayPhase === "reign" && !game\?\.debugHistory \? game : null\}/);
-  assert.match(page, /debugAvailable=\{import\.meta\.env\.DEV\}/);
+  assert.match(page, /debugAvailable=\{process\.env\.NODE_ENV === "development"\}/);
   assert.match(page, /DEBUG · 仅推演历史事件/);
   assert.doesNotMatch(page, /className="reign-actions"/);
   assert.doesNotMatch(page, /读取旧档/);
@@ -81,18 +81,18 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /const grainNeed = stats\.population \* \.8/);
   assert.match(page, /const supply = shortageRatio > 0/);
   assert.match(page, /供养不足/);
-  assert.match(page, /army: clamp\(stats\.army \+ army \+ supply, 0, 260\)/);
+  assert.match(page, /army: clamp\(stats\.army \+ army \+ supply \+ militaryGovernance, 0, 260\)/);
   assert.match(page, /const armyBuffs: ModifierView\[\]/);
   assert.match(page, /armyBuffs\.map\(\(item\) => <ModifierChip item=\{item\}/);
   assert.match(page, /const governance = Math\.sign\(stats\.integrity\) \* Math\.round\(Math\.abs\(stats\.integrity\) \/ 16\)/);
   assert.match(page, /const governanceGrowth = effective\.integrity \/ 48/);
   assert.match(page, /live\.modifiers\.governance > 0 \? "清明" : "贪腐"/);
-  assert.match(page, /const teamBoost = members \* 7 \+ policyBoost/);
+  assert.match(page, /const teamBoost = matchingMembers\.reduce\(\(total, person\) => total \+ rarityRules\[personRarity\(person\)\]\.skillBoost, 0\) \+ policyBoost/);
   assert.match(page, /\(effective\.army - 70\) \/ 20/);
   assert.match(page, /effective\.sentiment \/ 20/);
   assert.match(page, /\(effective\.integrity \+ effective\.sentiment\) \/ 20/);
-  assert.match(page, /clamp\(option\.chance \+ teamBoost \+ statBoost - difficultyRule\(difficulty\)\.chancePenalty, 1, 100\)/);
-  assert.match(page, /成功率 \$\{finalOptionChance\(option, game\.stats, roster, policy, game\.difficulty\)\}%/);
+  assert.match(page, /clamp\(option\.chance \+ historyModifier \+ teamBoost \+ bondChanceModifier \+ diplomacyBoost \+ statBoost - difficultyRule\(difficulty\)\.chancePenalty, 1, 100\)/);
+  assert.match(page, /成功率 \$\{finalOptionChance\(option, game\.stats, roster, policy, game\.difficulty, game\.historyFlags, event\.category\)\}%/);
   assert.doesNotMatch(page, /基础成功率 \$\{option\.chance\}/);
   assert.match(page, /判定成功。班底各展所长，决策奏效。/);
   assert.match(page, /判定失败。局势未如所愿，代价已经显现。/);
@@ -118,7 +118,7 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /integrity: "吏治"/);
   assert.match(page, /<AxisStat label="吏治"/);
   assert.match(page, /<StatPanel stats=\{game\.stats\} policyId=\{game\.policyId\} difficulty=\{game\.difficulty\} scriptId=\{game\.scriptId\}/);
-  assert.match(page, /对应专长使事件成功率 \+7%/);
+  assert.match(page, /专长加成：金10% · 银8% · 铜6% · 铁4%/);
   assert.match(page, /dynasty-save-\$\{slot\}/);
   assert.match(page, /\[0, 1, 2\]/);
   assert.match(page, /randomSeed: number/);
@@ -128,7 +128,7 @@ test("includes the expanded five-round roster, history events, and reign-only sa
   assert.match(page, /qinConquestDelay: number/);
   assert.match(page, /qinConquestRetries: number/);
   assert.match(page, /qinConquestRequirementRelief: number/);
-  assert.match(page, /version: 10/);
+  assert.match(page, /version: 16/);
   assert.match(page, /type DifficultyId = "easy" \| "hard" \| "hell"/);
   assert.match(page, /difficulty: DifficultyId/);
   assert.match(page, /integrityDecayPenalty: 0, chancePenalty: 0/);
@@ -356,9 +356,10 @@ test("models imperial authority, hidden loyalty, rebellions, and recruitment fol
   assert.match(page, /type StatKey = [^\n]+"authority"/);
   assert.match(page, /authority: "皇权"/);
   assert.match(page, /const historicalLoyalty: Partial<Record<string, number>>/);
-  assert.match(page, /person\.role === "皇帝" \? person : \{ \.\.\.person, loyalty: loyaltyFor\(person\) \}/);
-  assert.match(page, /function ministerRebellionChance\(authority: number, loyalty: number\)/);
-  assert.match(page, /\(55 - authority\) \* 1\.1 \+ Math\.max\(0, 75 - loyalty\) \* \.8/);
+  assert.match(page, /person\.role === "皇帝" && person\.secondaryRoles\.length === 0 \? \{\} : \{ loyalty: loyaltyFor\(person\) \}/);
+  assert.match(page, /function ministerRebellionChance\(stats: Stats, loyalty: number\)/);
+  assert.match(page, /const authorityPressure = \(55 - stats\.authority\) \* 1\.1/);
+  assert.match(page, /const loyaltyPressure = Math\.max\(0, 75 - loyalty\) \* \.8/);
   const rebellionChance = (authority, loyalty) => authority >= 55 || loyalty >= 85
     ? 0
     : Math.max(0, Math.min(70, Math.round((55 - authority) * 1.1 + Math.max(0, 75 - loyalty) * .8)));
@@ -393,7 +394,7 @@ test("models imperial authority, hidden loyalty, rebellions, and recruitment fol
   assert.match(page, /title: "俘获贼首"/);
   assert.match(page, /special: "captured-minister"/);
   assert.match(page, /special: "captured-peasant"/);
-  assert.match(page, /addEffects\(current\.stats, negateEffects\(person\.bonuses\)\)/);
+  assert.match(page, /mergeEffects\(negateEffects\(person\.bonuses\), bondEffectDelta\(current\.activeBondIds, activeBondIds\)\)/);
   assert.match(page, /seatAssignments\[openRole\] = actor\.id/);
   assert.match(page, /班底没有可用空位/);
   for (const name of ["宋江", "杜伏威", "程咬金"]) assert.match(page, new RegExp(name));

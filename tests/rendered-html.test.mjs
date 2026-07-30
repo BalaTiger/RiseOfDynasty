@@ -29,6 +29,7 @@ test("includes the expanded six-round roster, history events, and reign-only sav
   assert.match(page, /order\[0\] === previousIndex/);
   assert.match(page, /currentQueue\.position \+ 1 < currentQueue\.order\.length/);
   assert.match(page, /shuffleMusicOrder\(pool\.length, currentQueue\.order\[currentQueue\.position\]\)/);
+  assert.match(page, /if \(audio\.src === requestedSrc\)/);
   assert.doesNotMatch(`${page}\n${layout}`, /官场风气|官风/);
   for (const title of ["秦始皇纪", "汉高祖纪", "汉武帝纪", "曹操传", "刘备传", "孙策传", "刘裕传", "唐太宗纪", "宋太祖纪", "成吉思汗纪", "明太祖纪"]) assert.match(page, new RegExp(title));
   assert.match(page, /const availableScriptIds = new Set\(\["qin", "liubang"\]\)/);
@@ -203,7 +204,6 @@ test("includes the expanded six-round roster, history events, and reign-only sav
       && (event.excludesHistoryFlags || []).every((flag) => !known.has(flag))).map((event) => event.id);
   };
   const branches = [
-    ["liubang", -206, "liubang-qin-support", "liubang-qin-resistance", "liubang_looted_guanzhong"],
     ["hanwu", -129, "hanwu-longcheng", "hanwu-border-council", "hanwu_defensive_border"],
     ["caocao", 199, "caocao-belt-edict", "caocao-luoyang-rescript", "caocao_emperor_in_luoyang"],
     ["liubei", 208, "liubei-redcliffs", "liubei-xiakou-council", "liubei_without_longzhong"],
@@ -220,6 +220,27 @@ test("includes the expanded six-round roster, history events, and reign-only sav
     assert.ok(!activeIds(scriptId, year, [flag]).includes(canonicalId), `${canonicalId} should yield to its branch`);
     assert.ok(activeIds(scriptId, year, [flag]).includes(branchId), `${branchId} should appear after its hidden cause`);
   }
+  const eventById = (id) => historicalEvents.find((event) => event.id === id);
+  const liubangGuanzhong = eventById("liubang-guanzhong");
+  const humanePass = eventById("liubang-guard-pass-humane");
+  const lootedPass = eventById("liubang-guard-pass-looted");
+  assert.deepEqual(liubangGuanzhong.options.map((option) => option.followupEventId), [
+    "liubang-guard-pass-humane",
+    "liubang-guard-pass-looted",
+  ]);
+  assert.deepEqual(humanePass.options.map((option) => option.followupEventId), [
+    "liubang-xiangbo",
+    "liubang-hanzhong",
+  ]);
+  assert.deepEqual(lootedPass.options.map((option) => option.followupEventId), [
+    "liubang-hongmen-danger",
+    "liubang-hanzhong",
+  ]);
+  assert.equal(eventById("liubang-xiangbo").options.every((option) => option.followupEventId === "liubang-hongmen-safe"), true);
+  assert.equal(eventById("liubang-hongmen-safe").options[0].followupEventId, "liubang-hanzhong");
+  assert.equal(eventById("liubang-hongmen-danger").options[0].successFollowupEventId, "liubang-hanzhong");
+  assert.equal(lootedPass.punitive, true);
+  assert.equal(eventById("liubang-hongmen-danger").punitive, true);
   assert.ok(!activeIds("qin", -241).includes("qin-lao-ai-entry"));
   assert.ok(activeIds("qin", -241, ["qin_court_independent"]).includes("qin-lao-ai-entry"));
   assert.ok(activeIds("qin", -238).includes("qin-lao-ai"));
@@ -311,7 +332,7 @@ test("includes the expanded six-round roster, history events, and reign-only sav
     }
   }
 
-  const punitiveIds = ["qin-lao-ai", "liubang-qin-resistance", "caocao-luoyang-rescript", "sunce-yuanshu-remnants", "genghis-noble-vanguard"];
+  const punitiveIds = ["qin-lao-ai", "caocao-luoyang-rescript", "sunce-yuanshu-remnants", "genghis-noble-vanguard"];
   const markedPunitiveIds = new Set(historicalEvents.filter((event) => event.punitive).map((event) => event.id));
   punitiveIds.forEach((id) => assert.ok(markedPunitiveIds.has(id)));
   for (const eventId of punitiveIds) {

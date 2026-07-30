@@ -4698,8 +4698,6 @@ function BackgroundMusicPlayer({ phase, scriptId }: { phase: Phase; scriptId: st
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.pause();
-    audio.src = current.src;
     audio.loop = !isReign;
     audio.volume = isReign ? .42 : .34;
     audio.onended = isReign ? () => setQueues((currentQueues) => {
@@ -4712,6 +4710,14 @@ function BackgroundMusicPlayer({ phase, scriptId }: { phase: Phase; scriptId: st
           };
       return { ...currentQueues, [scriptId]: nextQueue };
     }) : null;
+
+    const requestedSrc = new URL(current.src, document.baseURI).href;
+    if (audio.src === requestedSrc) {
+      return () => { audio.onended = null; };
+    }
+
+    audio.pause();
+    audio.src = current.src;
     audio.load();
     if (activatedRef.current && !audio.muted) play();
     else setPlaying(false);

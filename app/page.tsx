@@ -321,7 +321,7 @@ const goldPeople = new Set([
 ]);
 
 const silverPeople = new Set([
-  "魏武帝", "汉昭烈帝", "孙策", "宋武帝", "宋太祖", "孙权", "隋文帝", "武则天", "宋仁宗", "忽必烈", "朱棣", "康熙", "雍正", "乾隆", "秦孝公", "秦昭襄王", "宇文泰", "隋炀帝", "陈平", "商鞅", "司马懿", "荀彧", "郭嘉", "王猛", "谢安", "杜如晦", "姚崇", "宋璟", "范仲淹", "司马光", "欧阳修", "王安石", "文天祥", "耶律楚材", "脱脱", "刘伯温", "李善长", "曹参", "邓禹", "鲁肃", "蒙恬", "周瑜", "陆逊", "祖逖", "李绩", "郭子仪", "李光弼", "徐达", "曾国藩", "左宗棠", "周勃", "李广", "班超", "关羽", "张飞", "张辽", "典韦", "慕容垂", "陈庆之", "檀道济", "薛仁贵", "苏定方", "桑弘羊", "张骞", "董仲舒", "班固", "周处", "褚遂良", "张九龄", "韩愈",
+  "魏武帝", "汉昭烈帝", "孙策", "宋武帝", "宋太祖", "孙权", "隋文帝", "武则天", "宋仁宗", "忽必烈", "朱棣", "康熙", "雍正", "乾隆", "秦孝公", "秦昭襄王", "宇文泰", "隋炀帝", "陈平", "商鞅", "司马懿", "荀彧", "郭嘉", "王猛", "谢安", "杜如晦", "姚崇", "宋璟", "范仲淹", "司马光", "欧阳修", "王安石", "文天祥", "耶律楚材", "脱脱", "刘伯温", "李善长", "曹参", "邓禹", "鲁肃", "蒙恬", "周瑜", "陆逊", "祖逖", "李绩", "秦琼", "尉迟恭", "程知节", "郭子仪", "李光弼", "徐达", "曾国藩", "左宗棠", "周勃", "李广", "班超", "关羽", "张飞", "张辽", "典韦", "慕容垂", "陈庆之", "檀道济", "薛仁贵", "苏定方", "桑弘羊", "张骞", "董仲舒", "班固", "周处", "褚遂良", "张九龄", "韩愈",
 ]);
 
 const rarityFor = (person: Pick<Person, "name" | "specialRecruit">): Rarity => person.specialRecruit ? "铁" : goldPeople.has(person.name) ? "金" : silverPeople.has(person.name) ? "银" : "铜";
@@ -615,6 +615,33 @@ const originalPeopleSeeds: OriginalPersonSeed[] = [
     "dynasty": "唐",
     "role": "名将",
     "secondaryRoles": [],
+  },
+  {
+    "id": "original-qinqiong",
+    "name": "秦琼",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-yuchijingde",
+    "name": "尉迟恭",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [
+      "监察"
+    ],
+  },
+  {
+    "id": "original-chengyaojin",
+    "name": "程知节",
+    "dynasty": "唐",
+    "role": "名将",
+    "secondaryRoles": [
+      "监察"
+    ],
   },
   {
     "id": "original-guoziyi",
@@ -1483,7 +1510,7 @@ const originalPeopleSeeds: OriginalPersonSeed[] = [
     ],
   },
   {
-    "id": "original-hunyuan",
+    "id": "original-hunjian",
     "name": "浑瑊",
     "dynasty": "唐",
     "role": "名将",
@@ -1665,7 +1692,7 @@ const originalPeopleSeeds: OriginalPersonSeed[] = [
     "secondaryRoles": [],
   },
   {
-    "id": "original-shitanze",
+    "id": "original-shitianze",
     "name": "史天泽",
     "dynasty": "元",
     "role": "宰相",
@@ -1915,7 +1942,7 @@ const abilityProfiles: Record<AbilityProfileKey, Pick<Person, "tags" | "bonuses"
 const historicalAbilityGroups: Record<"sovereign" | "statecraft" | "command" | "economy" | "oversight", string[]> = {
   sovereign: ["汉文帝", "刘秀", "孙权", "隋文帝", "武则天", "唐玄宗", "宋仁宗", "忽必烈", "朱棣", "康熙", "雍正", "乾隆", "秦孝公", "秦昭襄王", "汉景帝", "汉宣帝", "汉明帝", "汉章帝", "拓跋焘", "高欢", "宇文泰", "隋炀帝", "完颜阿骨打", "朱标", "朱瞻基", "多尔衮"],
   statecraft: ["张良", "陈平", "李斯", "商鞅", "霍光", "司马懿", "荀彧", "郭嘉", "王猛", "谢安", "杜如晦", "裴度", "姚崇", "宋璟", "范仲淹", "司马光", "欧阳修", "陆秀夫", "耶律楚材", "脱脱", "刘伯温", "李善长", "曾国藩", "李鸿章", "曹参", "董仲舒", "丙吉", "魏相", "主父偃", "窦婴", "班固", "邓禹", "法正", "庞统", "鲁肃", "杜预", "崔浩", "苏绰", "高颎", "长孙无忌", "马周", "张柬之", "张说", "李泌", "陆贽", "柳宗元", "李德裕", "牛僧孺", "韦皋", "赵普", "寇准", "富弼", "韩琦", "吕蒙正", "蔡襄", "王旦", "章惇", "赵鼎", "虞允文", "余玠", "贾似道", "郝经", "刘秉忠", "史天泽", "许衡", "严嵩", "高拱", "徐阶", "杨廷和", "杨士奇", "杨荣", "杨溥", "孙承宗", "洪承畴", "胡林翼", "纪晓岚", "张廷玉", "鄂尔泰", "鳌拜"],
-  command: ["卫青", "霍去病", "王翦", "蒙恬", "周瑜", "陆逊", "邓艾", "羊祜", "祖逖", "桓温", "陶侃", "李绩", "郭子仪", "李光弼", "韩世忠", "伯颜", "常遇春", "戚继光", "左宗棠", "周勃", "灌婴", "樊哙", "李广", "赵充国", "陈汤", "班超", "马援", "吴汉", "关羽", "张飞", "赵云", "马超", "黄忠", "姜维", "吕蒙", "张辽", "典韦", "许褚", "夏侯惇", "夏侯渊", "陆抗", "慕容垂", "韦孝宽", "陈庆之", "檀道济", "高长恭", "杨素", "郭元振", "薛仁贵", "苏定方", "裴行俭", "王忠嗣", "高仙芝", "哥舒翰", "浑瑊", "辛弃疾", "孟珙", "阿术", "张弘范", "完颜宗弼", "完颜宗望", "袁崇焕", "熊廷弼", "李成梁", "施琅", "年羹尧", "岳钟琪"],
+  command: ["卫青", "霍去病", "王翦", "蒙恬", "周瑜", "陆逊", "邓艾", "羊祜", "祖逖", "桓温", "陶侃", "李绩", "秦琼", "尉迟恭", "程知节", "郭子仪", "李光弼", "韩世忠", "伯颜", "常遇春", "戚继光", "左宗棠", "周勃", "灌婴", "樊哙", "李广", "赵充国", "陈汤", "班超", "马援", "吴汉", "关羽", "张飞", "赵云", "马超", "黄忠", "姜维", "吕蒙", "张辽", "典韦", "许褚", "夏侯惇", "夏侯渊", "陆抗", "慕容垂", "韦孝宽", "陈庆之", "檀道济", "高长恭", "杨素", "郭元振", "薛仁贵", "苏定方", "裴行俭", "王忠嗣", "高仙芝", "哥舒翰", "浑瑊", "辛弃疾", "孟珙", "阿术", "张弘范", "完颜宗弼", "完颜宗望", "袁崇焕", "熊廷弼", "李成梁", "施琅", "年羹尧", "岳钟琪"],
   economy: ["郑和", "赵过"],
   oversight: ["张骞", "狄仁杰", "文天祥", "于谦", "汲黯", "冯唐", "郅都", "周处", "褚遂良", "张九龄", "韩愈", "颜真卿", "柳公绰", "李纲", "张世杰", "卢象升", "林则徐", "丁宝桢", "刘统勋"],
 };
@@ -1995,6 +2022,9 @@ const historicalRosterQuotes: Record<string, string> = {
   唐玄宗: "开元天宝之间，盛世与转折都写在一人身上。",
   杜如晦: "房谋杜断，他最可贵的是临事能决。",
   李绩: "历事三朝而恩遇不衰，战功之外更见分寸。",
+  秦琼: "临阵先登、冲锋陷敌，秦王府中有他一席。",
+  尉迟恭: "玄武门前救主定局，勇烈之外也知功成身退。",
+  程知节: "出身瓦岗，归唐后屡立战功，终成凌烟阁功臣。",
   郭子仪: "功盖天下而主不疑，位极人臣而众不疾。",
   李光弼: "与郭子仪齐名，再造唐室并非一人之功。",
   裴度: "平淮西、破藩镇，中唐朝堂终于硬了一回。",
@@ -2169,7 +2199,7 @@ const historicalLoyalty: Partial<Record<string, number>> = {
   桑弘羊: 88, 刘晏: 96, 张居正: 94, 王景: 94, 魏征: 96, 包拯: 98, 张汤: 91, 海瑞: 99,
   张良: 96, 陈平: 84, 卫青: 98, 霍去病: 98, 李斯: 61, 商鞅: 91, 王翦: 93, 蒙恬: 99, 霍光: 91,
   张骞: 98, 司马懿: 24, 荀彧: 88, 郭嘉: 91, 周瑜: 96, 陆逊: 89, 邓艾: 78, 羊祜: 95, 王猛: 99,
-  谢安: 96, 祖逖: 96, 桓温: 31, 陶侃: 87, 杜如晦: 96, 李绩: 90, 郭子仪: 99, 李光弼: 91,
+  谢安: 96, 祖逖: 96, 桓温: 31, 陶侃: 87, 杜如晦: 96, 李绩: 90, 秦琼: 94, 尉迟恭: 96, 程知节: 91, 郭子仪: 99, 李光弼: 91,
   裴度: 96, 狄仁杰: 92, 姚崇: 88, 宋璟: 96, 范仲淹: 97, 司马光: 94, 欧阳修: 94, 韩世忠: 96,
   文天祥: 100, 陆秀夫: 100, 耶律楚材: 91, 伯颜: 89, 脱脱: 87, 刘伯温: 88, 常遇春: 98, 于谦: 100,
   戚继光: 97, 李善长: 79, 郑和: 99, 曾国藩: 94, 左宗棠: 96, 李鸿章: 87, 曹参: 94, 周勃: 93,
@@ -2181,6 +2211,28 @@ const historicalLoyalty: Partial<Record<string, number>> = {
 };
 
 const loyaltyFor = (person: Pick<Person, "name">) => historicalLoyalty[person.name] ?? 82;
+
+// 皇帝角色原则上使用本名（康熙、雍正、乾隆保留通行年号）；臣将允许名、字或通称，以知名度为先。
+const displayPersonNames: Record<string, string> = {
+  秦始皇: "嬴政",
+  汉高祖: "刘邦",
+  汉武帝: "刘彻",
+  魏武帝: "曹操",
+  汉昭烈帝: "刘备",
+  宋武帝: "刘裕",
+  唐太宗: "李世民",
+  宋太祖: "赵匡胤",
+  成吉思汗: "铁木真",
+  明太祖: "朱元璋",
+  汉文帝: "刘恒",
+  隋文帝: "杨坚",
+  武则天: "武曌",
+  唐玄宗: "李隆基",
+  隋炀帝: "杨广",
+  尉迟恭: "尉迟敬德",
+  程知节: "程咬金",
+};
+const displayPersonName = (name: string) => displayPersonNames[name] || name;
 
 const importedPeople: Person[] = originalPeopleSeeds.map((seed) => {
   const roleProfile = historicalRoleOverrides[seed.name] || { role: seed.role, secondaryRoles: seed.secondaryRoles };
@@ -2196,6 +2248,7 @@ const importedPeople: Person[] = originalPeopleSeeds.map((seed) => {
 
 const people: Person[] = [...corePeople, ...importedPeople].map((person) => ({
   ...person,
+  name: displayPersonName(person.name),
   rarity: rarityFor(person),
   ...(person.role === "皇帝" && person.secondaryRoles.length === 0 ? {} : { loyalty: loyaltyFor(person) }),
 }));
@@ -2203,18 +2256,16 @@ const people: Person[] = [...corePeople, ...importedPeople].map((person) => ({
 // 这些人物不会进入开局抽签池，只能在平定农民起义后的招安事件中加入班底。
 const specialRecruits: Person[] = [
   { id: "recruit-songjiang", name: "宋江", role: "名将", secondaryRoles: ["监察"], dynasty: "北宋", quote: "受招安后征辽平方腊，旧日义军由此成为朝廷之兵。", tags: ["军事", "谋略"], bonuses: { army: 11, sentiment: 6 }, loyalty: 72, specialRecruit: true },
-  { id: "recruit-dufuwei", name: "杜伏威", role: "宰相", secondaryRoles: ["名将"], dynasty: "唐", quote: "江淮起兵后归唐受封，以旧部与声望安定一方。", tags: ["谋略", "民生"], bonuses: { population: 6, sentiment: 8, authority: 3 }, loyalty: 68, specialRecruit: true },
-  { id: "recruit-chengyaojin", name: "程咬金", role: "名将", secondaryRoles: ["监察"], dynasty: "唐", quote: "出身瓦岗，归唐后屡立战功，终成凌烟阁功臣。", tags: ["军事", "吏治"], bonuses: { army: 14, integrity: 4 }, loyalty: 91, specialRecruit: true },
-  { id: "recruit-qinqiong", name: "秦琼", role: "名将", secondaryRoles: ["监察"], dynasty: "唐", quote: "辗转瓦岗与洛阳之后归唐，冲阵陷敌，终列凌烟阁功臣。", tags: ["军事", "民生"], bonuses: { army: 14, sentiment: 5 }, loyalty: 94, specialRecruit: true },
+  { id: "recruit-dufuwei", name: "杜伏威", role: "宰相", secondaryRoles: ["名将", "财政"], dynasty: "唐", quote: "江淮起兵后归唐受封，以旧部与声望安定一方。", tags: ["谋略", "民生"], bonuses: { population: 6, sentiment: 8, authority: 3 }, loyalty: 68, specialRecruit: true },
   { id: "recruit-luoshixin", name: "罗士信", role: "名将", secondaryRoles: ["监察"], dynasty: "唐", quote: "少年从军，入瓦岗后辗转归唐，洺水守城至死不屈。", tags: ["军事", "谋略"], bonuses: { army: 15, grain: -2 }, loyalty: 97, specialRecruit: true },
   { id: "recruit-wangjunkuo", name: "王君廓", role: "名将", secondaryRoles: ["宰相"], dynasty: "唐", quote: "聚众为盗而后归附唐军，平王世充、刘黑闼，又镇守幽州拒突厥。", tags: ["军事", "谋略"], bonuses: { army: 12, grain: 5 }, loyalty: 57, specialRecruit: true },
   { id: "recruit-zhuwen", name: "朱温", role: "名将", secondaryRoles: ["宰相"], dynasty: "唐末", quote: "由黄巢军降唐，获赐全忠之名；军镇日盛，最终却亲手终结唐室。", tags: ["军事", "吏治"], bonuses: { army: 16, integrity: -8, authority: 4 }, loyalty: 8, specialRecruit: true },
   { id: "recruit-yangqin", name: "杨钦", role: "名将", secondaryRoles: ["监察"], dynasty: "南宋", quote: "原为杨幺军骁将，受岳飞招抚后反入洞庭劝降旧部，协助瓦解水寨。", tags: ["军事", "谋略"], bonuses: { army: 11, sentiment: 6 }, loyalty: 84, specialRecruit: true },
   { id: "recruit-liquan", name: "李全", role: "名将", secondaryRoles: ["财政"], dynasty: "南宋", quote: "率山东红袄军归附南宋，受号忠义军；势力坐大后终因反复而走向决裂。", tags: ["军事", "外交"], bonuses: { army: 14, grain: 5, sentiment: -4 }, loyalty: 24, specialRecruit: true },
-  { id: "recruit-yangmiaozhen", name: "杨妙真", role: "名将", secondaryRoles: ["监察"], dynasty: "南宋", quote: "统率红袄军余部归宋，以梨花枪闻名；乱世间仍保有极强的独立性。", tags: ["军事", "谋略"], bonuses: { army: 13, sentiment: 6 }, loyalty: 42, specialRecruit: true },
-  { id: "recruit-chengxueqi", name: "程学启", role: "名将", secondaryRoles: ["宰相"], dynasty: "清", quote: "由太平军率部出降，编入湘淮军后成为攻坚主将，转战江南屡立战功。", tags: ["军事", "吏治"], bonuses: { army: 14, integrity: 3 }, loyalty: 76, specialRecruit: true },
+  { id: "recruit-yangmiaozhen", name: "杨妙真", role: "名将", secondaryRoles: ["监察", "财政"], dynasty: "南宋", quote: "统率红袄军余部归宋，以梨花枪闻名；长期经营一方，也能统筹军民财赋。", tags: ["军事", "谋略"], bonuses: { army: 13, sentiment: 6 }, loyalty: 42, specialRecruit: true },
+  { id: "recruit-chengxueqi", name: "程学启", role: "名将", secondaryRoles: ["宰相", "监察"], dynasty: "清", quote: "由太平军率部出降，编入湘淮军后成为攻坚主将，治军严整而转战江南。", tags: ["军事", "吏治"], bonuses: { army: 14, integrity: 3 }, loyalty: 76, specialRecruit: true },
   { id: "recruit-dingruchang", name: "丁汝昌", role: "名将", secondaryRoles: ["财政"], dynasty: "清", quote: "随程学启从太平军出降，后来统领北洋海军，威海危局中以死守节。", tags: ["军事", "外交"], bonuses: { army: 12, sentiment: 6 }, loyalty: 96, specialRecruit: true },
-  { id: "recruit-weijun", name: "韦俊", role: "名将", secondaryRoles: ["宰相"], dynasty: "清", quote: "曾为太平军一方主将，内争失势后献池州降清，余生未再起兵反复。", tags: ["军事", "谋略"], bonuses: { army: 11, population: 4 }, loyalty: 73, specialRecruit: true },
+  { id: "recruit-weijun", name: "韦俊", role: "名将", secondaryRoles: ["宰相", "财政"], dynasty: "清", quote: "曾为太平军一方主将，内争失势后献池州降清，归附后仍能统筹部众与地方供给。", tags: ["军事", "谋略"], bonuses: { army: 11, population: 4 }, loyalty: 73, specialRecruit: true },
 ].map((person) => ({ ...person, rarity: "铁" as Rarity })) as Person[];
 
 const allPeople: Person[] = [...people, ...specialRecruits];
@@ -2232,6 +2283,7 @@ const bonds: Bond[] = [
   { id: "fang-du-counsel", name: "房谋杜断", memberNames: ["房玄龄", "杜如晦"], effects: { integrity: 5, authority: 4 } },
   { id: "wei-huo-generals", name: "帝国双璧", memberNames: ["卫青", "霍去病"], effects: { army: 9 } },
   { id: "li-jing-ji", name: "贞观军略", memberNames: ["李靖", "李绩"], effects: { army: 7, authority: 3 } },
+  { id: "qin-yuchi-cheng", name: "秦府骁将", memberNames: ["秦琼", "尉迟恭", "程知节"], effects: { army: 8, authority: 4 } },
   { id: "yue-han-generals", name: "中兴将略", memberNames: ["岳飞", "韩世忠"], effects: { army: 7, sentiment: 3 } },
   { id: "wu-zhou-judgment", name: "神都明断", memberNames: ["狄仁杰", "武则天"], effects: { integrity: 7, authority: 3 } },
   { id: "renzong-justice", name: "仁宗清议", memberNames: ["包拯", "宋仁宗"], effects: { integrity: 6, sentiment: 4 } },
@@ -2264,7 +2316,7 @@ const bonds: Bond[] = [
   { id: "yongle-voyages", name: "永乐远航", memberNames: ["朱棣", "郑和"], effects: { grain: 5, army: 3, authority: 3 } },
   { id: "xuande-ministers", name: "仁宣遗风", memberNames: ["朱瞻基", "杨士奇", "于谦"], effects: { grain: 5, integrity: 5, sentiment: 4 } },
   { id: "liaodong-command", name: "辽东督师", memberNames: ["孙承宗", "袁崇焕"], effects: { army: 7, authority: 3 } },
-];
+].map((bond) => ({ ...bond, memberNames: bond.memberNames.map(displayPersonName) }));
 
 const activeBondsFor = (rosterIds: string[]) => {
   const selectedNames = new Set(rosterIds.map((id) => people.find((person) => person.id === id)?.name).filter(Boolean));

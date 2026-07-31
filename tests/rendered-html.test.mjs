@@ -43,7 +43,8 @@ test("includes the expanded six-round roster, history events, and reign-only sav
   assert.match(page, /eligible\.filter\(\(person\) => canServe\(person, role\)\)/);
   assert.match(page, /type Role = "皇帝" \| "宰相" \| "名将" \| "副将" \| "财政" \| "监察"/);
   assert.match(page, /role === "副将"/);
-  for (const name of ["汉文帝", "刘秀", "武则天", "忽必烈", "雍正", "张良", "司马懿", "范仲淹", "卫青", "霍去病", "戚继光", "赵过", "汲黯", "狄仁杰", "林则徐"]) assert.match(page, new RegExp(name));
+  for (const name of ["刘恒", "刘秀", "武曌", "忽必烈", "雍正", "张良", "司马懿", "范仲淹", "卫青", "霍去病", "戚继光", "赵过", "汲黯", "狄仁杰", "林则徐"]) assert.match(page, new RegExp(name));
+  for (const title of ["宋仁宗", "秦孝公", "秦昭襄王", "汉景帝", "汉宣帝", "汉明帝", "汉章帝"]) assert.match(page, new RegExp(title));
   assert.match(page, /historicalRosterQuotes: Record<string, string>/);
   assert.match(page, /黄忠: "定军山阵斩夏侯渊/);
   assert.match(page, /许褚: "裸衣战马超/);
@@ -117,7 +118,7 @@ test("includes the expanded six-round roster, history events, and reign-only sav
   assert.match(page, /className="axis-values"/);
   assert.match(page, /role="tooltip"/);
   assert.match(page, /integrity: "吏治"/);
-  assert.match(page, /<AxisStat label="吏治"/);
+  assert.match(page, /<AxisStat[^>]*label="吏治"/);
   assert.match(page, /<StatPanel stats=\{game\.stats\} policyId=\{game\.policyId\} difficulty=\{game\.difficulty\} scriptId=\{game\.scriptId\}/);
   assert.match(page, /专长加成：金10% · 银8% · 铜6% · 铁4%/);
   assert.match(page, /dynasty-save-\$\{slot\}/);
@@ -418,7 +419,13 @@ test("models imperial authority, hidden loyalty, rebellions, and recruitment fol
   assert.match(page, /mergeEffects\(negateEffects\(person\.bonuses\), bondEffectDelta\(current\.activeBondIds, activeBondIds\)\)/);
   assert.match(page, /seatAssignments\[openRole\] = actor\.id/);
   assert.match(page, /班底没有可用空位/);
-  for (const name of ["宋江", "杜伏威", "程咬金"]) assert.match(page, new RegExp(name));
+  for (const name of ["宋江", "杜伏威", "秦琼", "尉迟敬德", "程咬金"]) assert.match(page, new RegExp(name));
+  assert.match(page, /"李绩", "秦琼", "尉迟恭", "程知节"/);
+  assert.match(page, /id: "qin-yuchi-cheng", name: "秦府骁将", memberNames: \["秦琼", "尉迟恭", "程知节"\], effects: \{ army: 8, authority: 4 \}/);
+  assert.match(page, /name: "杜伏威", role: "宰相", secondaryRoles: \["名将", "财政"\]/);
+  assert.match(page, /name: "杨妙真", role: "名将", secondaryRoles: \["监察", "财政"\]/);
+  assert.match(page, /name: "程学启", role: "名将", secondaryRoles: \["宰相", "监察"\]/);
+  assert.match(page, /name: "韦俊", role: "名将", secondaryRoles: \["宰相", "财政"\]/);
   assert.match(page, /const allPeople: Person\[\] = \[\.\.\.people, \.\.\.specialRecruits\]/);
   assert.match(page, /const reviewedHistoricalEvents = historicalEvents\.filter\(\(\) => true\)\.map\(reviewEventAuthority\)/);
 

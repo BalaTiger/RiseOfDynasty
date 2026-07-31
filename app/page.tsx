@@ -171,6 +171,33 @@ const statNames: Record<StatKey, string> = {
   authority: "皇权",
 };
 
+type VibrationWindow = Window & {
+  wx?: {
+    vibrateShort?: (options?: { type?: "light" | "medium" | "heavy"; success?: () => void; fail?: () => void }) => void;
+  };
+};
+
+function requestImpactVibration(effects: Partial<Stats>, failed = false) {
+  if (typeof window === "undefined" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false;
+  const values = Object.values(effects).filter((value): value is number => typeof value === "number");
+  const strongestLoss = Math.min(0, ...values);
+  const largestChange = Math.max(0, ...values.map(Math.abs));
+  if (!failed && strongestLoss > -10 && largestChange < 15) return false;
+  try {
+    const wx = (window as VibrationWindow).wx;
+    if (typeof wx?.vibrateShort === "function") {
+      wx.vibrateShort({ type: failed || strongestLoss <= -15 ? "heavy" : "medium" });
+      return true;
+    }
+    if (typeof navigator.vibrate === "function") {
+      return navigator.vibrate(failed || strongestLoss <= -15 ? [45, 35, 65] : 45);
+    }
+  } catch {
+    // Vibration is optional: unsupported devices and denied permissions fall back to visuals.
+  }
+  return false;
+}
+
 const difficulties = [
   { id: "easy", name: "简单", seal: "易", desc: "国势较稳，朝局宽和，适合从容熟悉治国之道。", integrityDecayPenalty: 0, chancePenalty: 0, initialStatPenalty: 0, sentimentSoftCap: 70, uprisingChanceBonus: 0, meritThreshold: 3, authorityDecay: 1 },
   { id: "hard", name: "困难", seal: "难", desc: "开局承压，朝局多变，每一次取舍都更考验筹谋。", integrityDecayPenalty: 3, chancePenalty: 10, initialStatPenalty: .1, sentimentSoftCap: 55, uprisingChanceBonus: 8, meritThreshold: 5, authorityDecay: 2 },
@@ -4097,6 +4124,11 @@ function App() {
   }, [displayPhase]);
 
   useEffect(() => {
+    if (!game?.outcome) return;
+    requestImpactVibration(game.outcome.effects, game.outcome.success === false);
+  }, [game?.outcome]);
+
+  useEffect(() => {
     if (viewportFrame.scale >= .995) return;
     const previousHtmlOverflow = document.documentElement.style.overflow;
     const previousBodyOverflow = document.body.style.overflow;
@@ -4746,7 +4778,26 @@ function TopBar({ setPhase, openSaves, game, canSave }: { setPhase: (phase: Phas
   return <nav className="topbar"><button className="brand" onClick={() => !game && setPhase("landing")}><i>祚</i><span>五百年王朝<small>RISE OF DYNASTY</small></span></button><div><span className="top-status">{game ? `${yearLabel(game.year)} · 国祚第${game.elapsed}年` : "正在开国"}</span><button className="nav-button" onClick={openSaves}>▣ {canSave ? "存读档" : "读取存档"}</button></div></nav>;
 }
 
-function StatPanel({ stats, policyId, difficulty, scriptId, qinConquestIndex }: { stats: Stats; policyId: string; difficulty: DifficultyId; scriptId: string; qinConquestIndex: number }) {
+function effectEntries(effects?: Partial<Stats>) {
+  return (Object.entries(effects || {}) as [StatKey, number][])
+    .filter(([, value]) => value !== 0)
+    .sort(([, left], [, right]) => Math.abs(right) - Math.abs(left));
+}
+
+function EffectSummary({ effects }: { effects: Partial<Stats> }) {
+  const entries = effectEntries(effects);
+  if (!entries.length) return <div className="effect-summary empty"><span>国势未直接变动</span></div>;
+  return <div className="effect-summary" aria-label="本次国势变化">{entries.map(([key, value], index) =>
+    <span className={value > 0 ? "positive" : "negative"} style={{ animationDelay: `${index * 70}ms` }} key={key}><small>{statNames[key]}</small><b>{formatDelta(value)}</b></span>
+  )}</div>;
+}
+
+function RecentDelta({ stat, effects }: { stat: StatKey; effects?: Partial<Stats> }) {
+  const value = effects?.[stat];
+  return value ? <i className={`recent-delta ${value > 0 ? "positive" : "negative"}`}>{formatDelta(value)}</i> : null;
+}
+
+function StatPanel({ stats, policyId, difficulty, scriptId, qinConquestIndex, recentEffects }: { stats: Stats; policyId: string; difficulty: DifficultyId; scriptId: string; qinConquestIndex: number; recentEffects?: Partial<Stats> }) {
   const growth = annualGrowth(stats, policyId, difficulty, scriptId, qinConquestIndex);
   const live = liveState(stats);
   const sentimentBuffs = [
@@ -4760,12 +4811,12 @@ function StatPanel({ stats, policyId, difficulty, scriptId, qinConquestIndex }: 
   ];
   const integrityBuffs: ModifierView[] = [];
   return <div className="stats-panel">
-    <div className="number-stat"><span>户</span><div><small>人口</small><strong>{stats.population}<b className={growth.effects.population >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.population)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.population.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
-    <div className="number-stat"><span>仓</span><div><small>钱粮</small><strong>{stats.grain}<b className={growth.effects.grain >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.grain)}</b></strong><em>下年增长</em><div className="stat-buffs">{growth.breakdown.grain.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
-    <div className="number-stat army-stat"><span>兵</span><div><small>武备</small><strong>{live.effective.army}</strong><div className="stat-buffs">{armyBuffs.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
-    <AxisStat label="皇权" value={stats.authority} modifiers={[]} text={authorityLabel(stats.authority)} left="权臣掣肘" right="乾纲独断" min={0} max={100} />
-    <AxisStat label="民情" value={live.effective.sentiment} modifiers={sentimentBuffs} annualChange={growth.effects.sentiment} annualDetail={growth.breakdown.sentiment[0].detail} text={axisLabel("sentiment", live.effective.sentiment)} left="民怨沸腾" right="安居乐业" />
-    <AxisStat label="吏治" value={live.effective.integrity} modifiers={integrityBuffs} annualChange={growth.effects.integrity} annualDetail={growth.breakdown.integrity[0].detail} text={axisLabel("integrity", live.effective.integrity)} left="贪墨成风" right="海内澄清" />
+    <div className={`number-stat ${recentEffects?.population ? "stat-impacted" : ""}`}><span>户</span><div><small>人口</small><strong>{stats.population}<b className={growth.effects.population >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.population)}</b></strong><RecentDelta stat="population" effects={recentEffects} /><em>下年增长</em><div className="stat-buffs">{growth.breakdown.population.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
+    <div className={`number-stat ${recentEffects?.grain ? "stat-impacted" : ""}`}><span>仓</span><div><small>钱粮</small><strong>{stats.grain}<b className={growth.effects.grain >= 0 ? "growth-up" : "growth-down"}>{formatDelta(growth.effects.grain)}</b></strong><RecentDelta stat="grain" effects={recentEffects} /><em>下年增长</em><div className="stat-buffs">{growth.breakdown.grain.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
+    <div className={`number-stat army-stat ${recentEffects?.army ? "stat-impacted" : ""}`}><span>兵</span><div><small>武备</small><strong>{live.effective.army}</strong><RecentDelta stat="army" effects={recentEffects} /><div className="stat-buffs">{armyBuffs.map((item) => <ModifierChip item={item} key={item.label} />)}</div></div></div>
+    <AxisStat stat="authority" effects={recentEffects} label="皇权" value={stats.authority} modifiers={[]} text={authorityLabel(stats.authority)} left="权臣掣肘" right="乾纲独断" min={0} max={100} />
+    <AxisStat stat="sentiment" effects={recentEffects} label="民情" value={live.effective.sentiment} modifiers={sentimentBuffs} annualChange={growth.effects.sentiment} annualDetail={growth.breakdown.sentiment[0].detail} text={axisLabel("sentiment", live.effective.sentiment)} left="民怨沸腾" right="安居乐业" />
+    <AxisStat stat="integrity" effects={recentEffects} label="吏治" value={live.effective.integrity} modifiers={integrityBuffs} annualChange={growth.effects.integrity} annualDetail={growth.breakdown.integrity[0].detail} text={axisLabel("integrity", live.effective.integrity)} left="贪墨成风" right="海内澄清" />
   </div>;
 }
 
@@ -4775,8 +4826,8 @@ function ModifierChip({ item }: { item: ModifierView }) {
   return <i className={item.value < 0 ? "debuff" : "buff"} tabIndex={0}>{item.label}<span role="tooltip">{item.detail}</span></i>;
 }
 
-function AxisStat({ label, value, modifiers, annualChange, annualDetail, text, left, right, min = -100, max = 100 }: { label: string; value: number; modifiers: ModifierView[]; annualChange?: number; annualDetail?: string; text: string; left: string; right: string; min?: number; max?: number }) {
-  return <div className="axis-stat"><div><small>{label}</small><strong>{text}</strong><span className="axis-values"><b>{value}</b>{annualChange !== undefined && <em className={annualChange < 0 ? "annual-delta negative" : "annual-delta positive"} tabIndex={0}>{formatDelta(annualChange)}<span role="tooltip">{annualDetail}</span></em>}</span></div>{modifiers.length > 0 && <div className="stat-buffs">{modifiers.map((item) => <ModifierChip item={item} key={item.label} />)}</div>}<div className="axis"><i style={{ left: `${clamp((value - min) / (max - min) * 100, 0, 100)}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
+function AxisStat({ stat, effects, label, value, modifiers, annualChange, annualDetail, text, left, right, min = -100, max = 100 }: { stat: StatKey; effects?: Partial<Stats>; label: string; value: number; modifiers: ModifierView[]; annualChange?: number; annualDetail?: string; text: string; left: string; right: string; min?: number; max?: number }) {
+  return <div className={`axis-stat ${effects?.[stat] ? "stat-impacted" : ""}`}><div><small>{label}</small><strong>{text}</strong><RecentDelta stat={stat} effects={effects} /><span className="axis-values"><b>{value}</b>{annualChange !== undefined && <em className={annualChange < 0 ? "annual-delta negative" : "annual-delta positive"} tabIndex={0}>{formatDelta(annualChange)}<span role="tooltip">{annualDetail}</span></em>}</span></div>{modifiers.length > 0 && <div className="stat-buffs">{modifiers.map((item) => <ModifierChip item={item} key={item.label} />)}</div>}<div className="axis"><i style={{ left: `${clamp((value - min) / (max - min) * 100, 0, 100)}%` }} /></div><footer><span>{left}</span><span>{right}</span></footer></div>;
 }
 
 function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear }: { game: GameState; script: Script; policy: typeof policies[number]; roster: Person[]; onChoose: (option: EventOption) => void; onContinue: () => void; onNextYear: () => void }) {
@@ -4786,9 +4837,9 @@ function Reign({ game, script, policy, roster, onChoose, onContinue, onNextYear 
   const assigned = (role: Role) => roster.find((person) => person.id === game.seatAssignments[role]);
   const emperor = assigned("皇帝");
   const activeBonds = bonds.filter((bond) => game.activeBondIds.includes(bond.id));
-  return <section className="reign-page"><div className="reign-header"><div><span>{script.title}{game.debugHistory ? " · 历史分支模拟" : ` · 君主 ${emperor?.name}`}</span><h1>{yearLabel(game.year)}</h1><p>{game.debugHistory ? `DEBUG · 第 ${game.elapsed} 个历史年份 · 自动跳过空白年份` : <>国祚第 {game.elapsed} 年 · {difficultyRule(game.difficulty).name}难度 · 国策「{policy.name}」</>}{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} policyId={game.policyId} difficulty={game.difficulty} scriptId={game.scriptId} qinConquestIndex={game.qinConquestIndex} />{!game.debugHistory && <div className="cabinet"><header><span>治国班底</span><small>专长加成：金10% · 银8% · 铜6% · 铁4%</small></header><div className="cabinet-ruler">{emperor && <CharacterPortrait person={emperor} className="cabinet-portrait" />}<div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div>{emperor && <RarityBadge person={emperor} />}</div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className={`cabinet-person ${person ? "" : "vacant"}`} key={role}>{person && <CharacterPortrait person={person} className="cabinet-portrait" />}<div><small>{roleNames[role]}</small><b>{person?.name || "空缺"}</b></div><span>{person ? <><RarityBadge person={person} />{person.tags.join(" · ")}</> : "加成已失"}</span></div> })}{activeBonds.length > 0 && <div className="cabinet-bonds"><span>已激活羁绊</span>{activeBonds.map((bond) => <div key={bond.id}><b>{bond.name}</b><small>{bond.memberNames.join(" · ")}</small><em>{bondEffectText(bond)}</em></div>)}</div>}</div>}</aside>
+  return <section className="reign-page"><div className="reign-header"><div><span>{script.title}{game.debugHistory ? " · 历史分支模拟" : ` · 君主 ${emperor?.name}`}</span><h1>{yearLabel(game.year)}</h1><p>{game.debugHistory ? `DEBUG · 第 ${game.elapsed} 个历史年份 · 自动跳过空白年份` : <>国祚第 {game.elapsed} 年 · {difficultyRule(game.difficulty).name}难度 · 国策「{policy.name}」</>}{game.alteredHistory && <b> · 已偏离原有历史线</b>}</p></div></div><div className="reign-grid"><aside><StatPanel stats={game.stats} policyId={game.policyId} difficulty={game.difficulty} scriptId={game.scriptId} qinConquestIndex={game.qinConquestIndex} recentEffects={game.outcome?.effects} />{!game.debugHistory && <div className="cabinet"><header><span>治国班底</span><small>专长加成：金10% · 银8% · 铜6% · 铁4%</small></header><div className="cabinet-ruler">{emperor && <CharacterPortrait person={emperor} className="cabinet-portrait" />}<div><small>皇帝 · {emperor?.dynasty}</small><b>{emperor?.name}</b></div>{emperor && <RarityBadge person={emperor} />}</div>{roles.slice(1).map((role) => { const person = assigned(role); return <div className={`cabinet-person ${person ? "" : "vacant"}`} key={role}>{person && <CharacterPortrait person={person} className="cabinet-portrait" />}<div><small>{roleNames[role]}</small><b>{person?.name || "空缺"}</b></div><span>{person ? <><RarityBadge person={person} />{person.tags.join(" · ")}</> : "加成已失"}</span></div> })}{activeBonds.length > 0 && <div className="cabinet-bonds"><span>已激活羁绊</span>{activeBonds.map((bond) => <div key={bond.id}><b>{bond.name}</b><small>{bond.memberNames.join(" · ")}</small><em>{bondEffectText(bond)}</em></div>)}</div>}</div>}</aside>
       <article className="court"><div className="yearline">{seasons.slice(0, eventCount).map((season, index) => <div className={index < game.seasonIndex ? "done" : index === game.seasonIndex ? "active" : ""} key={season}><i>{index < game.seasonIndex ? "✓" : season}</i><span>{game.debugHistory ? `史事 ${index + 1}` : `${season}${index === 0 ? "耕" : index === 1 ? "长" : index === 2 ? "收" : "藏"}`}</span></div>)}</div>
-        {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {game.debugHistory ? `史事 ${game.seasonIndex + 1}` : `${seasons[game.seasonIndex]}季`}</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}${option.failOnUnmet && option.failEndingReason ? "（未通过则王朝陨落）" : ""}　`}{option.chance && `成功率 ${finalOptionChance(option, game.stats, roster, policy, game.difficulty, game.historyFlags, event.category)}%　`}{option.effects && effectText(option.effects)}</small>{option.chance && <div className="chance-results"><em className="success-result"><b>成功</b>{effectText(option.successEffects || {}) || "国势无直接变化"}</em><em className="fail-result"><b>失败</b>{option.failEndingReason ? "王朝陨落" : effectText(option.failEffects || {}) || "国势无直接变化"}</em></div>}</div></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><strong>{effectText(game.outcome.effects) || "国势未直接变动"}</strong><button className="primary" onClick={onContinue}>{game.seasonIndex === eventCount - 1 ? "封存本年奏牍" : game.debugHistory ? "推演下一史事" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
+        {isYearEnd ? <YearEnd game={game} onNext={onNextYear} /> : <div className={`event-card ${event.historical ? "historical" : ""}`}><header><div><span>{event.category}</span>{event.historical && <b>必至的历史节点</b>}</div><small>{yearLabel(game.year)} · {game.debugHistory ? `史事 ${game.seasonIndex + 1}` : `${seasons[game.seasonIndex]}季`}</small></header><h2>{event.title}</h2><p className="event-text">{event.text}</p>{!game.outcome ? <div className="options">{event.options.map((option, index) => <button onClick={() => onChoose(option)} key={option.label}><i>{String.fromCharCode(65 + index)}</i><div><strong>{option.label}</strong><p>{option.detail}</p><small>{option.requirements && `考验：${requirementText(option.requirements)}${option.failOnUnmet && option.failEndingReason ? "（未通过则王朝陨落）" : ""}　`}{option.chance && `成功率 ${finalOptionChance(option, game.stats, roster, policy, game.difficulty, game.historyFlags, event.category)}%　`}{option.effects && effectText(option.effects)}</small>{option.chance && <div className="chance-results"><em className="success-result"><b>成功</b>{effectText(option.successEffects || {}) || "国势无直接变化"}</em><em className="fail-result"><b>失败</b>{option.failEndingReason ? "王朝陨落" : effectText(option.failEffects || {}) || "国势无直接变化"}</em></div>}</div></button>)}</div> : <div className={`outcome ${game.outcome.alternate ? "alternate" : game.outcome.success === false ? "failure" : ""}`}><span>{game.outcome.alternate ? "新史线" : "奏报"}</span><h3>{game.outcome.title}</h3><p>{game.outcome.text}</p><EffectSummary effects={game.outcome.effects} /><button className="primary" onClick={onContinue}>{game.seasonIndex === eventCount - 1 ? "封存本年奏牍" : game.debugHistory ? "推演下一史事" : `进入${seasons[game.seasonIndex + 1]}季`}</button></div>}</div>}
         <Chronicle entries={game.chronicle} /></article></div></section>;
 }
 

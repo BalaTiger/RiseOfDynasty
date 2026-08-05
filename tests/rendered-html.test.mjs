@@ -79,14 +79,14 @@ test("includes the expanded six-round roster, history events, and reign-only sav
   assert.match(page, /className="chance-results"/);
   assert.match(page, /effectText\(option\.successEffects \|\| \{\}\)/);
   assert.match(page, /effectText\(option\.failEffects \|\| \{\}\)/);
-  assert.match(page, /function liveState\(stats: Stats\)/);
-  assert.match(page, /const grainNeed = stats\.population \* \.8/);
+  assert.match(page, /function liveState\(stats: Stats, activeBondIds: string\[\] = \[\]\)/);
+  assert.match(page, /const grainNeed = dynamicStats\.population \* \.8/);
   assert.match(page, /const supply = shortageRatio > 0/);
   assert.match(page, /供养不足/);
-  assert.match(page, /army: clamp\(stats\.army \+ army \+ supply \+ militaryGovernance, 0, 260\)/);
+  assert.match(page, /army: clamp\(dynamicStats\.army \+ army \+ supply \+ militaryGovernance, 0, 260\)/);
   assert.match(page, /const armyBuffs: ModifierView\[\]/);
   assert.match(page, /armyBuffs\.map\(\(item\) => <ModifierChip item=\{item\}/);
-  assert.match(page, /const governance = Math\.sign\(stats\.integrity\) \* Math\.round\(Math\.abs\(stats\.integrity\) \/ 16\)/);
+  assert.match(page, /const governance = Math\.sign\(dynamicStats\.integrity\) \* Math\.round\(Math\.abs\(dynamicStats\.integrity\) \/ 16\)/);
   assert.match(page, /const governanceGrowth = effective\.integrity \/ 48/);
   assert.match(page, /live\.modifiers\.governance > 0 \? "清明" : "贪腐"/);
   assert.match(page, /const teamBoost = matchingMembers\.reduce\(\(total, person\) => total \+ rarityRules\[personRarity\(person\)\]\.skillBoost, 0\) \+ policyBoost/);
@@ -96,8 +96,10 @@ test("includes the expanded six-round roster, history events, and reign-only sav
   assert.match(page, /clamp\(option\.chance \+ historyModifier \+ teamBoost \+ bondChanceModifier \+ diplomacyBoost \+ statBoost - difficultyRule\(difficulty\)\.chancePenalty, 1, 100\)/);
   assert.match(page, /成功率 \$\{finalOptionChance\(option, game\.stats, roster, policy, game\.difficulty, game\.historyFlags, event\.category\)\}%/);
   assert.doesNotMatch(page, /基础成功率 \$\{option\.chance\}/);
-  assert.match(page, /判定成功。班底各展所长，决策奏效。/);
-  assert.match(page, /判定失败。局势未如所愿，代价已经显现。/);
+  assert.match(page, /判定成功。/);
+  assert.match(page, /班底各展所长，决策奏效。/);
+  assert.match(page, /判定失败。/);
+  assert.match(page, /局势未如所愿，代价已经显现。/);
   assert.doesNotMatch(page, /决策奏效（成功率/);
   assert.match(page, /const integrity = -6 - rule\.integrityDecayPenalty/);
   assert.match(page, /const populationContributionCap = populationTaxCap\(scriptId, qinConquestIndex\)/);
@@ -390,8 +392,8 @@ test("models imperial authority, hidden loyalty, rebellions, and recruitment fol
   assert.ok(rebellionChance(20, 30) > rebellionChance(45, 70));
   assert.match(page, /function frontierArmyRequirement\(population: number\)/);
   assert.match(page, /clamp\(40 \+ population \* \.4, 55, 180\)/);
-  assert.match(page, /const militaryGovernance = stats\.integrity < 0 \? -Math\.ceil\(Math\.abs\(stats\.integrity\) \/ 20\) : 0/);
-  assert.match(page, /army: clamp\(stats\.army \+ army \+ supply \+ militaryGovernance, 0, 260\)/);
+  assert.match(page, /const militaryGovernance = dynamicStats\.integrity < 0 \? -Math\.ceil\(Math\.abs\(dynamicStats\.integrity\) \/ 20\) : 0/);
+  assert.match(page, /army: clamp\(dynamicStats\.army \+ army \+ supply \+ militaryGovernance, 0, 260\)/);
   assert.match(page, /朝堂掣肘/);
   const frontierNeed = (population) => Math.max(55, Math.min(180, Math.round(40 + population * .4)));
   assert.deepEqual([50, 100, 150, 200, 300].map(frontierNeed), [60, 80, 100, 120, 160]);
@@ -470,6 +472,60 @@ test("uses hidden annual merit to decide difficulty-scaled authority decay", asy
   assert.match(page, /game\.stats\.population - game\.yearStartMaterial\.population/);
   assert.match(page, /game\.stats\.grain - game\.yearStartMaterial\.grain/);
   assert.match(page, /game\.stats\.army - game\.yearStartMaterial\.army/);
-  assert.match(page, /authority: -merit\.authorityDecay/);
+  assert.match(page, /settleAnnualAuthority\(addEffects\(current\.stats, growth\.effects\), current\.activeBondIds, merit\.authorityDecay\)/);
   assert.match(page, /本年无足以服众之功/);
+});
+
+test("lets Peach Garden prevent natural authority decay and convert surplus authority", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /id: "peach-garden", name: "桃园结义", memberNames: \["汉昭烈帝", "关羽", "张飞"\], effects: \{\}/);
+  assert.match(page, /function settleAnnualAuthority\(stats: Stats, activeBondIds: string\[\], naturalDecay: number\)/);
+  assert.match(page, /activeBondIds\.includes\("peach-garden"\)/);
+  assert.match(page, /Math\.min\(4, Math\.max\(0, afterDecay\.authority - 80\)\)/);
+  assert.match(page, /Math\.ceil\(converted \/ 2\)/);
+  assert.match(page, /Math\.floor\(converted \/ 2\)/);
+  assert.match(page, /<span>\{authoritySettlementText\}<\/span>/);
+});
+
+test("grants annual bond rerolls without rescuing game-ending failures", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /name: "房谋杜断"[^\n]+effects: \{ integrity: 4, authority: 4 \}/);
+  assert.match(page, /name: "贞观纳谏"[^\n]+effects: \{ integrity: 6, sentiment: 3 \}/);
+  assert.match(page, /includes\("fang-du-counsel"\)/);
+  assert.match(page, /includes\("taizong-remonstrance"\) && event\.category === "朝堂"/);
+  assert.match(page, /const failureWouldEndGame = !!option\.failEndingReason \|\| failureStats\.population < 18 \|\| failureStats\.grain <= 0/);
+  assert.match(page, /rerollMode === "accept-failure"/);
+  assert.match(page, /if \(rerollMode === "reroll"\) annualRerollUsed = true/);
+  assert.match(page, /annualRerollUsed: false, rerollOfferLabel: null/);
+  assert.match(page, /重判结果必须接受/);
+});
+
+test("applies bond specialties only to normal random-event categories", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /name: "永平治河"[^\n]+effects: \{\}[^\n]+category: "灾异"[^\n]+stats: \["population", "grain"\][^\n]+ratio: \.25/);
+  assert.match(page, /name: "仁宗清议"[^\n]+category: "朝堂"[^\n]+stats: \["sentiment", "authority"\][^\n]+ratio: \.2/);
+  for (const [name, category, delta] of [["西域师承", "边患", 10], ["直臣酷吏", "吏治", 8], ["古文并起", "文教", 12], ["帝国双璧", "军务", 8], ["庆历新政", "民生", 8]]) {
+    assert.match(page, new RegExp(`name: "${name}"[^\\n]+category: "${category}", delta: ${delta}`));
+  }
+  assert.match(page, /const categoryBondChanceModifier = historical \? 0/);
+  assert.match(page, /if \(event\.historical\) return effects/);
+  assert.match(page, /Math\.min\(-1, Math\.ceil\(value \* \(1 - ratio\)\)\)/);
+  assert.match(page, /领域专精生效/);
+});
+
+test("scales late-dynasty bonds from raw stats without persisting their dynamic bonuses", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  for (const id of ["sang-zhao-finance", "ji-zhang-contention", "sima-wang-debate", "song-last-loyalists", "liaodong-command", "late-qing-restoration", "tang-restoration-generals", "yue-han-generals", "sui-yang-campaign", "genghis-yelu"]) {
+    assert.match(page, new RegExp(`active\\.has\\("${id}"\\)`));
+  }
+  assert.match(page, /const dynamicBonds = dynamicBondModifiers\(stats, activeBondIds\)/);
+  assert.match(page, /const dynamicStats = addEffects\(stats, dynamicBonds\.effects\)/);
+  assert.match(page, /liveState\(current\.stats, current\.activeBondIds\)/);
+  assert.match(page, /逆境羁绊/);
+  assert.match(page, /name: "熙宁论政"[\s\S]*?chanceModifier: -5/);
+  assert.match(page, /name: "大业锋芒"[\s\S]*?effects: \{ army: 8, grain: 4 \}/);
+  assert.match(page, /name: "晚清中兴"[\s\S]*?effects: \{ army: 8, grain: 8, integrity: 4, authority: -3 \}/);
+  assert.match(page, /name: "太武新政"[\s\S]*?effects: \{ integrity: 7, authority: 5, sentiment: -2 \}/);
+  assert.match(page, /active\.has\("sui-yang-campaign"\) && stats\.grain < 50\) add\(\{ army: -2, sentiment: -2 \}\)/);
+  assert.doesNotMatch(page, /lowestMaterial|lowestSupply|crisisBoost/);
 });

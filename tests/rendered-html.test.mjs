@@ -101,7 +101,7 @@ test("includes the expanded six-round roster, history events, and reign-only sav
   assert.match(page, /判定失败。/);
   assert.match(page, /局势未如所愿，代价已经显现。/);
   assert.doesNotMatch(page, /决策奏效（成功率/);
-  assert.match(page, /const integrity = -6 - rule\.integrityDecayPenalty/);
+  assert.match(page, /const integrity = -6 - rule\.integrityDecayPenalty - realmIntegrityPressure \+ policyIntegrity/);
   assert.match(page, /const populationContributionCap = populationTaxCap\(scriptId, qinConquestIndex\)/);
   assert.match(page, /const productivePopulation = Math\.min\(stats\.population, populationContributionCap\)/);
   assert.match(page, /const subsistenceOutput = stats\.population \* \.05/);
@@ -110,10 +110,11 @@ test("includes the expanded six-round roster, history events, and reign-only sav
   assert.match(page, /const populationYield = subsistenceOutput \+ taxableSurplus/);
   assert.match(page, /const militaryCost = effective\.army \* \.025/);
   assert.match(page, /const administration = effective\.integrity \/ 18/);
-  assert.match(page, /clamp\(populationYield \+ \(policyId === "rest" \? 5 : 0\) \+ administration - civilianUse - militaryCost, -20, 20\)/);
-  assert.match(page, /积弊滋生 \$\{integrity\}/);
-  assert.match(page, /岁首合计扣减 \$\{Math\.abs\(integrity\)\} 点/);
-  assert.match(page, /const effects = \{ population, grain, sentiment, integrity \}/);
+  assert.match(page, /const realmAdministrationCost = Math\.max\(0, stats\.population - 120\) \/ 25 \* rule\.administrationPressure/);
+  assert.match(page, /clamp\(populationYield \+ policyGrain \+ administration - civilianUse - militaryCost - realmAdministrationCost, -20, 20\)/);
+  assert.match(page, /积弊滋生 \$\{formatDelta\(integrity\)\}/);
+  assert.match(page, /岁首合计变化 \$\{formatDelta\(integrity\)\}/);
+  assert.match(page, /const effects = \{ population, grain, army: policyArmy, sentiment, integrity, authority: policyAuthority \}/);
   assert.match(page, /formatDelta\(growth\.effects\.population\)/);
   assert.match(page, /formatDelta\(growth\.effects\.grain\)/);
   assert.match(page, /annualChange=\{growth\.effects\.integrity\}/);
@@ -132,7 +133,7 @@ test("includes the expanded six-round roster, history events, and reign-only sav
   assert.match(page, /qinConquestDelay: number/);
   assert.match(page, /qinConquestRetries: number/);
   assert.match(page, /qinConquestRequirementRelief: number/);
-  assert.match(page, /version: 16/);
+  assert.match(page, /version: 17/);
   assert.match(page, /type DifficultyId = "easy" \| "hard" \| "hell"/);
   assert.match(page, /difficulty: DifficultyId/);
   assert.match(page, /integrityDecayPenalty: 0, chancePenalty: 0/);
@@ -156,12 +157,13 @@ test("includes the expanded six-round roster, history events, and reign-only sav
   assert.deepEqual(Object.fromEntries(Object.entries(difficultyRules).map(([id, rule]) => [id, -6 - rule.integrityDecayPenalty])), { easy: -6, hard: -9, hell: -12 });
   assert.deepEqual(Object.fromEntries(Object.entries(difficultyRules).map(([id, rule]) => [id, Math.max(1, Math.min(100, 65 - rule.chancePenalty))])), { easy: 65, hard: 55, hell: 45 });
   const populationContribution = (population) => Math.min(population, 120) * .065;
-  const grainGrowth = (population, effectiveArmy, integrity) => Math.round(population * .05 + populationContribution(population) + integrity / 18 - population * .05 - effectiveArmy * .025);
+  const grainGrowth = (population, effectiveArmy, integrity, administrationPressure = .55) => Math.round(population * .05 + populationContribution(population) + integrity / 18 - population * .05 - effectiveArmy * .025 - Math.max(0, population - 120) / 25 * administrationPressure);
   assert.ok(grainGrowth(100, 140, 0) > 0, "population output should cover civilian and military use under neutral administration");
   assert.ok(grainGrowth(100, 140, -40) > 0, "moderately poor administration should not immediately force grain income negative");
   assert.ok(grainGrowth(100, 140, -80) < 0, "severely corrupt administration should be able to force grain income negative");
   assert.ok(Math.abs(populationContribution(120) - 7.8) < 1e-9);
   assert.ok(Math.abs(populationContribution(300) - 7.8) < 1e-9, "population beyond the land carrying limit should not keep increasing treasury surplus");
+  assert.ok(grainGrowth(300, 140, 0, 1) < grainGrowth(300, 140, 0, .55), "higher difficulty should amplify large-realm administration costs");
   assert.match(page, /人口赋税 \$\{formatDelta\(taxableSurplus\)\}/);
   assert.match(page, /已封顶/);
   assert.match(page, /人口超过土地承载与统治范围上限后，不再增加赋税盈余/);
@@ -354,8 +356,8 @@ test("includes the expanded six-round roster, history events, and reign-only sav
   const randomEventSource = page.match(/const randomEvents: EventTemplate\[\] = (\[[\s\S]*?\n\]);\n\nconst additionalHistoricalEvents/);
   assert.ok(randomEventSource, "random event definitions should be readable");
   const randomEvents = Function(`return ${randomEventSource[1]}`)();
-  assert.equal(randomEvents.length, 51, "the generic random event pool should contain exactly 51 events");
-  assert.equal(new Set(randomEvents.map((event) => event.id)).size, 51, "generic random event ids should be unique");
+  assert.equal(randomEvents.length, 55, "the generic random event pool should include the four P0 crisis and policy-echo events");
+  assert.equal(new Set(randomEvents.map((event) => event.id)).size, 55, "generic random event ids should be unique");
   assert.ok(randomEvents.some((event) => event.id === "locust" && event.title === "飞蝗蔽日"), "the generic locust event should remain");
   for (const id of ["epidemic", "early-frost", "ancient-cauldron", "maritime-trade", "postal-relay", "city-fire", "forest-commons", "irrigation-dispute", "tax-arrears", "border-hostage", "shipbuilding", "military-register"]) {
     assert.ok(randomEvents.some((event) => event.id === id), `${id} should be included in the expanded generic pool`);
@@ -403,16 +405,16 @@ test("models imperial authority, hidden loyalty, rebellions, and recruitment fol
   assert.match(page, /if \(sentiment > -30 \|\| unrestYears < 1\) return 0/);
   assert.match(page, /if \(sentiment <= -60\) return 100/);
   assert.match(page, /\(-sentiment - 30\) \* 1\.2 \+ \(unrestYears - 1\) \* 10 \+ rule\.uprisingChanceBonus/);
-  assert.match(page, /function corruptionCaseChance\(integrity: number, corruptionYears: number\)/);
+  assert.match(page, /function corruptionCaseChance\(integrity: number, corruptionYears: number, difficulty: DifficultyId\)/);
   assert.match(page, /if \(integrity > -30 \|\| corruptionYears < 1\) return 0/);
   assert.match(page, /if \(integrity <= -60\) return 100/);
-  assert.match(page, /\(-integrity - 30\) \* 1\.2 \+ \(corruptionYears - 1\) \* 10/);
-  assert.match(page, /贪腐案发概率/);
+  assert.match(page, /\(-integrity - 30\) \* 1\.2 \+ \(corruptionYears - 1\) \* 10 \+ difficultyRule\(difficulty\)\.corruptionChanceBonus/);
+  assert.match(page, /贪腐案概率/);
   assert.match(page, /sentimentSoftCap: 70, uprisingChanceBonus: 0/);
   assert.match(page, /sentimentSoftCap: 55, uprisingChanceBonus: 8/);
   assert.match(page, /sentimentSoftCap: 40, uprisingChanceBonus: 16/);
   assert.match(page, /stats\.sentiment > rule\.sentimentSoftCap \? -Math\.ceil\(\(stats\.sentiment - rule\.sentimentSoftCap\) \/ 15\) : 0/);
-  assert.match(page, /事件标示的民情增减仍按原数值完整结算/);
+  assert.match(page, /低民情已持续 \{projectedUnrestYears\} 年；达到难度宽限后将强制进入民变事件/);
 
   assert.match(page, /title: "权臣叛变"/);
   assert.match(page, /title: "俘获贼首"/);
@@ -511,6 +513,52 @@ test("applies bond specialties only to normal random-event categories", async ()
   assert.match(page, /if \(event\.historical\) return effects/);
   assert.match(page, /Math\.min\(-1, Math\.ceil\(value \* \(1 - ratio\)\)\)/);
   assert.match(page, /领域专精生效/);
+});
+
+test("implements the P0 difficulty, reversible policy evolution, and chapter verdicts", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.match(page, /type PolicyId = "martial" \| "rest" \| "reform" \| "registered-households" \| "regional-rest" \| "prosperous-army"/);
+  for (const policy of ["编户齐民", "郡国休养", "富国强兵"]) assert.match(page, new RegExp(policy));
+  assert.match(page, /const startingPolicies = policies\.filter\(\(item\) => item\.starting\)/);
+  assert.match(page, /centralize: "registered-households"/);
+  assert.match(page, /devolve: "regional-rest"/);
+  assert.match(page, /mobilize: "prosperous-army"/);
+  assert.match(page, /相权\|分封\|委任/);
+  assert.match(page, /王权\|中枢\|直达/);
+  assert.match(page, /option\.tag === "民生" \|\| option\.tag === "外交"/);
+  assert.match(page, /option\.tag === "财政"/);
+  assert.match(page, /const recent = history\.slice\(-4\)/);
+  assert.match(page, /if \(!leading \|\| leading\.count < 2\) return null/);
+  assert.match(page, /if \(targetId === currentPolicyId\) return null/);
+  assert.doesNotMatch(page, /currentPolicyId === "prosperous-army"[^\n]+registered-households/);
+
+  const doctrinePolicyIds = { centralize: "registered-households", devolve: "regional-rest", mobilize: "prosperous-army" };
+  const transition = (current, doctrine) => doctrinePolicyIds[doctrine] === current ? null : doctrinePolicyIds[doctrine];
+  assert.equal(transition("prosperous-army", "centralize"), "registered-households", "富国强兵应能回退为编户齐民");
+  assert.equal(transition("registered-households", "devolve"), "regional-rest", "编户齐民应能转向郡国休养");
+  assert.equal(transition("regional-rest", "mobilize"), "prosperous-army", "郡国休养应能转向富国强兵");
+
+  for (const id of ["policy-household-resistance", "policy-regional-tribute", "policy-military-rivalry", "authority-fracture"]) assert.match(page, new RegExp(`id: "${id}"`));
+  assert.match(page, /if \(!current \|\| !current\.outcome \|\| current\.pendingPolicyId\) return current/);
+  assert.match(page, /未来仍可因新的选择再次回退或转向/);
+  assert.match(page, /unrestYears >= rule\.crisisGraceYears/);
+  assert.match(page, /corruptionYears >= rule\.crisisGraceYears/);
+  assert.match(page, /authorityCrisisYears >= rule\.crisisGraceYears/);
+  assert.match(page, /const collapseYears = difficultyRule\(current\.difficulty\)\.crisisGraceYears \+ 1/);
+  assert.match(page, /effective\.sentiment <= -60 && unrestYears >= collapseYears/);
+  assert.match(page, /effective\.integrity <= -60 && corruptionYears >= collapseYears/);
+  assert.match(page, /stats\.authority <= 0 && authorityCrisisYears >= collapseYears/);
+
+  assert.match(page, /title: "强秦未帝 · 大业中辍"/);
+  assert.match(page, /title: newHistory \? "六合归一 · 新史已开" : "六合归一 · 帝业告成"/);
+  assert.match(page, /title: "汉业未成 · 群雄局终"/);
+  assert.match(page, /<section className="summary-verdict/);
+  assert.match(css, /\.policy-ledger/);
+  assert.match(css, /\.policy-transition/);
+  assert.match(css, /\.verdict-triumph/);
+  assert.match(css, /\.verdict-unfinished/);
 });
 
 test("scales late-dynasty bonds from raw stats without persisting their dynamic bonuses", async () => {
